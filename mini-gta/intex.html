@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mini City Life 3D</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+
+<style>
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: black;
+  touch-action: none;
+}
+
+#controls {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  z-index: 10;
+}
+
+.btn {
+  width: 60px;
+  height: 60px;
+  margin: 4px;
+  border-radius: 50%;
+  font-size: 18px;
+  background: rgba(255,255,255,0.2);
+  color: white;
+  border: 2px solid rgba(255,255,255,0.4);
+}
+
+#enterBtn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 10;
+  width: 90px;
+  height: 60px;
+  border-radius: 12px;
+  font-size: 16px;
+}
+
+#miniMap {
+  position: fixed;
+  top: 15px;
+  right: 15px;
+  width: 140px;
+  height: 140px;
+  border: 2px solid white;
+  border-radius: 50%;
+  overflow: hidden;
+  z-index: 10;
+}
+</style>
+</head>
+
+<body>
+
+<div id="miniMap"></div>
+
+<div id="controls">
+  <button class="btn" id="up">⬆</button><br>
+  <button class="btn" id="left">⬅</button>
+  <button class="btn" id="jump">⤒</button>
+  <button class="btn" id="right">➡</button><br>
+  <button class="btn" id="down">⬇</button>
+</div>
+
+<button class="btn" id="enterBtn">ENTER</button>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
+
+<script>
+/* ---------------- SCENE ---------------- */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb);
+
+/* ---------------- CAMERAS ---------------- */
+const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 2000);
+
+const mapCamera = new THREE.OrthographicCamera(-80,80,80,-80,1,500);
+mapCamera.position.set(0,200,0);
+mapCamera.lookAt(0,0,0);
+
+/* ---------------- RENDERER ---------------- */
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.autoClear = false;
+document.body.appendChild(renderer.domElement);
+
+/* ---------------- LIGHT ---------------- */
+scene.add(new THREE.AmbientLight(0xffffff,0.6));
+const sun = new THREE.DirectionalLight(0xffffff,1);
+sun.position.set(100,200,100);
+scene.add(sun);
+
+/* ---------------- GROUND ---------------- */
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(2000,2000),
+  new THREE.MeshStandardMaterial({ color:0x2e7d32 })
+);
+ground.rotation.x = -Math.PI/2;
+scene.add(ground);
+
+/* ---------------- PLAYER ---------------- */
+const player = new THREE.Object3D();
+player.position.set(0,2,10);
+scene.add(player);
+player.add(camera);
+camera.position.set(0,1.7,0);
+
+let yVel = 0, grounded = true;
+let yaw = 0;
+
+/* ---------------- BUILDINGS ---------------- */
+const buildings = [];
+function makeBuilding(x,z) {
+  const b = new THREE.Mesh(
+    new THREE.BoxGeometry(10,15,10),
+    new THREE.MeshStandardMaterial({ color:0x888888 })
+  );
+  b.position.set(x,7.5,z);
+  scene.add(b);
+
+  buildings.push({
+    mesh:b,
+    door:new THREE.Vector3(x,0,z+5),
+    inside:new THREE.Vector3(0,2,-50)
+  });
+}
+
+makeBuilding(20,-20);
+makeBuilding(-30,-40);
+makeBuilding(40,30);
+
+/* ---------------- CONTROLS ---------------- */
+const keys={up:false,down:false,left:false,right:false};
+const speed=0.4;
+
+function bind(id,k){
+  const b=document.getElementById(id);
+  b.addEventListener("touchstart",e=>{e.preventDefault();keys[k]=true});
+  b.addEventListener("touchend",e=>{e.preventDefault();keys[k]=false});
+}
+bind("up","up");bind("down","down");bind("left","left");bind("right","right");
+
+document.getElementById("jump").addEventListener("touchstart",()=>{
+  if(grounded){ yVel=0.6; grounded=false; }
+});
+
+/* ---------------- ENTER BUILDING ---------------- */
+let inside=false;
+document.getElementById("enterBtn").onclick=()=>{
+  if(!inside){
+    for(let b of buildings){
+      if(player.position.distanceTo(b.door)<4){
+        player.position.copy(b.inside);
+        inside=true;
+        break;
+      }
+    }
+  } else {
+    player.position.set(0,2,10);
+    inside=false;
+  }
+};
+
+/* ---------------- LOOK ---------------- */
+let lastX=null;
+renderer.domElement.addEventListener("touchstart",e=>{
+  lastX=e.touches[0].clientX;
+});
+renderer.domElement.addEventListener("touchmove",e=>{
+  yaw -= (e.touches[0].clientX-lastX)*0.005;
+  lastX=e.touches[0].clientX;
+},{passive:false});
+
+/* ---------------- LOOP ---------------- */
+function animate(){
+  requestAnimationFrame(animate);
+
+  const sin=Math.sin(yaw), cos=Math.cos(yaw);
+  if(keys.up){player.position.x-=sin*speed;player.position.z-=cos*speed;}
+  if(keys.down){player.position.x+=sin*speed;player.position.z+=cos*speed;}
+  if(keys.left) yaw+=0.04;
+  if(keys.right) yaw-=0.04;
+
+  yVel-=0.03;
+  player.position.y+=yVel;
+  if(player.position.y<=2){player.position.y=2;yVel=0;grounded=true;}
+
+  player.rotation.y=yaw;
+
+  renderer.setViewport(0,0,innerWidth,innerHeight);
+  renderer.clear();
+  renderer.render(scene,camera);
+
+  renderer.setViewport(innerWidth-150,20,130,130);
+  renderer.render(scene,mapCamera);
+}
+animate();
+
+window.onresize=()=>{
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+};
+</script>
+</body>
+  </html>
