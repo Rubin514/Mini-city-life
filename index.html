@@ -2,178 +2,67 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Mini City Life 3D</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-
+<title>GLB Test</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-html, body {
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-  background: #000;
-  touch-action: none;
-  font-family: sans-serif;
-}
-
-/* CONTROLS */
-#controls {
-  position: fixed;
-  bottom: 20px;
-  left: 20px;
-  z-index: 10;
-}
-.btn {
-  width: 60px;
-  height: 60px;
-  margin: 4px;
-  border-radius: 50%;
-  font-size: 20px;
-  background: rgba(255,255,255,0.3);
-  color: white;
-  border: 2px solid #fff;
-}
-#enterBtn {
-  position: fixed;
-  bottom: 25px;
-  right: 25px;
-  width: 120px;
-  height: 60px;
-  border-radius: 12px;
-  background: orange;
-  font-size: 18px;
-  font-weight: bold;
-  z-index: 10;
-}
+body { margin:0; background:#000; }
 </style>
 </head>
-
 <body>
-
-<!-- CONTROLS -->
-<div id="controls">
-  <button class="btn" id="up">⬆</button><br>
-  <button class="btn" id="left">⬅</button>
-  <button class="btn" id="right">➡</button><br>
-  <button class="btn" id="down">⬇</button>
-</div>
-<button id="enterBtn">ENTER</button>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
 
 <script>
-/* SCENE */
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb);
+scene.background = new THREE.Color(0x222222);
 
-/* CAMERA */
-const camera = new THREE.PerspectiveCamera(
-  75,
-  window.innerWidth / window.innerHeight,
-  0.1,
-  1000
-);
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
+camera.position.set(0, 2, 6);
 
-/* RENDERER */
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
-/* LIGHT */
-scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-const sun = new THREE.DirectionalLight(0xffffff, 1);
-sun.position.set(50, 100, 50);
-scene.add(sun);
+// LIGHTS (IMPORTANT)
+scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+const light = new THREE.DirectionalLight(0xffffff, 2);
+light.position.set(5,10,5);
+scene.add(light);
 
-/* GROUND */
-const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(200, 200),
-  new THREE.MeshStandardMaterial({ color: 0x2e7d32 })
-);
-ground.rotation.x = -Math.PI / 2;
-scene.add(ground);
-
-/* PLAYER */
-const player = new THREE.Group();
-player.position.set(0, 2, 15);
-scene.add(player);
-player.add(camera);
-
-/* BUILDING */
-let building;
+// LOAD GLB
 const loader = new THREE.GLTFLoader();
 loader.load(
   "models/building.glb",
   (gltf) => {
-    building = gltf.scene;
+    const model = gltf.scene;
 
-    // 🔴 MOST IMPORTANT FIXES
-    building.scale.set(0.01, 0.01, 0.01); // FIX BLACK SCREEN
-    building.position.set(0, 0, -10);
-    building.rotation.y = Math.PI;
+    // 🔥 FORCE VISIBILITY
+    model.scale.set(1,1,1);
+    model.position.set(0,0,0);
 
-    scene.add(building);
-    camera.lookAt(building.position);
+    scene.add(model);
+
+    // AUTO CENTER CAMERA
+    const box = new THREE.Box3().setFromObject(model);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3()).length();
+
+    camera.position.set(center.x, center.y + size/2, center.z + size);
+    camera.lookAt(center);
   },
   undefined,
-  (error) => {
-    console.error("GLB ERROR:", error);
-  }
+  (e) => console.error(e)
 );
 
-/* MOVEMENT */
-const keys = { up:false, down:false, left:false, right:false };
-let yaw = 0;
-const speed = 0.15;
-
-/* BUTTONS */
-function bind(id, key) {
-  const b = document.getElementById(id);
-  b.addEventListener("pointerdown", () => keys[key] = true);
-  b.addEventListener("pointerup", () => keys[key] = false);
-}
-bind("up","up");
-bind("down","down");
-bind("left","left");
-bind("right","right");
-
-/* ENTER (DOOR LOGIC) */
-document.getElementById("enterBtn").onclick = () => {
-  if (!building) return;
-
-  const d = player.position.distanceTo(building.position);
-  if (d < 6) {
-    alert("Entered building!");
-    player.position.set(0, 2, -30); // simple interior teleport
-  } else {
-    alert("Go near the door first");
-  }
-};
-
-/* ANIMATION LOOP */
-function animate() {
+function animate(){
   requestAnimationFrame(animate);
-
-  if (keys.up) {
-    player.position.x -= Math.sin(yaw) * speed;
-    player.position.z -= Math.cos(yaw) * speed;
-  }
-  if (keys.down) {
-    player.position.x += Math.sin(yaw) * speed;
-    player.position.z += Math.cos(yaw) * speed;
-  }
-  if (keys.left) yaw += 0.04;
-  if (keys.right) yaw -= 0.04;
-
-  player.rotation.y = yaw;
   renderer.render(scene, camera);
 }
 animate();
 
-/* RESIZE */
-window.addEventListener("resize", () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
+window.addEventListener("resize", ()=>{
+  camera.aspect = window.innerWidth/window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
