@@ -2,185 +2,165 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Mini City Life 3D</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mini City Life</title>
 
 <style>
-html, body {
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-  background: #000;
-  touch-action: none;
-  font-family: sans-serif;
-}
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: black;
+    touch-action: none;
+  }
 
-#controls {
-  position: fixed;
-  bottom: 20px;
-  left: 20px;
-  z-index: 10;
-}
+  canvas {
+    display: block;
+  }
 
-.btn {
-  width: 60px;
-  height: 60px;
-  margin: 5px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.3);
-  color: white;
-  border: 2px solid white;
-  font-size: 20px;
-}
+  /* Controls */
+  .controls {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    display: grid;
+    grid-template-columns: 60px 60px 60px;
+    grid-template-rows: 60px 60px 60px;
+    gap: 10px;
+  }
 
-#enterBtn {
-  position: fixed;
-  bottom: 25px;
-  right: 25px;
-  width: 110px;
-  height: 60px;
-  border-radius: 12px;
-  background: #ff9800;
-  font-weight: bold;
-  font-size: 18px;
-}
+  .btn {
+    background: #555;
+    color: white;
+    font-size: 20px;
+    border-radius: 50%;
+    border: none;
+  }
+
+  .enter {
+    position: fixed;
+    bottom: 30px;
+    right: 20px;
+    background: orange;
+    color: black;
+    font-size: 20px;
+    padding: 15px 25px;
+    border-radius: 10px;
+    border: none;
+  }
 </style>
 </head>
 
 <body>
 
-<div id="controls">
-  <button class="btn" id="up">⬆</button><br>
-  <button class="btn" id="left">⬅</button>
-  <button class="btn" id="jump">J</button>
-  <button class="btn" id="right">➡</button><br>
-  <button class="btn" id="down">⬇</button>
+<div class="controls">
+  <button class="btn" id="up">↑</button>
+  <div></div>
+  <div></div>
+
+  <button class="btn" id="left">←</button>
+  <button class="btn">J</button>
+  <button class="btn" id="right">→</button>
+
+  <div></div>
+  <button class="btn" id="down">↓</button>
+  <div></div>
 </div>
 
-<button id="enterBtn">ENTER</button>
+<button class="enter">ENTER</button>
 
-<!-- THREE CORE -->
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+<script type="module">
+import * as THREE from "https://unpkg.com/three@0.158.0/build/three.module.js";
+import { GLTFLoader } from "https://unpkg.com/three@0.158.0/examples/jsm/loaders/GLTFLoader.js";
 
-<!-- GLTF LOADER (NON MODULE) -->
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
-
-<script>
-/* ---------------- SCENE ---------------- */
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb);
+scene.background = new THREE.Color(0x87ceeb); // sky blue
 
-/* ---------------- CAMERA ---------------- */
 const camera = new THREE.PerspectiveCamera(
-  75,
+  60,
   window.innerWidth / window.innerHeight,
   0.1,
   2000
 );
-camera.position.set(0, 6, 15);
 
-/* ---------------- RENDERER ---------------- */
+camera.position.set(0, 10, 25);
+
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
-/* ---------------- LIGHTS (CRITICAL) ---------------- */
-scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+/* LIGHTS (VERY IMPORTANT) */
+scene.add(new THREE.AmbientLight(0xffffff, 2.5));
 
-const sun = new THREE.DirectionalLight(0xffffff, 1.5);
-sun.position.set(20, 40, 20);
+const sun = new THREE.DirectionalLight(0xffffff, 3);
+sun.position.set(100, 200, 100);
 scene.add(sun);
 
-/* ---------------- GROUND ---------------- */
+/* GROUND */
 const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(2000, 2000),
-  new THREE.MeshStandardMaterial({ color: 0x2e7d32 })
+  new THREE.PlaneGeometry(500, 500),
+  new THREE.MeshStandardMaterial({ color: 0x555555 })
 );
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 
-/* ---------------- PLAYER ---------------- */
-const player = new THREE.Object3D();
-player.position.set(0, 2, 20);
-scene.add(player);
+/* TEST CUBE (PROVES SCENE WORKS) */
+const testCube = new THREE.Mesh(
+  new THREE.BoxGeometry(3, 3, 3),
+  new THREE.MeshStandardMaterial({ color: 0xff0000 })
+);
+testCube.position.set(0, 1.5, 0);
+scene.add(testCube);
 
-/* ---------------- GLB LOAD ---------------- */
-const loader = new THREE.GLTFLoader();
-
+/* LOAD GLB */
+const loader = new GLTFLoader();
 loader.load(
   "models/building.glb",
-  function (gltf) {
+  (gltf) => {
     const model = gltf.scene;
 
-    model.scale.set(2, 2, 2);     // IMPORTANT
-    model.position.set(0, 0, 0);  // IMPORTANT
+    model.scale.set(0.05, 0.05, 0.05); // REQUIRED FOR BIG MODELS
+    model.position.set(0, 0, 0);
+
+    // Center model
+    const box = new THREE.Box3().setFromObject(model);
+    const center = box.getCenter(new THREE.Vector3());
+    model.position.sub(center);
 
     scene.add(model);
-    console.log("GLB LOADED OK");
+
+    camera.lookAt(0, 5, 0);
+    console.log("✅ GLB LOADED");
   },
-  undefined,
-  function (error) {
-    console.error("GLB ERROR", error);
+  (xhr) => {
+    console.log("Loading:", (xhr.loaded / xhr.total * 100).toFixed(0) + "%");
+  },
+  (error) => {
+    console.error("❌ GLB ERROR", error);
   }
 );
 
-/* ---------------- CONTROLS ---------------- */
-let keys = {};
-let yVel = 0;
-let grounded = true;
+/* MOVEMENT */
+const speed = 0.6;
 
-function bind(id, key) {
-  const b = document.getElementById(id);
-  b.addEventListener("touchstart", e => { e.preventDefault(); keys[key] = true; });
-  b.addEventListener("touchend", e => { e.preventDefault(); keys[key] = false; });
-}
-bind("up","w"); bind("down","s"); bind("left","a"); bind("right","d");
+document.getElementById("up").onclick = () => camera.position.z -= speed;
+document.getElementById("down").onclick = () => camera.position.z += speed;
+document.getElementById("left").onclick = () => camera.position.x -= speed;
+document.getElementById("right").onclick = () => camera.position.x += speed;
 
-document.getElementById("jump").ontouchstart = () => {
-  if (grounded) {
-    yVel = 0.6;
-    grounded = false;
-  }
-};
-
-/* ---------------- LOOP ---------------- */
-function animate() {
-  requestAnimationFrame(animate);
-
-  const speed = 0.3;
-
-  if (keys.w) player.position.z -= speed;
-  if (keys.s) player.position.z += speed;
-  if (keys.a) player.position.x -= speed;
-  if (keys.d) player.position.x += speed;
-
-  yVel -= 0.03;
-  player.position.y += yVel;
-
-  if (player.position.y < 2) {
-    player.position.y = 2;
-    yVel = 0;
-    grounded = true;
-  }
-
-  camera.position.set(
-    player.position.x,
-    player.position.y + 4,
-    player.position.z + 10
-  );
-  camera.lookAt(player.position);
-
-  renderer.render(scene, camera);
-}
-animate();
-
-/* ---------------- RESIZE ---------------- */
+/* RESIZE */
 window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
+/* LOOP */
+function animate() {
+  requestAnimationFrame(animate);
+  renderer.render(scene, camera);
+}
+animate();
 </script>
 
 </body>
