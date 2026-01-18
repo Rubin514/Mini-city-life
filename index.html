@@ -10,8 +10,9 @@ html, body {
   margin: 0;
   padding: 0;
   overflow: hidden;
-  background: black;
+  background: #000;
   touch-action: none;
+  font-family: sans-serif;
 }
 
 #controls {
@@ -19,32 +20,29 @@ html, body {
   bottom: 20px;
   left: 20px;
   z-index: 10;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
 }
 
 .btn {
   width: 60px;
   height: 60px;
-  margin: 4px;
+  margin: 5px;
   border-radius: 50%;
-  font-size: 18px;
   background: rgba(255,255,255,0.3);
   color: white;
   border: 2px solid white;
+  font-size: 20px;
 }
 
 #enterBtn {
   position: fixed;
   bottom: 25px;
   right: 25px;
-  width: 100px;
+  width: 110px;
   height: 60px;
-  background: orange;
   border-radius: 12px;
+  background: #ff9800;
   font-weight: bold;
-  z-index: 10;
+  font-size: 18px;
 }
 </style>
 </head>
@@ -52,46 +50,49 @@ html, body {
 <body>
 
 <div id="controls">
-  <button class="btn" id="up">⬆</button>
-  <div>
-    <button class="btn" id="left">⬅</button>
-    <button class="btn" id="jump">J</button>
-    <button class="btn" id="right">➡</button>
-  </div>
+  <button class="btn" id="up">⬆</button><br>
+  <button class="btn" id="left">⬅</button>
+  <button class="btn" id="jump">J</button>
+  <button class="btn" id="right">➡</button><br>
   <button class="btn" id="down">⬇</button>
 </div>
 
 <button id="enterBtn">ENTER</button>
 
+<!-- THREE CORE -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+
+<!-- GLTF LOADER (NON MODULE) -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
 
 <script>
-// ---------------- SCENE ----------------
+/* ---------------- SCENE ---------------- */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 
-// ---------------- CAMERA ----------------
+/* ---------------- CAMERA ---------------- */
 const camera = new THREE.PerspectiveCamera(
   75,
   window.innerWidth / window.innerHeight,
   0.1,
   2000
 );
+camera.position.set(0, 6, 15);
 
-// ---------------- RENDERER ----------------
+/* ---------------- RENDERER ---------------- */
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
-// ---------------- LIGHT ----------------
-scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-const sun = new THREE.DirectionalLight(0xffffff, 1);
-sun.position.set(50, 100, 50);
+/* ---------------- LIGHTS (CRITICAL) ---------------- */
+scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+
+const sun = new THREE.DirectionalLight(0xffffff, 1.5);
+sun.position.set(20, 40, 20);
 scene.add(sun);
 
-// ---------------- GROUND ----------------
+/* ---------------- GROUND ---------------- */
 const ground = new THREE.Mesh(
   new THREE.PlaneGeometry(2000, 2000),
   new THREE.MeshStandardMaterial({ color: 0x2e7d32 })
@@ -99,123 +100,88 @@ const ground = new THREE.Mesh(
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 
-// ---------------- PLAYER ----------------
-const player = new THREE.Group();
+/* ---------------- PLAYER ---------------- */
+const player = new THREE.Object3D();
 player.position.set(0, 2, 20);
 scene.add(player);
-player.add(camera);
 
+/* ---------------- GLB LOAD ---------------- */
+const loader = new THREE.GLTFLoader();
+
+loader.load(
+  "models/building.glb",
+  function (gltf) {
+    const model = gltf.scene;
+
+    model.scale.set(2, 2, 2);     // IMPORTANT
+    model.position.set(0, 0, 0);  // IMPORTANT
+
+    scene.add(model);
+    console.log("GLB LOADED OK");
+  },
+  undefined,
+  function (error) {
+    console.error("GLB ERROR", error);
+  }
+);
+
+/* ---------------- CONTROLS ---------------- */
+let keys = {};
 let yVel = 0;
 let grounded = true;
-let yaw = 0;
-let inside = false;
-
-// ---------------- CONTROLS ----------------
-const keys = { up:false, down:false, left:false, right:false };
 
 function bind(id, key) {
   const b = document.getElementById(id);
-  b.addEventListener("pointerdown", e => { e.preventDefault(); keys[key] = true; });
-  b.addEventListener("pointerup", e => { e.preventDefault(); keys[key] = false; });
+  b.addEventListener("touchstart", e => { e.preventDefault(); keys[key] = true; });
+  b.addEventListener("touchend", e => { e.preventDefault(); keys[key] = false; });
 }
+bind("up","w"); bind("down","s"); bind("left","a"); bind("right","d");
 
-bind("up","up");
-bind("down","down");
-bind("left","left");
-bind("right","right");
-
-document.getElementById("jump").onpointerdown = () => {
+document.getElementById("jump").ontouchstart = () => {
   if (grounded) {
     yVel = 0.6;
     grounded = false;
   }
 };
 
-// ---------------- GLB BUILDING ----------------
-let building;
-let doorPos = new THREE.Vector3(0,0,0);
-
-const loader = new THREE.GLTFLoader();
-loader.load(
-  "Models/building.glb",
-  (gltf) => {
-    building = gltf.scene;
-    scene.add(building);
-
-    // FIX SCALE + POSITION
-    const box = new THREE.Box3().setFromObject(building);
-    const size = box.getSize(new THREE.Vector3());
-    const center = box.getCenter(new THREE.Vector3());
-
-    building.position.sub(center);
-
-    const maxAxis = Math.max(size.x, size.y, size.z);
-    const scale = 25 / maxAxis;
-    building.scale.setScalar(scale);
-
-    building.position.set(0, 0, -40);
-
-    doorPos.set(0, 0, -30);
-
-    console.log("GLB LOADED SUCCESSFULLY");
-  },
-  undefined,
-  (err) => console.error("GLB ERROR", err)
-);
-
-// ---------------- ENTER BUILDING ----------------
-document.getElementById("enterBtn").onclick = () => {
-  if (!inside) {
-    const d = player.position.distanceTo(doorPos);
-    if (d < 8) {
-      player.position.set(0, 2, -200);
-      inside = true;
-    } else {
-      alert("Go near the door");
-    }
-  } else {
-    player.position.set(0, 2, 20);
-    inside = false;
-  }
-};
-
-// ---------------- GAME LOOP ----------------
-const speed = 0.5;
-
+/* ---------------- LOOP ---------------- */
 function animate() {
   requestAnimationFrame(animate);
 
-  if (keys.up) {
-    player.position.x -= Math.sin(yaw) * speed;
-    player.position.z -= Math.cos(yaw) * speed;
-  }
-  if (keys.down) {
-    player.position.x += Math.sin(yaw) * speed;
-    player.position.z += Math.cos(yaw) * speed;
-  }
-  if (keys.left) yaw += 0.04;
-  if (keys.right) yaw -= 0.04;
+  const speed = 0.3;
+
+  if (keys.w) player.position.z -= speed;
+  if (keys.s) player.position.z += speed;
+  if (keys.a) player.position.x -= speed;
+  if (keys.d) player.position.x += speed;
 
   yVel -= 0.03;
   player.position.y += yVel;
-  if (player.position.y <= 2) {
+
+  if (player.position.y < 2) {
     player.position.y = 2;
     yVel = 0;
     grounded = true;
   }
 
-  player.rotation.y = yaw;
+  camera.position.set(
+    player.position.x,
+    player.position.y + 4,
+    player.position.z + 10
+  );
+  camera.lookAt(player.position);
+
   renderer.render(scene, camera);
 }
-
 animate();
 
-// ---------------- RESIZE ----------------
-window.onresize = () => {
+/* ---------------- RESIZE ---------------- */
+window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
-};
+});
 </script>
+
 </body>
 </html>
