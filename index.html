@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mini City Life - Expanded</title>
+    <title>Mini City Life - Fixed</title>
     <style>
         body { margin: 0; overflow: hidden; background: #87ceeb; }
         canvas { display: block; }
@@ -11,23 +11,32 @@
 </head>
 <body>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
+<script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.152.2/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.152.2/examples/jsm/"
+        }
+    }
+</script>
 
-<script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
 /**
  * 1. SCENE SETUP
  */
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb); // Sky blue
-scene.fog = new THREE.Fog(0x87ceeb, 10, 50); // Adds depth by fading distant objects
+scene.background = new THREE.Color(0x87ceeb);
+scene.fog = new THREE.Fog(0x87ceeb, 20, 100);
 
 /**
  * 2. CAMERA & RENDERER
  */
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(10, 10, 20);
+camera.position.set(30, 30, 30); // Moved back to see the grid better
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -37,27 +46,27 @@ document.body.appendChild(renderer.domElement);
 /**
  * 3. CONTROLS
  */
-const controls = new THREE.OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true; // Adds smooth weight to camera movement
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
 
 /**
  * 4. LIGHTING
  */
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
 scene.add(ambientLight);
 
-const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
-sunLight.position.set(15, 20, 10);
+const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
+sunLight.position.set(50, 50, 50);
 scene.add(sunLight);
 
 /**
- * 5. GROUND & ENVIRONMENT
+ * 5. GROUND
  */
-const grid = new THREE.GridHelper(100, 50, 0x000000, 0x555555);
+const grid = new THREE.GridHelper(200, 20, 0x000000, 0x555555);
 scene.add(grid);
 
-const groundGeo = new THREE.PlaneGeometry(100, 100);
-const groundMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+const groundGeo = new THREE.PlaneGeometry(200, 200);
+const groundMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
 const ground = new THREE.Mesh(groundGeo, groundMat);
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
@@ -65,45 +74,39 @@ scene.add(ground);
 /**
  * 6. MODEL LOADING & CITY GENERATION
  */
-const loader = new THREE.GLTFLoader();
+const loader = new GLTFLoader();
 
-function createCity(model) {
-    const spacing = 10; // Distance between buildings
-    const gridSize = 3;  // 3x3 grid
+function createCity(masterModel) {
+    const spacing = 15; 
+    const gridSize = 2;  
 
     for (let x = -gridSize; x <= gridSize; x++) {
         for (let z = -gridSize; z <= gridSize; z++) {
-            // Clone the loaded model
-            const building = model.clone();
-            
-            // Set position based on loop indices
+            const building = masterModel.clone();
             building.position.set(x * spacing, 0, z * spacing);
-            
-            // Randomize rotation slightly for variety
             building.rotation.y = Math.floor(Math.random() * 4) * (Math.PI / 2);
-            
             scene.add(building);
         }
     }
 }
 
+// NOTE: Replace this path with a real URL or your local file
 loader.load(
-    "models/building.glb",
+    "models/building.glb", 
     (gltf) => {
-        console.log("Model loaded successfully");
-        const masterModel = gltf.scene;
-        createCity(masterModel);
+        const model = gltf.scene;
+        // Optional: Force a specific scale if your model is too big/small
+        // model.scale.set(1, 1, 1); 
+        createCity(model);
     },
-    (xhr) => {
-        console.log((xhr.loaded / xhr.total * 100) + '% loaded');
-    },
+    undefined,
     (error) => {
-        console.error("Error loading GLB. Ensure you are using a local server.", error);
+        console.error("Could not load model. Check the file path and local server.", error);
     }
 );
 
 /**
- * 7. WINDOW RESIZE HANDLING
+ * 7. WINDOW RESIZE
  */
 window.addEventListener("resize", () => {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -116,7 +119,7 @@ window.addEventListener("resize", () => {
  */
 function animate() {
     requestAnimationFrame(animate);
-    controls.update(); // Only required if damping is enabled
+    controls.update();
     renderer.render(scene, camera);
 }
 
