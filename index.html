@@ -2,67 +2,215 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>GLB Test</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mini City Life 3D</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+
 <style>
-body { margin:0; background:#000; }
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: #000;
+  touch-action: none;
+  font-family: Arial, sans-serif;
+}
+
+#controls {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  z-index: 10;
+}
+
+.btn {
+  width: 60px;
+  height: 60px;
+  margin: 5px;
+  border-radius: 50%;
+  font-size: 20px;
+  background: rgba(255,255,255,0.3);
+  color: white;
+  border: 2px solid white;
+}
+
+#jump {
+  background: orange;
+}
+
+#miniMapBorder {
+  position: fixed;
+  top: 15px;
+  right: 15px;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  border: 3px solid white;
+  z-index: 5;
+  pointer-events: none;
+}
 </style>
 </head>
+
 <body>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
+<div id="miniMapBorder"></div>
 
-<script>
+<div id="controls">
+  <button class="btn" id="up">⬆</button><br>
+  <button class="btn" id="left">⬅</button>
+  <button class="btn" id="jump">J</button>
+  <button class="btn" id="right">➡</button><br>
+  <button class="btn" id="down">⬇</button>
+</div>
+
+<script type="module">
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.module.js";
+import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.152.2/examples/jsm/loaders/GLTFLoader.js";
+
+/* ---------- SCENE ---------- */
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x222222);
+scene.background = new THREE.Color(0x87ceeb);
 
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
-camera.position.set(0, 2, 6);
-
-const renderer = new THREE.WebGLRenderer({antialias:true});
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
-
-// LIGHTS (IMPORTANT)
-scene.add(new THREE.AmbientLight(0xffffff, 1.2));
-const light = new THREE.DirectionalLight(0xffffff, 2);
-light.position.set(5,10,5);
-scene.add(light);
-
-// LOAD GLB
-const loader = new THREE.GLTFLoader();
-loader.load(
-  "models/building.glb",
-  (gltf) => {
-    const model = gltf.scene;
-
-    // 🔥 FORCE VISIBILITY
-    model.scale.set(1,1,1);
-    model.position.set(0,0,0);
-
-    scene.add(model);
-
-    // AUTO CENTER CAMERA
-    const box = new THREE.Box3().setFromObject(model);
-    const center = box.getCenter(new THREE.Vector3());
-    const size = box.getSize(new THREE.Vector3()).length();
-
-    camera.position.set(center.x, center.y + size/2, center.z + size);
-    camera.lookAt(center);
-  },
-  undefined,
-  (e) => console.error(e)
+/* ---------- CAMERAS ---------- */
+const camera = new THREE.PerspectiveCamera(
+  75,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  1000
 );
 
-function animate(){
-  requestAnimationFrame(animate);
-  renderer.render(scene, camera);
+const mapCamera = new THREE.OrthographicCamera(-50, 50, 50, -50, 1, 500);
+
+/* ---------- RENDERER ---------- */
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.autoClear = false;
+document.body.appendChild(renderer.domElement);
+
+/* ---------- LIGHTS ---------- */
+scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+const sun = new THREE.DirectionalLight(0xffffff, 1);
+sun.position.set(50, 100, 50);
+scene.add(sun);
+
+/* ---------- GROUND ---------- */
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(2000, 2000),
+  new THREE.MeshStandardMaterial({ color: 0x2e7d32 })
+);
+ground.rotation.x = -Math.PI / 2;
+scene.add(ground);
+
+/* ---------- LOAD GLB BUILDING ---------- */
+const loader = new GLTFLoader();
+loader.load(
+  "./models/building.glb",
+  (gltf) => {
+    const building = gltf.scene;
+
+    building.position.set(0, 0, -20);
+    building.scale.set(1, 1, 1);
+
+    scene.add(building);
+    console.log("GLB LOADED SUCCESSFULLY");
+  },
+  undefined,
+  (error) => {
+    console.error("GLB LOAD ERROR:", error);
+  }
+);
+
+/* ---------- PLAYER ---------- */
+const player = new THREE.Object3D();
+player.position.set(0, 2, 10);
+scene.add(player);
+player.add(camera);
+
+let yVel = 0;
+let grounded = true;
+let yaw = 0;
+
+/* ---------- INPUT ---------- */
+const keys = { up:false, down:false, left:false, right:false };
+
+function bind(id, key) {
+  const b = document.getElementById(id);
+  b.addEventListener("pointerdown", e => { e.preventDefault(); keys[key] = true; });
+  b.addEventListener("pointerup", e => { e.preventDefault(); keys[key] = false; });
 }
+
+bind("up","up");
+bind("down","down");
+bind("left","left");
+bind("right","right");
+
+document.getElementById("jump").onpointerdown = () => {
+  if (grounded) {
+    yVel = 0.5;
+    grounded = false;
+  }
+};
+
+/* ---------- MAIN LOOP ---------- */
+const speed = 0.4;
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  if (keys.up) {
+    player.position.x -= Math.sin(yaw) * speed;
+    player.position.z -= Math.cos(yaw) * speed;
+  }
+  if (keys.down) {
+    player.position.x += Math.sin(yaw) * speed;
+    player.position.z += Math.cos(yaw) * speed;
+  }
+  if (keys.left) yaw += 0.04;
+  if (keys.right) yaw -= 0.04;
+
+  yVel -= 0.02;
+  player.position.y += yVel;
+  if (player.position.y <= 2) {
+    player.position.y = 2;
+    yVel = 0;
+    grounded = true;
+  }
+
+  player.rotation.y = yaw;
+
+  /* MAIN VIEW */
+  renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
+  renderer.clear();
+  renderer.render(scene, camera);
+
+  /* MINI MAP */
+  const mapSize = 140;
+  mapCamera.position.set(player.position.x, 100, player.position.z);
+  mapCamera.lookAt(player.position.x, 0, player.position.z);
+
+  renderer.setScissorTest(true);
+  renderer.setScissor(
+    window.innerWidth - mapSize - 15,
+    window.innerHeight - mapSize - 15,
+    mapSize,
+    mapSize
+  );
+  renderer.setViewport(
+    window.innerWidth - mapSize - 15,
+    window.innerHeight - mapSize - 15,
+    mapSize,
+    mapSize
+  );
+  renderer.render(scene, mapCamera);
+  renderer.setScissorTest(false);
+}
+
 animate();
 
-window.addEventListener("resize", ()=>{
-  camera.aspect = window.innerWidth/window.innerHeight;
+/* ---------- RESIZE ---------- */
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
