@@ -3,99 +3,116 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mini City Debugger</title>
+    <title>Mini City Fixed</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #222; }
-        #debug-info {
+        body { margin: 0; overflow: hidden; background-color: #000; }
+        #debug-ui {
             position: absolute; top: 10px; left: 10px;
-            color: white; font-family: sans-serif;
-            background: rgba(0,0,0,0.7); padding: 10px; pointer-events: none;
+            color: white; font-family: monospace;
+            background: rgba(0,0,0,0.8); padding: 10px;
+            border-radius: 5px; pointer-events: none; z-index: 10;
         }
     </style>
 </head>
 <body>
 
-<div id="debug-info">Status: Initializing...</div>
+<div id="debug-ui">Status: Loading Engine...</div>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
+<script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
 
-<script>
-const status = document.getElementById('debug-info');
-
-/* SCENE SETUP */
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb); 
-
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(5, 5, 5);
-
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
-
-/* HELPERS (To see if the scene is working) */
-const gridHelper = new THREE.GridHelper(20, 20);
-scene.add(gridHelper);
-const axesHelper = new THREE.AxesHelper(5);
-scene.add(axesHelper);
-
-/* LIGHTS */
-scene.add(new THREE.AmbientLight(0xffffff, 1));
-const dirLight = new THREE.DirectionalLight(0xffffff, 2);
-dirLight.position.set(5, 10, 5);
-scene.add(dirLight);
-
-/* CONTROLS */
-const controls = new THREE.OrbitControls(camera, renderer.domElement);
-
-/* LOAD GLB */
-const loader = new THREE.GLTFLoader();
-const modelPath = "./models/building.glb"; // Ensure this is lowercase and correct!
-
-status.innerText = "Status: Attempting to load " + modelPath;
-
-loader.load(
-    modelPath,
-    function (gltf) {
-        const model = gltf.scene;
-        scene.add(model);
-        
-        // Auto-center camera on the model
-        const box = new THREE.Box3().setFromObject(model);
-        const center = box.getCenter(new THREE.Vector3());
-        controls.target.copy(center);
-        
-        status.innerText = "Status: SUCCESS! Model loaded.";
-        status.style.color = "#00ff00";
-        console.log("Model loaded successfully", gltf);
-    },
-    (xhr) => {
-        const percent = Math.round((xhr.loaded / xhr.total) * 100);
-        status.innerText = `Status: Loading ${percent}%`;
-    },
-    function (error) {
-        status.innerText = "Status: ERROR - Could not find the file. Check your folder name and case-sensitivity.";
-        status.style.color = "#ff4444";
-        console.error("Detailed Error:", error);
+<script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.152.2/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.152.2/examples/jsm/"
     }
-);
-
-/* ANIMATION */
-function animate() {
-    requestAnimationFrame(animate);
-    controls.update();
-    renderer.render(scene, camera);
-}
-animate();
-
-/* RESIZE */
-window.addEventListener("resize", () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-});
+  }
 </script>
+
+<script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    const statusLabel = document.getElementById('debug-ui');
+
+    /* 1. SCENE SETUP */
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87ceeb); // Sky Blue
+
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(5, 5, 10);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    document.body.appendChild(renderer.domElement);
+
+    /* 2. HELPERS & LIGHTS */
+    const grid = new THREE.GridHelper(20, 20);
+    scene.add(grid);
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1);
+    scene.add(ambientLight);
+
+    const sunLight = new THREE.DirectionalLight(0xffffff, 2);
+    sunLight.position.set(5, 10, 7);
+    scene.add(sunLight);
+
+    /* 3. CONTROLS */
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    /* 4. LOADING THE MODEL */
+    const loader = new GLTFLoader();
+    
+    // NOTE: Ensure your folder is 'models' and file is 'building.glb' (all lowercase)
+    const modelPath = './models/building.glb'; 
+    
+    statusLabel.innerText = "Status: Fetching " + modelPath;
+
+    loader.load(
+        modelPath,
+        (gltf) => {
+            const model = gltf.scene;
+            scene.add(model);
+
+            // Center the camera on the model automatically
+            const box = new THREE.Box3().setFromObject(model);
+            const center = box.getCenter(new THREE.Vector3());
+            controls.target.copy(center);
+            
+            statusLabel.innerText = "Status: Online";
+            statusLabel.style.color = "#00ff00";
+        },
+        (xhr) => {
+            if (xhr.lengthComputable) {
+                const percent = Math.round((xhr.loaded / xhr.total) * 100);
+                statusLabel.innerText = `Status: Loading ${percent}%`;
+            }
+        },
+        (error) => {
+            console.error(error);
+            statusLabel.innerText = "Status: Error loading GLB. Check file path/name.";
+            statusLabel.style.color = "#ff4444";
+        }
+    );
+
+    /* 5. ANIMATION LOOP */
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+    }
+    animate();
+
+    /* 6. RESIZE HANDLING */
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+</script>
+
 </body>
 </html>
