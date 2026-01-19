@@ -1,143 +1,45 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<title>Mini City Life</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+<title>Three Test</title>
 <style>
-html, body {
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-  background: black;
-}
-
-/* Controls */
-#controls {
-  position: fixed;
-  bottom: 20px;
-  left: 20px;
-  z-index: 10;
-}
-.btn {
-  width: 60px;
-  height: 60px;
-  margin: 4px;
-  border-radius: 50%;
-  font-size: 20px;
-  background: rgba(255,255,255,0.3);
-  color: white;
-  border: 2px solid white;
-}
-#jump { background: orange; }
+body { margin:0; overflow:hidden; background:black; }
 </style>
 </head>
-
 <body>
 
-<div id="controls">
-  <button class="btn" id="up">⬆</button><br>
-  <button class="btn" id="left">⬅</button>
-  <button class="btn" id="jump">J</button>
-  <button class="btn" id="right">➡</button><br>
-  <button class="btn" id="down">⬇</button>
-</div>
-
-<!-- ✅ NON-MODULE THREE.JS -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
 
 <script>
-/* SCENE */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 
-/* CAMERA */
 const camera = new THREE.PerspectiveCamera(
-  75,
-  window.innerWidth / window.innerHeight,
-  0.1,
-  1000
+  75, window.innerWidth/window.innerHeight, 0.1, 1000
 );
-camera.position.set(0, 5, 15);
+camera.position.set(0,5,10);
 
-/* RENDERER */
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-/* LIGHT */
-scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-const sun = new THREE.DirectionalLight(0xffffff, 1);
-sun.position.set(10, 20, 10);
-scene.add(sun);
+const light = new THREE.DirectionalLight(0xffffff, 1);
+light.position.set(10,20,10);
+scene.add(light);
 
-/* GROUND */
 const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(200, 200),
-  new THREE.MeshStandardMaterial({ color: 0x2e7d32 })
+  new THREE.PlaneGeometry(20,20),
+  new THREE.MeshStandardMaterial({color:0x00ff00})
 );
-ground.rotation.x = -Math.PI / 2;
+ground.rotation.x = -Math.PI/2;
 scene.add(ground);
 
-/* LOAD GLB */
-const loader = new THREE.GLTFLoader();
-loader.load(
-  "models/building.glb",
-  function (gltf) {
-    gltf.scene.position.set(0, 0, -10);
-    scene.add(gltf.scene);
-    console.log("BUILDING LOADED");
-  },
-  undefined,
-  function (error) {
-    alert("GLB LOAD ERROR");
-    console.error(error);
-  }
-);
-
-/* PLAYER */
-let speed = 0.3;
-let yVel = 0;
-let grounded = true;
-const keys = {};
-
-/* BUTTON INPUT */
-["up","down","left","right"].forEach(k=>{
-  document.getElementById(k).onpointerdown=()=>keys[k]=true;
-  document.getElementById(k).onpointerup=()=>keys[k]=false;
-});
-document.getElementById("jump").onpointerdown=()=>{
-  if(grounded){ yVel=0.45; grounded=false; }
-};
-
-/* LOOP */
-function animate() {
+function animate(){
   requestAnimationFrame(animate);
-
-  if(keys.up) camera.position.z -= speed;
-  if(keys.down) camera.position.z += speed;
-  if(keys.left) camera.position.x -= speed;
-  if(keys.right) camera.position.x += speed;
-
-  yVel -= 0.02;
-  camera.position.y += yVel;
-  if(camera.position.y < 5){
-    camera.position.y = 5;
-    yVel = 0;
-    grounded = true;
-  }
-
   renderer.render(scene, camera);
 }
 animate();
-
-window.onresize=()=>{
-  camera.aspect = window.innerWidth/window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-};
 </script>
 
 </body>
