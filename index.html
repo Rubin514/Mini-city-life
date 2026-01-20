@@ -1,21 +1,70 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Mini City Life - Debugged</title>
-  <style>
-    body { margin: 0; overflow: hidden; background:#87ceeb; font-family: sans-serif; }
-    canvas { display:block; }
-    .controls { position: fixed; bottom: 20px; left: 20px; display: grid; grid-template-columns: repeat(3, 60px); grid-gap: 10px; opacity: 0.8; }
-    .btn { width: 60px; height: 60px; border-radius: 50%; background: #333; color: white; font-size: 24px; border: none; user-select: none; }
-    .jump { position: fixed; bottom: 20px; right: 20px; width: 90px; height: 60px; background: #ff9800; color: white; font-weight: bold; border-radius: 12px; border: none; cursor: pointer; }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>Mini City Life - Fixed</title>
+
+<style>
+  body { margin: 0; overflow: hidden; background:#87ceeb; font-family: sans-serif; }
+  canvas { display:block; }
+
+  /* Mobile D-Pad Controls */
+  .controls {
+    position: fixed;
+    bottom: 30px;
+    left: 30px;
+    display: grid;
+    grid-template-columns: repeat(3, 65px);
+    grid-template-rows: repeat(2, 65px);
+    gap: 10px;
+    user-select: none;
+  }
+
+  .btn {
+    width: 65px;
+    height: 65px;
+    border-radius: 50%;
+    background: rgba(51, 51, 51, 0.8);
+    color: white;
+    font-size: 24px;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: none;
+  }
+
+  /* Positioning buttons like a real D-Pad */
+  #up { grid-column: 2; grid-row: 1; }
+  #left { grid-column: 1; grid-row: 2; }
+  #down { grid-column: 2; grid-row: 2; }
+  #right { grid-column: 3; grid-row: 2; }
+
+  .jump {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 120px;
+    height: 70px;
+    background: #ffa500;
+    color: white;
+    font-weight: bold;
+    font-size: 18px;
+    border-radius: 15px;
+    border: none;
+    box-shadow: 0 4px #cc8400;
+    cursor: pointer;
+    touch-action: none;
+  }
+  .jump:active { transform: translateY(4px); box-shadow: none; }
+</style>
 </head>
+
 <body>
 
 <div class="controls">
-  <div style="grid-column: 2"><button class="btn" id="up">↑</button></div>
+  <button class="btn" id="up">↑</button>
   <button class="btn" id="left">←</button>
   <button class="btn" id="down">↓</button>
   <button class="btn" id="right">→</button>
@@ -35,7 +84,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-/* SCENE SETUP */
+/** SCENE SETUP **/
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 
@@ -45,36 +94,48 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
-/* LIGHTS */
-scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-const sun = new THREE.DirectionalLight(0xffffff, 1.0);
-sun.position.set(50, 50, 50);
+/** LIGHTS **/
+scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+const sun = new THREE.DirectionalLight(0xffffff, 1.2);
+sun.position.set(50, 100, 50);
 scene.add(sun);
 
-/* GROUND */
+/** GROUND **/
 const ground = new THREE.Mesh(
   new THREE.PlaneGeometry(1000, 1000),
-  new THREE.MeshStandardMaterial({ color: 0x555555 })
+  new THREE.MeshStandardMaterial({ color: 0x666666 })
 );
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
-scene.add(new THREE.GridHelper(1000, 100));
+scene.add(new THREE.GridHelper(1000, 100, 0x000000, 0x444444));
 
-/* VISUAL PLAYER */
-// We create a group so the mesh and the camera anchor move together
+/** PLAYER **/
 const player = new THREE.Group();
-const playerBody = new THREE.Mesh(
+const body = new THREE.Mesh(
   new THREE.BoxGeometry(1, 2, 1),
   new THREE.MeshStandardMaterial({ color: 0xff0000 })
 );
-playerBody.position.y = 1; // Sit on the ground
-player.add(playerBody);
+body.position.y = 1; 
+player.add(body);
 scene.add(player);
 
-/* MOVEMENT LOGIC */
+/** MOVEMENT STATE **/
 const keys = { up: false, down: false, left: false, right: false };
+const buildingsBoxes = []; // For collisions
 
-// Desktop Keyboard Support
+/** INPUT HANDLING **/
+const handleInput = (id, key) => {
+  const el = document.getElementById(id);
+  el.onpointerdown = (e) => { e.preventDefault(); keys[key] = true; };
+  el.onpointerup = (e) => { e.preventDefault(); keys[key] = false; };
+  el.onpointerleave = (e) => { e.preventDefault(); keys[key] = false; };
+};
+handleInput("up", "up");
+handleInput("down", "down");
+handleInput("left", "left");
+handleInput("right", "right");
+
+// Keyboard Fallback
 window.addEventListener("keydown", (e) => {
   if (e.key === "ArrowUp" || e.key === "w") keys.up = true;
   if (e.key === "ArrowDown" || e.key === "s") keys.down = true;
@@ -88,72 +149,77 @@ window.addEventListener("keyup", (e) => {
   if (e.key === "ArrowRight" || e.key === "d") keys.right = false;
 });
 
-// Mobile Touch Support
-const setupBtn = (id, key) => {
-  const el = document.getElementById(id);
-  el.onpointerdown = () => keys[key] = true;
-  el.onpointerup = () => keys[key] = false;
-  el.onpointerleave = () => keys[key] = false;
-};
-setupBtn("up", "up");
-setupBtn("down", "down");
-setupBtn("left", "left");
-setupBtn("right", "right");
-
-/* ASSET LOADING */
+/** ASSET LOADING **/
 const loader = new GLTFLoader();
+
 loader.load(
-  "models/building.glb", 
+  "./models/building.glb", 
   (gltf) => {
-    const base = gltf.scene;
-    base.scale.set(0.005, 0.005, 0.005);
+    const baseModel = gltf.scene;
+    baseModel.scale.set(0.005, 0.005, 0.005);
     
+    // Fix pivot and ground alignment
+    const box = new THREE.Box3().setFromObject(baseModel);
+    const size = box.getSize(new THREE.Vector3());
+    baseModel.position.y = -box.min.y; 
+
     const spacing = 40;
-    for (let x = -3; x <= 3; x++) {
-      for (let z = -3; z <= 3; z++) {
-        if (x === 0 && z === 0) continue; // Don't build on player start
-        const b = base.clone();
+    for (let x = -2; x <= 2; x++) {
+      for (let z = -2; z <= 2; z++) {
+        if (x === 0 && z === 0) continue; 
+
+        const b = baseModel.clone();
         b.position.set(x * spacing, 0, z * spacing);
+        
+        // Add to scene
         scene.add(b);
+
+        // Add to collision array
+        const bBox = new THREE.Box3().setFromObject(b);
+        buildingsBoxes.push(bBox);
       }
     }
+    console.log("City Loaded");
   },
   undefined,
-  (err) => console.warn("Model not found, using placeholder boxes.") || createPlaceholders()
+  (err) => {
+    console.error("Path error: Check your 'models' folder name.", err);
+  }
 );
 
-// Fallback if model doesn't exist
-function createPlaceholders() {
-  const geo = new THREE.BoxGeometry(10, 20, 10);
-  const mat = new THREE.MeshStandardMaterial({ color: 0x888888 });
-  for (let x = -3; x <= 3; x++) {
-    for (let z = -3; z <= 3; z++) {
-      if (x === 0 && z === 0) continue;
-      const b = new THREE.Mesh(geo, mat);
-      b.position.set(x * 40, 10, z * 40);
-      scene.add(b);
-    }
-  }
-}
-
-/* ANIMATION LOOP */
+/** GAME LOOP **/
 function animate() {
   requestAnimationFrame(animate);
 
-  const speed = 0.3;
+  const speed = 0.25;
+  const oldPos = player.position.clone();
+
+  // Movement
   if (keys.up) player.position.z -= speed;
   if (keys.down) player.position.z += speed;
   if (keys.left) player.position.x -= speed;
   if (keys.right) player.position.x += speed;
 
-  // Camera follows the player
-  camera.position.lerp(new THREE.Vector3(player.position.x, player.position.y + 10, player.position.z + 20), 0.1);
+  // Collision Detection
+  const playerBox = new THREE.Box3().setFromObject(player);
+  for (let bBox of buildingsBoxes) {
+    if (playerBox.intersectsBox(bBox)) {
+      player.position.copy(oldPos); // Hit a wall, go back
+      break;
+    }
+  }
+
+  // Camera Follow
+  const targetCam = new THREE.Vector3(player.position.x, 12, player.position.z + 20);
+  camera.position.lerp(targetCam, 0.1);
   camera.lookAt(player.position);
 
   renderer.render(scene, camera);
 }
+
 animate();
 
+/** RESIZE **/
 window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
