@@ -1,61 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Mini City Life</title>
-
-<style>
-  body { margin: 0; overflow: hidden; background:#87ceeb; }
-  canvas { display:block; }
-
-  /* Mobile controls */
-  .controls {
-    position: fixed;
-    bottom: 20px;
-    left: 20px;
-    display: grid;
-    grid-template-columns: 60px 60px 60px;
-    grid-gap: 10px;
-    opacity: 0.85;
-  }
-
-  .btn {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    background: #555;
-    color: white;
-    font-size: 20px;
-    border: none;
-  }
-
-  .jump {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    width: 90px;
-    height: 60px;
-    background: orange;
-    font-weight: bold;
-    border-radius: 12px;
-    border: none;
-  }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mini City Life - Debugged</title>
+  <style>
+    body { margin: 0; overflow: hidden; background:#87ceeb; font-family: sans-serif; }
+    canvas { display:block; }
+    .controls { position: fixed; bottom: 20px; left: 20px; display: grid; grid-template-columns: repeat(3, 60px); grid-gap: 10px; opacity: 0.8; }
+    .btn { width: 60px; height: 60px; border-radius: 50%; background: #333; color: white; font-size: 24px; border: none; user-select: none; }
+    .jump { position: fixed; bottom: 20px; right: 20px; width: 90px; height: 60px; background: #ff9800; color: white; font-weight: bold; border-radius: 12px; border: none; cursor: pointer; }
+  </style>
 </head>
-
 <body>
 
-<!-- Mobile buttons -->
 <div class="controls">
-  <button class="btn" id="up">↑</button>
+  <div style="grid-column: 2"><button class="btn" id="up">↑</button></div>
   <button class="btn" id="left">←</button>
-  <button class="btn" id="right">→</button>
   <button class="btn" id="down">↓</button>
+  <button class="btn" id="right">→</button>
 </div>
-<button class="jump" id="jump">ENTER</button>
+<button class="jump" id="jump">ACTION</button>
 
-<!-- THREE.JS -->
 <script type="importmap">
 {
   "imports": {
@@ -69,79 +35,83 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-/* SCENE */
+/* SCENE SETUP */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 
-/* CAMERA */
-const camera = new THREE.PerspectiveCamera(
-  70,
-  window.innerWidth / window.innerHeight,
-  0.1,
-  1000
-);
-camera.position.set(0, 5, 12);
-
-/* RENDERER */
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
 /* LIGHTS */
-scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-const sun = new THREE.DirectionalLight(0xffffff, 1.2);
-sun.position.set(20, 30, 20);
+scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+const sun = new THREE.DirectionalLight(0xffffff, 1.0);
+sun.position.set(50, 50, 50);
 scene.add(sun);
 
 /* GROUND */
 const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(500, 500),
-  new THREE.MeshStandardMaterial({ color: 0x444444 })
+  new THREE.PlaneGeometry(1000, 1000),
+  new THREE.MeshStandardMaterial({ color: 0x555555 })
 );
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
+scene.add(new THREE.GridHelper(1000, 100));
 
-/* GRID */
-scene.add(new THREE.GridHelper(500, 50));
-
-/* PLAYER */
-const player = new THREE.Object3D();
-player.position.set(0, 0, 0);
+/* VISUAL PLAYER */
+// We create a group so the mesh and the camera anchor move together
+const player = new THREE.Group();
+const playerBody = new THREE.Mesh(
+  new THREE.BoxGeometry(1, 2, 1),
+  new THREE.MeshStandardMaterial({ color: 0xff0000 })
+);
+playerBody.position.y = 1; // Sit on the ground
+player.add(playerBody);
 scene.add(player);
 
-/* MOVEMENT */
-const keys = { up:false, down:false, left:false, right:false };
+/* MOVEMENT LOGIC */
+const keys = { up: false, down: false, left: false, right: false };
 
-document.getElementById("up").ontouchstart = () => keys.up = true;
-document.getElementById("up").ontouchend = () => keys.up = false;
-document.getElementById("down").ontouchstart = () => keys.down = true;
-document.getElementById("down").ontouchend = () => keys.down = false;
-document.getElementById("left").ontouchstart = () => keys.left = true;
-document.getElementById("left").ontouchend = () => keys.left = false;
-document.getElementById("right").ontouchstart = () => keys.right = true;
-document.getElementById("right").ontouchend = () => keys.right = false;
+// Desktop Keyboard Support
+window.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowUp" || e.key === "w") keys.up = true;
+  if (e.key === "ArrowDown" || e.key === "s") keys.down = true;
+  if (e.key === "ArrowLeft" || e.key === "a") keys.left = true;
+  if (e.key === "ArrowRight" || e.key === "d") keys.right = true;
+});
+window.addEventListener("keyup", (e) => {
+  if (e.key === "ArrowUp" || e.key === "w") keys.up = false;
+  if (e.key === "ArrowDown" || e.key === "s") keys.down = false;
+  if (e.key === "ArrowLeft" || e.key === "a") keys.left = false;
+  if (e.key === "ArrowRight" || e.key === "d") keys.right = false;
+});
 
-/* LOAD BUILDING */
+// Mobile Touch Support
+const setupBtn = (id, key) => {
+  const el = document.getElementById(id);
+  el.onpointerdown = () => keys[key] = true;
+  el.onpointerup = () => keys[key] = false;
+  el.onpointerleave = () => keys[key] = false;
+};
+setupBtn("up", "up");
+setupBtn("down", "down");
+setupBtn("left", "left");
+setupBtn("right", "right");
+
+/* ASSET LOADING */
 const loader = new GLTFLoader();
-
 loader.load(
-  "models/building.glb",
+  "models/building.glb", 
   (gltf) => {
     const base = gltf.scene;
-
-    /* SCALE FIX (MOST IMPORTANT) */
     base.scale.set(0.005, 0.005, 0.005);
-
-    /* CENTER MODEL */
-    const box = new THREE.Box3().setFromObject(base);
-    const center = box.getCenter(new THREE.Vector3());
-    base.position.sub(center);
-
-    /* CITY GENERATION */
-    const spacing = 25;
-    for (let x = -2; x <= 2; x++) {
-      for (let z = -2; z <= 2; z++) {
+    
+    const spacing = 40;
+    for (let x = -3; x <= 3; x++) {
+      for (let z = -3; z <= 3; z++) {
+        if (x === 0 && z === 0) continue; // Don't build on player start
         const b = base.clone();
         b.position.set(x * spacing, 0, z * spacing);
         scene.add(b);
@@ -149,33 +119,47 @@ loader.load(
     }
   },
   undefined,
-  (e) => console.error("GLB LOAD ERROR:", e)
+  (err) => console.warn("Model not found, using placeholder boxes.") || createPlaceholders()
 );
 
-/* RESIZE */
-window.addEventListener("resize", () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
+// Fallback if model doesn't exist
+function createPlaceholders() {
+  const geo = new THREE.BoxGeometry(10, 20, 10);
+  const mat = new THREE.MeshStandardMaterial({ color: 0x888888 });
+  for (let x = -3; x <= 3; x++) {
+    for (let z = -3; z <= 3; z++) {
+      if (x === 0 && z === 0) continue;
+      const b = new THREE.Mesh(geo, mat);
+      b.position.set(x * 40, 10, z * 40);
+      scene.add(b);
+    }
+  }
+}
 
-/* LOOP */
+/* ANIMATION LOOP */
 function animate() {
   requestAnimationFrame(animate);
 
-  const speed = 0.15;
+  const speed = 0.3;
   if (keys.up) player.position.z -= speed;
   if (keys.down) player.position.z += speed;
   if (keys.left) player.position.x -= speed;
   if (keys.right) player.position.x += speed;
 
-  camera.position.x = player.position.x;
-  camera.position.z = player.position.z + 12;
+  // Camera follows the player
+  camera.position.lerp(new THREE.Vector3(player.position.x, player.position.y + 10, player.position.z + 20), 0.1);
   camera.lookAt(player.position);
 
   renderer.render(scene, camera);
 }
 animate();
+
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
 </script>
 </body>
 </html>
+
