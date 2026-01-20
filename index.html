@@ -1,23 +1,83 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mini City Life - Fixed</title>
-    <style>
-        body { margin: 0; overflow: hidden; background: #87ceeb; }
-        canvas { display: block; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mini City Life</title>
+
+<style>
+body {
+  margin: 0;
+  overflow: hidden;
+  background: black;
+  touch-action: none;
+}
+
+/* MOBILE CONTROLS */
+.controls {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  display: grid;
+  grid-template-columns: 60px 60px 60px;
+  grid-template-rows: 60px 60px 60px;
+  gap: 10px;
+}
+
+.btn {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: #555;
+  color: white;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.jump {
+  position: fixed;
+  bottom: 40px;
+  right: 30px;
+  width: 90px;
+  height: 60px;
+  background: orange;
+  color: black;
+  border-radius: 12px;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+</style>
 </head>
+
 <body>
 
+<!-- MOBILE CONTROLS -->
+<div class="controls">
+  <div></div>
+  <div class="btn" id="forward">⬆</div>
+  <div></div>
+  <div class="btn" id="left">⬅</div>
+  <div class="btn">●</div>
+  <div class="btn" id="right">➡</div>
+  <div></div>
+  <div class="btn" id="back">⬇</div>
+  <div></div>
+</div>
+
+<div class="jump" id="jump">ENTER</div>
+
 <script type="importmap">
-    {
-        "imports": {
-            "three": "https://unpkg.com/three@0.152.2/build/three.module.js",
-            "three/addons/": "https://unpkg.com/three@0.152.2/examples/jsm/"
-        }
-    }
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.152.2/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.152.2/examples/jsm/"
+  }
+}
 </script>
 
 <script type="module">
@@ -25,105 +85,123 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-/**
- * 1. SCENE SETUP
- */
+/* SCENE */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
-scene.fog = new THREE.Fog(0x87ceeb, 20, 100);
 
-/**
- * 2. CAMERA & RENDERER
- */
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(30, 30, 30); // Moved back to see the grid better
+/* CAMERA */
+const camera = new THREE.PerspectiveCamera(
+  75,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  1000
+);
+camera.position.set(0, 8, 20);
 
+/* RENDERER */
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
-/**
- * 3. CONTROLS
- */
+/* CONTROLS */
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
-/**
- * 4. LIGHTING
- */
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-scene.add(ambientLight);
+/* LIGHTS */
+scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+const sun = new THREE.DirectionalLight(0xffffff, 1.5);
+sun.position.set(50, 50, 50);
+scene.add(sun);
 
-const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
-sunLight.position.set(50, 50, 50);
-scene.add(sunLight);
-
-/**
- * 5. GROUND
- */
-const grid = new THREE.GridHelper(200, 20, 0x000000, 0x555555);
-scene.add(grid);
-
-const groundGeo = new THREE.PlaneGeometry(200, 200);
-const groundMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
-const ground = new THREE.Mesh(groundGeo, groundMat);
+/* GROUND */
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(500, 500),
+  new THREE.MeshStandardMaterial({ color: 0x333333 })
+);
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 
-/**
- * 6. MODEL LOADING & CITY GENERATION
- */
+scene.add(new THREE.GridHelper(500, 50));
+
+/* PLAYER */
+const player = new THREE.Object3D();
+scene.add(player);
+player.position.set(0, 0, 0);
+
+/* CITY GENERATION */
 const loader = new GLTFLoader();
 
-function createCity(masterModel) {
-    const spacing = 15; 
-    const gridSize = 2;  
-
-    for (let x = -gridSize; x <= gridSize; x++) {
-        for (let z = -gridSize; z <= gridSize; z++) {
-            const building = masterModel.clone();
-            building.position.set(x * spacing, 0, z * spacing);
-            building.rotation.y = Math.floor(Math.random() * 4) * (Math.PI / 2);
-            scene.add(building);
-        }
-    }
-}
-
-// NOTE: Replace this path with a real URL or your local file
 loader.load(
-    "models/building.glb", 
-    (gltf) => {
-        const model = gltf.scene;
-        // Optional: Force a specific scale if your model is too big/small
-        // model.scale.set(1, 1, 1); 
-        createCity(model);
-    },
-    undefined,
-    (error) => {
-        console.error("Could not load model. Check the file path and local server.", error);
+  "models/building.glb",
+  (gltf) => {
+    const base = gltf.scene;
+    base.scale.set(0.01, 0.01, 0.01);
+
+    const box = new THREE.Box3().setFromObject(base);
+    const center = box.getCenter(new THREE.Vector3());
+    base.position.sub(center);
+
+    const spacing = 25;
+
+    for (let x = -2; x <= 2; x++) {
+      for (let z = -2; z <= 2; z++) {
+        const b = base.clone();
+        b.position.set(x * spacing, 0, z * spacing);
+        b.rotation.y = Math.random() * Math.PI * 2;
+        scene.add(b);
+      }
     }
+  },
+  undefined,
+  (e) => console.error(e)
 );
 
-/**
- * 7. WINDOW RESIZE
- */
-window.addEventListener("resize", () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-});
+/* MOBILE MOVEMENT */
+let move = { f:false, b:false, l:false, r:false };
 
-/**
- * 8. ANIMATION LOOP
- */
+const bind = (id, key) => {
+  document.getElementById(id).ontouchstart = () => move[key] = true;
+  document.getElementById(id).ontouchend = () => move[key] = false;
+};
+
+bind("forward", "f");
+bind("back", "b");
+bind("left", "l");
+bind("right", "r");
+
+/* ANIMATION */
 function animate() {
-    requestAnimationFrame(animate);
-    controls.update();
-    renderer.render(scene, camera);
+  requestAnimationFrame(animate);
+
+  const speed = 0.3;
+  if (move.f) player.position.z -= speed;
+  if (move.b) player.position.z += speed;
+  if (move.l) player.position.x -= speed;
+  if (move.r) player.position.x += speed;
+
+  camera.position.lerp(
+    new THREE.Vector3(
+      player.position.x,
+      player.position.y + 8,
+      player.position.z + 20
+    ),
+    0.1
+  );
+  camera.lookAt(player.position);
+
+  controls.update();
+  renderer.render(scene, camera);
 }
 
 animate();
+
+/* RESIZE */
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
 </script>
 </body>
-</html>
+    </html>
