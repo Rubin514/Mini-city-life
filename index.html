@@ -2,45 +2,42 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mini City Life</title>
-
+<title>Mini City Life 3D</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <style>
-    body { margin: 0; overflow: hidden; background:#87ceeb; }
-    canvas { display: block; }
-
-    /* Mobile controls */
-    .controls {
-        position: fixed;
-        bottom: 20px;
-        left: 20px;
-        display: grid;
-        grid-template-columns: 60px 60px 60px;
-        grid-template-rows: 60px 60px;
-        gap: 10px;
-        z-index: 10;
-    }
-    .btn {
-        width: 60px;
-        height: 60px;
-        border-radius: 50%;
-        background: rgba(0,0,0,0.5);
-        color: white;
-        font-size: 24px;
-        border: none;
-    }
+body { margin:0; overflow:hidden; background:#87ceeb; touch-action:none; font-family:sans-serif; }
+button {
+  width:60px; height:60px; border-radius:50%;
+  background:rgba(255,255,255,0.35);
+  color:#fff; font-size:20px;
+  border:2px solid #fff;
+}
+#controls {
+  position:fixed; bottom:20px; left:20px;
+  display:flex; flex-direction:column; align-items:center;
+}
+#row { display:flex; gap:10px; }
+#enterBtn {
+  position:fixed; right:20px; bottom:20px;
+  width:120px; height:60px;
+  border-radius:12px;
+  background:#ff9800; color:#000;
+  font-weight:bold;
+}
 </style>
 </head>
-
 <body>
 
-<!-- Mobile buttons -->
-<div class="controls">
-    <button class="btn" id="up">↑</button>
-    <button class="btn" id="left">←</button>
-    <button class="btn" id="right">→</button>
-    <button class="btn" id="down">↓</button>
+<div id="controls">
+  <button id="up">⬆</button>
+  <div id="row">
+    <button id="left">⬅</button>
+    <button id="jump">⤒</button>
+    <button id="right">➡</button>
+  </div>
+  <button id="down">⬇</button>
 </div>
+<button id="enterBtn">ENTER</button>
 
 <script type="importmap">
 {
@@ -52,9 +49,8 @@
 </script>
 
 <script type="module">
-import * as THREE from "three";
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 /* SCENE */
 const scene = new THREE.Scene();
@@ -62,138 +58,144 @@ scene.background = new THREE.Color(0x87ceeb);
 
 /* CAMERA */
 const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
-camera.position.set(0, 6, 10);
 
 /* RENDERER */
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(devicePixelRatio);
 document.body.appendChild(renderer.domElement);
-
-/* CONTROLS */
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.enablePan = false;
-controls.maxPolarAngle = Math.PI / 2.2;
 
 /* LIGHT */
 scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-const sun = new THREE.DirectionalLight(0xffffff, 1.2);
-sun.position.set(50,50,50);
+const sun = new THREE.DirectionalLight(0xffffff, 1);
+sun.position.set(50,100,50);
 scene.add(sun);
 
 /* GROUND */
 const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(500,500),
-    new THREE.MeshStandardMaterial({color:0x555555})
+  new THREE.PlaneGeometry(1000,1000),
+  new THREE.MeshStandardMaterial({color:0x2e7d32})
 );
 ground.rotation.x = -Math.PI/2;
 scene.add(ground);
 
-/* GRID */
-scene.add(new THREE.GridHelper(500, 100));
-
-/* PLAYER (INVISIBLE COLLIDER) */
-const player = new THREE.Object3D();
-player.position.set(0, 0, 0);
+/* PLAYER */
+const player = new THREE.Group();
+player.position.set(0, 2, 0); // SAFE SPAWN
 scene.add(player);
+player.add(camera);
 
-/* PLAYER COLLISION BOX */
-const playerBox = new THREE.Box3();
-const playerSize = new THREE.Vector3(1, 2, 1);
+let yaw = 0;
+let yVel = 0;
+let grounded = true;
+let inside = false;
 
-/* BUILDING COLLIDERS */
-const buildingBoxes = [];
-
-/* LOAD BUILDING */
+/* BUILDINGS */
+const buildings = [];
 const loader = new GLTFLoader();
-loader.load("models/building.glb", (gltf) => {
 
-    const baseModel = gltf.scene;
+loader.load(
+  "models/building.glb",
+  gltf => {
+    const base = gltf.scene;
+    base.scale.set(1,1,1);
 
-    const baseBox = new THREE.Box3().setFromObject(baseModel);
-    const baseSize = new THREE.Vector3();
-    baseBox.getSize(baseSize);
+    const size = 4;
+    const spacing = 30;
 
-    const spacing = baseSize.x + 20;
-    const citySize = 4;
+    for (let x=-size; x<=size; x++) {
+      for (let z=-size; z<=size; z++) {
 
-    for (let x = -citySize; x <= citySize; x++) {
-        for (let z = -citySize; z <= citySize; z++) {
+        if (x === 0 && z === 0) continue; // SPAWN AREA
 
-            const building = baseModel.clone(true);
+        const b = base.clone();
+        b.position.set(x*spacing, 0, z*spacing);
+        scene.add(b);
 
-            const box = new THREE.Box3().setFromObject(building);
-
-            building.position.y = -box.min.y; // FIX FLOATING
-            building.position.x = x * spacing;
-            building.position.z = z * spacing;
-
-            building.rotation.y = Math.random() * Math.PI * 2;
-
-            scene.add(building);
-
-            // COLLISION BOX
-            const collider = new THREE.Box3().setFromObject(building);
-            buildingBoxes.push(collider);
-        }
+        buildings.push({
+          pos: new THREE.Vector3(x*spacing,0,z*spacing),
+          door: new THREE.Vector3(x*spacing,0,z*spacing+6)
+        });
+      }
     }
-});
+  }
+);
 
-/* MOVEMENT */
-const speed = 0.15;
-const move = { up:false, down:false, left:false, right:false };
+/* CONTROLS */
+const keys = {up:false,down:false,left:false,right:false};
 
-function tryMove(dx, dz) {
-    const nextPos = player.position.clone();
-    nextPos.x += dx;
-    nextPos.z += dz;
-
-    playerBox.setFromCenterAndSize(
-        new THREE.Vector3(nextPos.x, 1, nextPos.z),
-        playerSize
-    );
-
-    for (const box of buildingBoxes) {
-        if (playerBox.intersectsBox(box)) return;
-    }
-
-    player.position.copy(nextPos);
-    camera.position.x += dx;
-    camera.position.z += dz;
+function bind(id,key){
+  const el = document.getElementById(id);
+  el.onpointerdown = e => { e.preventDefault(); keys[key]=true; };
+  el.onpointerup = e => { e.preventDefault(); keys[key]=false; };
 }
 
-/* BUTTON EVENTS */
-up.onclick = ()=> move.up = true;
-down.onclick = ()=> move.down = true;
-left.onclick = ()=> move.left = true;
-right.onclick = ()=> move.right = true;
+bind("up","up");
+bind("down","down");
+bind("left","left");
+bind("right","right");
 
-document.body.addEventListener("touchend", ()=> {
-    move.up = move.down = move.left = move.right = false;
-});
+document.getElementById("jump").onpointerdown = () => {
+  if (grounded) { yVel = 0.6; grounded = false; }
+};
+
+/* ENTER / EXIT BUILDING */
+document.getElementById("enterBtn").onclick = () => {
+  if (!inside) {
+    for (const b of buildings) {
+      const d = new THREE.Vector2(
+        player.position.x, player.position.z
+      ).distanceTo(
+        new THREE.Vector2(b.door.x, b.door.z)
+      );
+      if (d < 5) {
+        player.position.set(0,2,-120); // INTERIOR
+        inside = true;
+        return;
+      }
+    }
+    alert("Go near a building door!");
+  } else {
+    player.position.set(0,2,0);
+    inside = false;
+  }
+};
 
 /* LOOP */
+const speed = 0.5;
 function animate(){
-    requestAnimationFrame(animate);
+  requestAnimationFrame(animate);
 
-    if(move.up) tryMove(0, -speed);
-    if(move.down) tryMove(0, speed);
-    if(move.left) tryMove(-speed, 0);
-    if(move.right) tryMove(speed, 0);
+  if (keys.up) {
+    player.position.x -= Math.sin(yaw)*speed;
+    player.position.z -= Math.cos(yaw)*speed;
+  }
+  if (keys.down) {
+    player.position.x += Math.sin(yaw)*speed;
+    player.position.z += Math.cos(yaw)*speed;
+  }
+  if (keys.left) yaw += 0.04;
+  if (keys.right) yaw -= 0.04;
 
-    controls.target.copy(player.position);
-    controls.update();
-    renderer.render(scene, camera);
+  yVel -= 0.03;
+  player.position.y += yVel;
+  if (player.position.y < 2) {
+    player.position.y = 2;
+    yVel = 0;
+    grounded = true;
+  }
+
+  player.rotation.y = yaw;
+
+  renderer.render(scene, camera);
 }
 animate();
 
-/* RESIZE */
-addEventListener("resize", ()=>{
-    camera.aspect = innerWidth/innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(innerWidth, innerHeight);
-});
+onresize = () => {
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+};
 </script>
-
 </body>
 </html>
