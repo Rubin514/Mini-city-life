@@ -1,60 +1,67 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Mini City Life 3D</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta charset="UTF-8">
+    <title>Mini City Life 3D</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <style>
+        body { margin: 0; overflow: hidden; font-family: sans-serif; background: #000; }
+        canvas { display: block; touch-action: none; }
 
-<style>
-body { margin: 0; overflow: hidden; font-family: sans-serif; background: #000; }
-canvas { display: block; touch-action: none; }
+        /* UI OVERLAYS */
+        #homeScreen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 100; color: white;
+        }
+        #homeScreen h1 { font-size: 3em; color: orange; margin-bottom: 20px; text-align: center; }
+        #homeScreen button {
+            font-size: 24px; padding: 15px 40px; border: none; 
+            border-radius: 12px; background: orange; color: white; cursor: pointer;
+        }
 
-#homeScreen {
-  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(0,0,0,0.9); display: flex; flex-direction: column;
-  justify-content: center; align-items: center; z-index: 100; color: white;
-}
-#homeScreen h1 { font-size: 3em; color: orange; margin-bottom: 20px; }
-#homeScreen button {
-  font-size: 24px; padding: 15px 40px; border: none; 
-  border-radius: 12px; background: orange; color: white; cursor: pointer;
-}
+        /* ON-SCREEN CONTROLS */
+        #controls { position: fixed; bottom: 20px; left: 20px; z-index: 10; display: grid; grid-template-areas: ". up ." "left down right"; }
+        .btn {
+            width: 65px; height: 65px; margin: 5px; border-radius: 50%; 
+            font-size: 24px; background: rgba(255,255,255,0.2);
+            border: 2px solid white; color: white; user-select: none;
+            display: flex; align-items: center; justify-content: center;
+        }
+        #up { grid-area: up; }
+        #left { grid-area: left; }
+        #right { grid-area: right; }
+        #down { grid-area: down; }
 
-#controls { position: fixed; bottom: 20px; left: 20px; z-index: 10; }
-.btn {
-  width: 60px; height: 60px; margin: 4px; border-radius: 50%; 
-  font-size: 24px; background: rgba(255,255,255,0.3);
-  border: 2px solid white; color: white; user-select: none;
-}
-#enterBtn {
-  position: fixed; bottom: 25px; right: 25px; width: 110px; height: 60px; 
-  border-radius: 14px; font-size: 18px; background: orange; border: none;
-  color: white; z-index: 10; cursor: pointer;
-}
-</style>
+        #enterBtn {
+            position: fixed; bottom: 25px; right: 25px; width: 110px; height: 60px; 
+            border-radius: 14px; font-size: 18px; background: orange; border: none;
+            color: white; z-index: 10; cursor: pointer; font-weight: bold;
+        }
+    </style>
 </head>
 <body>
 
 <div id="homeScreen">
-  <h1>Mini City Life 3D</h1>
-  <button id="playBtn">PLAY</button>
+    <h1>Mini City Life 3D</h1>
+    <button id="playBtn">START GAME</button>
 </div>
 
 <div id="controls">
-  <button class="btn" id="up">⬆</button><br>
-  <button class="btn" id="left">⬅</button>
-  <button class="btn" id="right">➡</button><br>
-  <button class="btn" id="down">⬇</button>
+    <div class="btn" id="up">⬆</div>
+    <div class="btn" id="left">⬅</div>
+    <div class="btn" id="right">➡</div>
+    <div class="btn" id="down">⬇</div>
 </div>
 
 <button id="enterBtn">ENTER</button>
 
 <script type="importmap">
 {
-  "imports": {
-    "three": "https://unpkg.com/three@0.152.2/build/three.module.js",
-    "three/addons/": "https://unpkg.com/three@0.152.2/examples/jsm/"
-  }
+    "imports": {
+        "three": "https://unpkg.com/three@0.152.2/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.152.2/examples/jsm/"
+    }
 }
 </script>
 
@@ -62,9 +69,9 @@ canvas { display: block; touch-action: none; }
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-/* ---------- SCENE SETUP ---------- */
+/* ---------- 1. SCENE SETUP ---------- */
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb);
+scene.background = new THREE.Color(0x87ceeb); // Sky blue
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -72,177 +79,173 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
-/* ---------- LIGHTING ---------- */
+/* ---------- 2. LIGHTING ---------- */
 scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-const sun = new THREE.DirectionalLight(0xffffff, 1);
+const sun = new THREE.DirectionalLight(0xffffff, 1.0);
 sun.position.set(50, 100, 50);
 scene.add(sun);
 
-/* ---------- GROUND ---------- */
+/* ---------- 3. GROUND ---------- */
 const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(1000, 1000),
-  new THREE.MeshStandardMaterial({ color: 0x2e7d32 })
+    new THREE.PlaneGeometry(2000, 2000),
+    new THREE.MeshStandardMaterial({ color: 0x333333 }) // Dark grey street color
 );
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 
-/* ---------- PLAYER ---------- */
+/* ---------- 4. PLAYER & CAMERA ---------- */
 const player = new THREE.Object3D();
-player.position.set(0, 2, 80); // Spawn safely away from buildings
+player.position.set(0, 2, 0); // Start at center (Safe Zone)
 scene.add(player);
 player.add(camera);
 
 let yaw = 0, pitch = 0;
 let targetYaw = 0, targetPitch = 0;
-const speed = 0.4;
+const speed = 0.5;
 const move = { up: false, down: false, left: false, right: false };
 
-/* ---------- LOADING BUILDING.GLB ---------- */
+/* ---------- 5. LOADING BUILDINGS ---------- */
 const buildings = [];
 const loader = new GLTFLoader();
 
 loader.load(
-  'models/building.glb', 
-  (gltf) => {
-    const baseBuilding = gltf.scene;
-    baseBuilding.scale.set(3, 3, 3);
+    'models/building.glb', 
+    (gltf) => {
+        const baseBuilding = gltf.scene;
+        baseBuilding.scale.set(3, 3, 3);
 
-    const spacing = 60;
-    for (let x = -2; x <= 2; x++) {
-      for (let z = -2; z <= 2; z++) {
-        // Skip the center to leave room for the player
-        if (x === 0 && z === 0) continue; 
+        const spacing = 100; // Large spacing for big models
+        for (let x = -4; x <= 4; x++) {
+            for (let z = -4; z <= 4; z++) {
+                
+                // SAFE ZONE LOGIC: Skip a 3x3 grid around the center (0,0)
+                if (Math.abs(x) <= 1 && Math.abs(z) <= 1) continue; 
 
-        const b = baseBuilding.clone();
-        b.position.set(x * spacing, 0, z * spacing);
-        scene.add(b);
+                const b = baseBuilding.clone();
+                b.position.set(x * spacing, 0, z * spacing);
+                scene.add(b);
 
-        // Compute the bounding box for collision detection
-        // We use world coordinates to make sure collision works everywhere
-        const box = new THREE.Box3().setFromObject(b);
+                // Compute bounding box for collisions
+                const box = new THREE.Box3().setFromObject(b);
 
-        // We assume the "door" is at a specific offset from building center
-        // Adjust these numbers (0, 0, 8) to match your specific model's door
-        const doorOffset = new THREE.Vector3(0, 0, 8); 
-        const doorWorldPos = b.position.clone().add(doorOffset);
+                // Set door trigger point (assuming door is roughly 12 units forward)
+                const doorWorldPos = new THREE.Vector3(x * spacing, 2, z * spacing + 12);
 
-        buildings.push({ mesh: b, box: box, doorWorld: doorWorldPos });
-      }
-    }
-    console.log("City loaded successfully!");
-  },
-  undefined,
-  (error) => {
-    console.error("Error loading building.glb. Check file path!", error);
-  }
+                buildings.push({ mesh: b, box: box, doorWorld: doorWorldPos });
+            }
+        }
+        console.log("City loaded. Spawn point is safe.");
+    },
+    undefined,
+    (err) => console.error("Error loading model. Check your folder structure!", err)
 );
 
-/* ---------- MOVEMENT & COLLISION ---------- */
-const pBox = new THREE.Box3();
-
-function canMove(nx, nz) {
-  // Update player's virtual hitbox for the next step
-  pBox.setFromCenterAndSize(
-    new THREE.Vector3(nx, 2, nz),
-    new THREE.Vector3(2, 4, 2)
-  );
-
-  for (const b of buildings) {
-    if (pBox.intersectsBox(b.box)) return false;
-  }
-  return true;
-}
-
-/* ---------- INPUT HANDLING ---------- */
+/* ---------- 6. INPUTS & CONTROLS ---------- */
 function bindBtn(id, key) {
-  const el = document.getElementById(id);
-  el.addEventListener("pointerdown", (e) => { e.preventDefault(); move[key] = true; });
-  const stop = (e) => { e.preventDefault(); move[key] = false; };
-  el.addEventListener("pointerup", stop);
-  el.addEventListener("pointerleave", stop);
+    const el = document.getElementById(id);
+    el.addEventListener("pointerdown", (e) => { e.preventDefault(); move[key] = true; });
+    const stop = (e) => { e.preventDefault(); move[key] = false; };
+    el.addEventListener("pointerup", stop);
+    el.addEventListener("pointerleave", stop);
 }
 bindBtn("up", "up"); bindBtn("down", "down");
 bindBtn("left", "left"); bindBtn("right", "right");
 
 window.addEventListener("keydown", (e) => {
-  const k = e.key.toLowerCase();
-  if (k === "w" || k === "arrowup") move.up = true;
-  if (k === "s" || k === "arrowdown") move.down = true;
-  if (k === "a" || k === "arrowleft") move.left = true;
-  if (k === "d" || k === "arrowright") move.right = true;
+    const k = e.key.toLowerCase();
+    if (k === "w" || k === "arrowup") move.up = true;
+    if (k === "s" || k === "arrowdown") move.down = true;
+    if (k === "a" || k === "arrowleft") move.left = true;
+    if (k === "d" || k === "arrowright") move.right = true;
 });
 window.addEventListener("keyup", (e) => {
-  const k = e.key.toLowerCase();
-  if (k === "w" || k === "arrowup") move.up = false;
-  if (k === "s" || k === "arrowdown") move.down = false;
-  if (k === "a" || k === "arrowleft") move.left = false;
-  if (k === "d" || k === "arrowright") move.right = false;
+    const k = e.key.toLowerCase();
+    if (k === "w" || k === "arrowup") move.up = false;
+    if (k === "s" || k === "arrowdown") move.down = false;
+    if (k === "a" || k === "arrowleft") move.left = false;
+    if (k === "d" || k === "arrowright") move.right = false;
 });
 
-/* ---------- LOOK CONTROLS ---------- */
+/* DRAG TO LOOK */
 let dragging = false, lastX = 0, lastY = 0;
 renderer.domElement.addEventListener("pointerdown", e => { dragging = true; lastX = e.clientX; lastY = e.clientY; });
 window.addEventListener("pointerup", () => dragging = false);
 window.addEventListener("pointermove", e => {
-  if (!dragging) return;
-  targetYaw -= (e.clientX - lastX) * 0.005;
-  targetPitch -= (e.clientY - lastY) * 0.005;
-  targetPitch = Math.max(-0.9, Math.min(0.9, targetPitch));
-  lastX = e.clientX; lastY = e.clientY;
+    if (!dragging) return;
+    targetYaw -= (e.clientX - lastX) * 0.005;
+    targetPitch -= (e.clientY - lastY) * 0.005;
+    targetPitch = Math.max(-0.9, Math.min(0.9, targetPitch)); // Clamp look up/down
+    lastX = e.clientX; lastY = e.clientY;
 });
 
-/* ---------- ENTER / EXIT ---------- */
+/* ---------- 7. COLLISION ENGINE ---------- */
+const playerHitbox = new THREE.Box3();
+function canMove(nx, nz) {
+    // Create a 2x2x2 box around the player's potential next position
+    playerHitbox.setFromCenterAndSize(
+        new THREE.Vector3(nx, 2, nz),
+        new THREE.Vector3(3, 4, 3) 
+    );
+    for (const b of buildings) {
+        if (playerHitbox.intersectsBox(b.box)) return false;
+    }
+    return true;
+}
+
+/* ---------- 8. ACTIONS & LOOP ---------- */
 let inside = false;
 document.getElementById("enterBtn").onclick = () => {
-  if (!inside) {
-    for (const b of buildings) {
-      if (player.position.distanceTo(b.doorWorld) < 10) {
-        player.position.set(0, 2, -500); // Teleport to "Interior"
-        inside = true; return;
-      }
+    if (!inside) {
+        for (const b of buildings) {
+            if (player.position.distanceTo(b.doorWorld) < 15) {
+                player.position.set(0, 2, -1000); // Teleport to interior
+                inside = true; return;
+            }
+        }
+        alert("Walk closer to a building door!");
+    } else {
+        player.position.set(0, 2, 0); // Back to street
+        inside = false;
     }
-    alert("Get closer to a door!");
-  } else {
-    player.position.set(0, 2, 80); // Teleport back outside
-    inside = false;
-  }
 };
 
 document.getElementById("playBtn").onclick = () => {
-  document.getElementById("homeScreen").style.display = "none";
+    document.getElementById("homeScreen").style.display = "none";
 };
 
-/* ---------- GAME LOOP ---------- */
 function animate() {
-  requestAnimationFrame(animate);
+    requestAnimationFrame(animate);
 
-  yaw += (targetYaw - yaw) * 0.15;
-  pitch += (targetPitch - pitch) * 0.15;
+    // Smooth Look
+    yaw += (targetYaw - yaw) * 0.15;
+    pitch += (targetPitch - pitch) * 0.15;
 
-  let nx = player.position.x;
-  let nz = player.position.z;
+    let nx = player.position.x;
+    let nz = player.position.z;
 
-  if (move.up) { nx -= Math.sin(yaw) * speed; nz -= Math.cos(yaw) * speed; }
-  if (move.down) { nx += Math.sin(yaw) * speed; nz += Math.cos(yaw) * speed; }
-  if (move.left) { nx -= Math.cos(yaw) * speed; nz += Math.sin(yaw) * speed; }
-  if (move.right) { nx += Math.cos(yaw) * speed; nz -= Math.sin(yaw) * speed; }
+    // Relative Movement Calculation
+    if (move.up) { nx -= Math.sin(yaw) * speed; nz -= Math.cos(yaw) * speed; }
+    if (move.down) { nx += Math.sin(yaw) * speed; nz += Math.cos(yaw) * speed; }
+    if (move.left) { nx -= Math.cos(yaw) * speed; nz += Math.sin(yaw) * speed; }
+    if (move.right) { nx += Math.cos(yaw) * speed; nz -= Math.sin(yaw) * speed; }
 
-  if (canMove(nx, nz)) {
-    player.position.x = nx;
-    player.position.z = nz;
-  }
+    // Collision Check
+    if (canMove(nx, nz)) {
+        player.position.x = nx;
+        player.position.z = nz;
+    }
 
-  player.rotation.y = yaw;
-  camera.rotation.x = pitch;
+    player.rotation.y = yaw;
+    camera.rotation.x = pitch;
 
-  renderer.render(scene, camera);
+    renderer.render(scene, camera);
 }
 animate();
 
 window.onresize = () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
 };
 </script>
 </body>
