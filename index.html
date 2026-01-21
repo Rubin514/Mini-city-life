@@ -2,55 +2,43 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mini City Life 3D</title>
+    <title>Mini City Life 3D - Marker Fix</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #000; }
+        body { margin: 0; overflow: hidden; font-family: sans-serif; background: #000; }
         canvas { display: block; touch-action: none; }
 
-        /* HOME SCREEN */
         #homeScreen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(135deg, #1a1a1a 0%, #000 100%);
-            display: flex; flex-direction: column; justify-content: center; 
-            align-items: center; z-index: 100; color: white;
+            background: rgba(0,0,0,0.9); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 100; color: white;
         }
-        #homeScreen h1 { font-size: 3.5em; color: orange; margin-bottom: 10px; text-shadow: 2px 2px 10px rgba(0,0,0,0.5); }
-        #homeScreen p { margin-bottom: 30px; opacity: 0.8; }
+        #homeScreen h1 { font-size: 3em; color: orange; margin-bottom: 20px; }
         #homeScreen button {
-            font-size: 24px; padding: 15px 50px; border: none; 
-            border-radius: 50px; background: orange; color: white; 
-            cursor: pointer; box-shadow: 0 4px 15px rgba(255, 165, 0, 0.4);
-            transition: transform 0.2s;
+            font-size: 24px; padding: 15px 40px; border: none; 
+            border-radius: 12px; background: orange; color: white; cursor: pointer;
         }
-        #homeScreen button:active { transform: scale(0.95); }
 
-        /* INTERACTION HINT */
         #uiHint {
-            position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%);
-            color: white; background: rgba(0,0,0,0.7); padding: 12px 25px;
-            border-radius: 8px; display: none; pointer-events: none;
-            font-weight: bold; border: 2px solid orange; z-index: 5;
+            position: fixed; top: 20%; left: 50%; transform: translate(-50%, -50%);
+            color: white; background: rgba(255,165,0,0.8); padding: 15px 30px;
+            border-radius: 50px; display: none; pointer-events: none;
+            font-weight: bold; font-size: 20px; z-index: 5; border: 2px solid white;
         }
 
-        /* MOBILE CONTROLS */
-        #controls { position: fixed; bottom: 30px; left: 30px; z-index: 10; display: grid; grid-template-areas: ". up ." "left down right"; }
+        #controls { position: fixed; bottom: 20px; left: 20px; z-index: 10; display: grid; grid-template-areas: ". up ." "left down right"; }
         .btn {
-            width: 70px; height: 70px; margin: 5px; border-radius: 50%; 
-            font-size: 28px; background: rgba(255,255,255,0.15);
-            border: 2px solid rgba(255,255,255,0.5); color: white; user-select: none;
-            display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px);
+            width: 65px; height: 65px; margin: 5px; border-radius: 50%; 
+            font-size: 24px; background: rgba(255,255,255,0.2);
+            border: 2px solid white; color: white; user-select: none;
+            display: flex; align-items: center; justify-content: center;
         }
-        #up { grid-area: up; }
-        #left { grid-area: left; }
-        #right { grid-area: right; }
-        #down { grid-area: down; }
+        #up { grid-area: up; } #left { grid-area: left; } #right { grid-area: right; } #down { grid-area: down; }
 
         #enterBtn {
-            position: fixed; bottom: 35px; right: 35px; width: 120px; height: 65px; 
-            border-radius: 15px; font-size: 20px; background: orange; border: none;
+            position: fixed; bottom: 25px; right: 25px; width: 110px; height: 60px; 
+            border-radius: 14px; font-size: 18px; background: orange; border: none;
             color: white; z-index: 10; cursor: pointer; font-weight: bold;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
         }
     </style>
 </head>
@@ -58,11 +46,10 @@
 
 <div id="homeScreen">
     <h1>Mini City 3D</h1>
-    <p>Drag to look • WASD to walk</p>
-    <button id="playBtn">PLAY</button>
+    <button id="playBtn">START GAME</button>
 </div>
 
-<div id="uiHint">NEAR DOOR: PRESS ENTER</div>
+<div id="uiHint">DOOR DETECTED: PRESS ENTER</div>
 
 <div id="controls">
     <div class="btn" id="up">⬆</div>
@@ -86,84 +73,80 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-/* ---------- 1. SCENE SETUP ---------- */
+/* ---------- SCENE SETUP ---------- */
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb); 
+scene.background = new THREE.Color(0x87ceeb);
 
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 2000);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 3000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
-/* ---------- 2. LIGHTING ---------- */
-scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-const sun = new THREE.DirectionalLight(0xffffff, 1.2);
-sun.position.set(100, 200, 100);
+scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+const sun = new THREE.DirectionalLight(0xffffff, 1.0);
+sun.position.set(50, 100, 50);
 scene.add(sun);
 
-/* ---------- 3. GROUND ---------- */
-const groundGeo = new THREE.PlaneGeometry(3000, 3000);
-const groundMat = new THREE.MeshStandardMaterial({ color: 0x444444 });
-const ground = new THREE.Mesh(groundGeo, groundMat);
+const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(5000, 5000),
+    new THREE.MeshStandardMaterial({ color: 0x444444 })
+);
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 
-/* ---------- 4. PLAYER & CAMERA ---------- */
+/* ---------- PLAYER ---------- */
 const player = new THREE.Object3D();
-player.position.set(0, 2, 0); // Spawn at center
+player.position.set(0, 2, 0); 
 scene.add(player);
 player.add(camera);
 
-let yaw = 0, pitch = 0;
-let targetYaw = 0, targetPitch = 0;
+let yaw = 0, pitch = 0, targetYaw = 0, targetPitch = 0;
 const speed = 0.6;
 const move = { up: false, down: false, left: false, right: false };
 
-/* ---------- 5. LOAD BUILDING.GLB ---------- */
+/* ---------- LOADING BUILDINGS & X-RAY MARKERS ---------- */
 const buildings = [];
 const loader = new GLTFLoader();
 
-loader.load(
-    'models/building.glb', 
-    (gltf) => {
-        const baseBuilding = gltf.scene;
-        baseBuilding.scale.set(3, 3, 3);
+loader.load('models/building.glb', (gltf) => {
+    const baseBuilding = gltf.scene;
+    baseBuilding.scale.set(3, 3, 3);
+    const spacing = 150; 
 
-        const spacing = 120; 
-        for (let x = -3; x <= 3; x++) {
-            for (let z = -3; z <= 3; z++) {
-                
-                // SAFE ZONE: No buildings in the 3x3 middle grid
-                if (Math.abs(x) <= 1 && Math.abs(z) <= 1) continue; 
+    for (let x = -3; x <= 3; x++) {
+        for (let z = -3; z <= 3; z++) {
+            if (Math.abs(x) <= 1 && Math.abs(z) <= 1) continue; 
 
-                const b = baseBuilding.clone();
-                b.position.set(x * spacing, 0, z * spacing);
-                scene.add(b);
+            const b = baseBuilding.clone();
+            b.position.set(x * spacing, 0, z * spacing);
+            scene.add(b);
 
-                // Collision Box
-                const box = new THREE.Box3().setFromObject(b);
+            const box = new THREE.Box3().setFromObject(b);
 
-                // Door trigger point (Adjust 12 if door is elsewhere)
-                const doorWorldPos = new THREE.Vector3(x * spacing, 2, z * spacing + 12);
+            // Door Point: Try Z + 15 (further out so it's not inside the wall)
+            const doorWorldPos = new THREE.Vector3(x * spacing, 5, z * spacing + 15);
 
-                // VISUAL MARKER FOR DOOR
-                const marker = new THREE.Mesh(
-                    new THREE.SphereGeometry(1.2),
-                    new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.6 })
-                );
-                marker.position.copy(doorWorldPos);
-                scene.add(marker);
+            // X-RAY MARKER: Visible through walls
+            const markerGeo = new THREE.SphereGeometry(2.5);
+            const markerMat = new THREE.MeshBasicMaterial({ 
+                color: 0xff0000, 
+                depthTest: false, // THIS MAKES IT VISIBLE THROUGH WALLS
+                transparent: true,
+                opacity: 0.8
+            });
+            const marker = new THREE.Mesh(markerGeo, markerMat);
+            marker.position.copy(doorWorldPos);
+            marker.renderOrder = 999; // Ensures it draws on top
+            scene.add(marker);
 
-                buildings.push({ mesh: b, box: box, doorWorld: doorWorldPos });
-            }
+            buildings.push({ mesh: b, box: box, doorWorld: doorWorldPos });
         }
-    },
-    undefined,
-    (err) => console.error("Could not find models/building.glb", err)
-);
+    }
+    console.log("Buildings loaded: " + buildings.length);
+});
 
-/* ---------- 6. INPUTS & DRAG ---------- */
+/* ---------- CONTROLS ---------- */
 function bindBtn(id, key) {
     const el = document.getElementById(id);
     el.addEventListener("pointerdown", (e) => { e.preventDefault(); move[key] = true; });
@@ -174,70 +157,36 @@ function bindBtn(id, key) {
 bindBtn("up", "up"); bindBtn("down", "down");
 bindBtn("left", "left"); bindBtn("right", "right");
 
-window.addEventListener("keydown", (e) => {
-    const k = e.key.toLowerCase();
-    if (k === "w" || k === "arrowup") move.up = true;
-    if (k === "s" || k === "arrowdown") move.down = true;
-    if (k === "a" || k === "arrowleft") move.left = true;
-    if (k === "d" || k === "arrowright") move.right = true;
-});
-window.addEventListener("keyup", (e) => {
-    const k = e.key.toLowerCase();
-    if (k === "w" || k === "arrowup") move.up = false;
-    if (k === "s" || k === "arrowdown") move.down = false;
-    if (k === "a" || k === "arrowleft") move.left = false;
-    if (k === "d" || k === "arrowright") move.right = false;
-});
-
+/* MOUSE/TOUCH LOOK */
 let dragging = false, lastX = 0, lastY = 0;
 renderer.domElement.addEventListener("pointerdown", e => { dragging = true; lastX = e.clientX; lastY = e.clientY; });
 window.addEventListener("pointerup", () => dragging = false);
 window.addEventListener("pointermove", e => {
     if (!dragging) return;
-    targetYaw -= (e.clientX - lastX) * 0.006;
-    targetPitch -= (e.clientY - lastY) * 0.006;
+    targetYaw -= (e.clientX - lastX) * 0.007;
+    targetPitch -= (e.clientY - lastY) * 0.007;
     targetPitch = Math.max(-1.1, Math.min(1.1, targetPitch));
     lastX = e.clientX; lastY = e.clientY;
 });
 
-/* ---------- 7. COLLISION & UI LOGIC ---------- */
+/* ---------- GAME LOGIC ---------- */
 const playerHitbox = new THREE.Box3();
 const uiHint = document.getElementById("uiHint");
 
-function checkCollision(nx, nz) {
-    playerHitbox.setFromCenterAndSize(
-        new THREE.Vector3(nx, 2, nz),
-        new THREE.Vector3(3.5, 4, 3.5) // Player size
-    );
-    for (const b of buildings) {
-        if (playerHitbox.intersectsBox(b.box)) return false;
-    }
-    return true;
-}
-
-/* ---------- 8. TELEPORT SYSTEM ---------- */
-let inside = false;
 document.getElementById("enterBtn").onclick = () => {
-    if (!inside) {
-        for (const b of buildings) {
-            if (player.position.distanceTo(b.doorWorld) < 15) {
-                player.position.set(0, 2, -1500); // Teleport to empty interior zone
-                inside = true; 
-                return;
-            }
+    let near = false;
+    for (const b of buildings) {
+        if (player.position.distanceTo(b.doorWorld) < 20) {
+            player.position.set(0, 2, -2000); // Teleport
+            near = true; break;
         }
-        alert("Find a red door marker first!");
-    } else {
-        player.position.set(0, 2, 0); // Back to city center
-        inside = false;
     }
+    if(!near && player.position.z > -1000) alert("Walk into a Red Glow first!");
+    if(player.position.z < -1000) player.position.set(0,2,0); // Exit
 };
 
-document.getElementById("playBtn").onclick = () => {
-    document.getElementById("homeScreen").style.display = "none";
-};
+document.getElementById("playBtn").onclick = () => document.getElementById("homeScreen").style.display = "none";
 
-/* ---------- 9. GAME LOOP ---------- */
 function animate() {
     requestAnimationFrame(animate);
 
@@ -252,24 +201,23 @@ function animate() {
     if (move.left) { nx -= Math.cos(yaw) * speed; nz += Math.sin(yaw) * speed; }
     if (move.right) { nx += Math.cos(yaw) * speed; nz -= Math.sin(yaw) * speed; }
 
-    if (checkCollision(nx, nz)) {
-        player.position.x = nx;
-        player.position.z = nz;
+    // Collision Check
+    playerHitbox.setFromCenterAndSize(new THREE.Vector3(nx, 2, nz), new THREE.Vector3(3, 4, 3));
+    let collision = false;
+    for (const b of buildings) {
+        if (playerHitbox.intersectsBox(b.box)) { collision = true; break; }
     }
+    if (!collision) { player.position.x = nx; player.position.z = nz; }
 
-    // Proximity Hint logic
-    let nearAnyDoor = false;
+    // UI Hint Logic
+    let nearDoor = false;
     for(const b of buildings) {
-        if(player.position.distanceTo(b.doorWorld) < 15) {
-            nearAnyDoor = true;
-            break;
-        }
+        if(player.position.distanceTo(b.doorWorld) < 20) { nearDoor = true; break; }
     }
-    uiHint.style.display = nearAnyDoor ? "block" : "none";
+    uiHint.style.display = nearDoor ? "block" : "none";
 
     player.rotation.y = yaw;
     camera.rotation.x = pitch;
-
     renderer.render(scene, camera);
 }
 animate();
