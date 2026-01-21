@@ -7,7 +7,7 @@
 
 <style>
 body { margin:0; overflow:hidden; background:#87ceeb; font-family:sans-serif; }
-canvas { display:block; }
+canvas { display:block; touch-action:none; }
 
 #controls {
   position:fixed;
@@ -21,7 +21,7 @@ canvas { display:block; }
   margin:4px;
   border-radius:50%;
   font-size:20px;
-  background:rgba(255,255,255,0.35);
+  background:rgba(255,255,255,0.4);
   border:2px solid white;
 }
 
@@ -99,52 +99,67 @@ player.add(camera);
 
 let yaw = 0;
 let pitch = 0;
-const speed = 0.4;
+const speed = 0.35;
 
-/* ---------- INPUT ---------- */
-const keys = {};
-["up","down","left","right"].forEach(k=>{
-  document.getElementById(k).onpointerdown=()=>keys[k]=true;
-  document.getElementById(k).onpointerup=()=>keys[k]=false;
-});
+/* ---------- MOVEMENT INPUT ---------- */
+const move = { up:false, down:false, left:false, right:false };
+
+function bindBtn(id, key){
+  const el = document.getElementById(id);
+  el.addEventListener("pointerdown", e=>{
+    e.preventDefault();
+    move[key]=true;
+  });
+  el.addEventListener("pointerup", ()=>move[key]=false);
+  el.addEventListener("pointerleave", ()=>move[key]=false);
+}
+
+bindBtn("up","up");
+bindBtn("down","down");
+bindBtn("left","left");
+bindBtn("right","right");
+
+/* ---------- KEYBOARD ---------- */
 window.addEventListener("keydown",e=>{
-  if(e.key==="w") keys.up=true;
-  if(e.key==="s") keys.down=true;
-  if(e.key==="a") keys.left=true;
-  if(e.key==="d") keys.right=true;
+  if(e.key==="w") move.up=true;
+  if(e.key==="s") move.down=true;
+  if(e.key==="a") move.left=true;
+  if(e.key==="d") move.right=true;
 });
 window.addEventListener("keyup",e=>{
-  if(e.key==="w") keys.up=false;
-  if(e.key==="s") keys.down=false;
-  if(e.key==="a") keys.left=false;
-  if(e.key==="d") keys.right=false;
+  if(e.key==="w") move.up=false;
+  if(e.key==="s") move.down=false;
+  if(e.key==="a") move.left=false;
+  if(e.key==="d") move.right=false;
 });
 
-/* ---------- LOOK (UP / DOWN + LEFT / RIGHT) ---------- */
+/* ---------- SMOOTH LOOK ---------- */
 let dragging=false;
 let lastX=0, lastY=0;
+let targetYaw=0, targetPitch=0;
 
-renderer.domElement.addEventListener("pointerdown",e=>{
+renderer.domElement.addEventListener("pointerdown", e=>{
   dragging=true;
   lastX=e.clientX;
   lastY=e.clientY;
 });
-renderer.domElement.addEventListener("pointerup",()=>dragging=false);
 
-renderer.domElement.addEventListener("pointermove",e=>{
+renderer.domElement.addEventListener("pointerup", ()=>dragging=false);
+renderer.domElement.addEventListener("pointerleave", ()=>dragging=false);
+
+renderer.domElement.addEventListener("pointermove", e=>{
   if(!dragging) return;
 
   const dx = e.clientX - lastX;
   const dy = e.clientY - lastY;
 
-  yaw   -= dx * 0.004;
-  pitch -= dy * 0.004;
+  targetYaw   -= dx * 0.003;
+  targetPitch -= dy * 0.003;
 
-  // Clamp vertical look
-  pitch = Math.max(-1.0, Math.min(1.0, pitch));
+  targetPitch = Math.max(-0.9, Math.min(0.9, targetPitch));
 
-  lastX = e.clientX;
-  lastY = e.clientY;
+  lastX=e.clientX;
+  lastY=e.clientY;
 });
 
 /* ---------- BUILDINGS ---------- */
@@ -194,7 +209,7 @@ function canMove(nx,nz){
   return true;
 }
 
-/* ---------- ENTER / EXIT ---------- */
+/* ---------- ENTER ---------- */
 let inside=false;
 document.getElementById("enterBtn").onclick=()=>{
   if(!inside){
@@ -216,19 +231,29 @@ document.getElementById("enterBtn").onclick=()=>{
 function animate(){
   requestAnimationFrame(animate);
 
+  // Smooth interpolation (NO LAG)
+  yaw += (targetYaw - yaw) * 0.15;
+  pitch += (targetPitch - pitch) * 0.15;
+
   let nx=player.position.x;
   let nz=player.position.z;
 
-  if(keys.up){ nx-=Math.sin(yaw)*speed; nz-=Math.cos(yaw)*speed; }
-  if(keys.down){ nx+=Math.sin(yaw)*speed; nz+=Math.cos(yaw)*speed; }
+  if(move.up){
+    nx -= Math.sin(yaw)*speed;
+    nz -= Math.cos(yaw)*speed;
+  }
+  if(move.down){
+    nx += Math.sin(yaw)*speed;
+    nz += Math.cos(yaw)*speed;
+  }
 
   if(canMove(nx,nz)){
     player.position.x=nx;
     player.position.z=nz;
   }
 
-  player.rotation.y = yaw;
-  camera.rotation.x = pitch;
+  player.rotation.y=yaw;
+  camera.rotation.x=pitch;
 
   renderer.render(scene,camera);
 }
