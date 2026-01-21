@@ -2,42 +2,33 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Mini City Life 3D - Fixed</title>
+<title>Mini City Life 3D</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 
 <style>
 body { margin: 0; overflow: hidden; font-family: sans-serif; background: #000; }
 canvas { display: block; touch-action: none; }
 
-/* HOME SCREEN */
 #homeScreen {
-  position: fixed;
-  top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(0,0,0,0.9);
-  display: flex; flex-direction: column;
-  justify-content: center; align-items: center;
-  z-index: 100; color: white;
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.9); display: flex; flex-direction: column;
+  justify-content: center; align-items: center; z-index: 100; color: white;
 }
 #homeScreen h1 { font-size: 3em; color: orange; margin-bottom: 20px; }
 #homeScreen button {
-  font-size: 24px; padding: 15px 40px;
-  border: none; border-radius: 12px;
-  background: orange; color: white; cursor: pointer;
+  font-size: 24px; padding: 15px 40px; border: none; 
+  border-radius: 12px; background: orange; color: white; cursor: pointer;
 }
 
-/* CONTROLS */
 #controls { position: fixed; bottom: 20px; left: 20px; z-index: 10; }
 .btn {
-  width: 60px; height: 60px; margin: 4px;
-  border-radius: 50%; font-size: 24px;
-  background: rgba(255,255,255,0.3);
-  border: 2px solid white; color: white;
-  user-select: none;
+  width: 60px; height: 60px; margin: 4px; border-radius: 50%; 
+  font-size: 24px; background: rgba(255,255,255,0.3);
+  border: 2px solid white; color: white; user-select: none;
 }
 #enterBtn {
-  position: fixed; bottom: 25px; right: 25px;
-  width: 110px; height: 60px; border-radius: 14px;
-  font-size: 18px; background: orange; border: none;
+  position: fixed; bottom: 25px; right: 25px; width: 110px; height: 60px; 
+  border-radius: 14px; font-size: 18px; background: orange; border: none;
   color: white; z-index: 10; cursor: pointer;
 }
 </style>
@@ -46,8 +37,7 @@ canvas { display: block; touch-action: none; }
 
 <div id="homeScreen">
   <h1>Mini City Life 3D</h1>
-  <p>Use WASD or Arrows to Walk. Drag to Look.</p>
-  <button id="playBtn">START GAME</button>
+  <button id="playBtn">PLAY</button>
 </div>
 
 <div id="controls">
@@ -74,18 +64,16 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 /* ---------- SCENE SETUP ---------- */
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb); // Sky Blue
+scene.background = new THREE.Color(0x87ceeb);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
 /* ---------- LIGHTING ---------- */
-const ambient = new THREE.AmbientLight(0xffffff, 0.8);
-scene.add(ambient);
+scene.add(new THREE.AmbientLight(0xffffff, 0.8));
 const sun = new THREE.DirectionalLight(0xffffff, 1);
 sun.position.set(50, 100, 50);
 scene.add(sun);
@@ -98,9 +86,9 @@ const ground = new THREE.Mesh(
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 
-/* ---------- PLAYER STATE ---------- */
+/* ---------- PLAYER ---------- */
 const player = new THREE.Object3D();
-player.position.set(0, 2, 80); // Spawned away from center buildings
+player.position.set(0, 2, 80); // Spawn safely away from buildings
 scene.add(player);
 player.add(camera);
 
@@ -109,43 +97,60 @@ let targetYaw = 0, targetPitch = 0;
 const speed = 0.4;
 const move = { up: false, down: false, left: false, right: false };
 
-/* ---------- BUILDINGS & COLLISIONS ---------- */
+/* ---------- LOADING BUILDING.GLB ---------- */
 const buildings = [];
-const buildingBoxes = []; // For collision math
+const loader = new GLTFLoader();
 
-function createBuilding(x, z) {
-  // Visual Box
-  const h = 20 + Math.random() * 20;
-  const geo = new THREE.BoxGeometry(15, h, 15);
-  const mat = new THREE.MeshStandardMaterial({ color: 0x808080 });
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.position.set(x, h/2, z);
-  scene.add(mesh);
+loader.load(
+  'models/building.glb', 
+  (gltf) => {
+    const baseBuilding = gltf.scene;
+    baseBuilding.scale.set(3, 3, 3);
 
-  // Door Visual
-  const door = new THREE.Mesh(
-    new THREE.BoxGeometry(3, 5, 0.5),
-    new THREE.MeshStandardMaterial({ color: 0x4e342e })
-  );
-  door.position.set(0, -h/2 + 2.5, 7.6);
-  mesh.add(door);
+    const spacing = 60;
+    for (let x = -2; x <= 2; x++) {
+      for (let z = -2; z <= 2; z++) {
+        // Skip the center to leave room for the player
+        if (x === 0 && z === 0) continue; 
 
-  // Collision Box (Static)
-  const box = new THREE.Box3().setFromObject(mesh);
-  
-  const doorWorld = new THREE.Vector3();
-  door.getWorldPosition(doorWorld);
+        const b = baseBuilding.clone();
+        b.position.set(x * spacing, 0, z * spacing);
+        scene.add(b);
 
-  buildings.push({ mesh, box, doorWorld });
-}
+        // Compute the bounding box for collision detection
+        // We use world coordinates to make sure collision works everywhere
+        const box = new THREE.Box3().setFromObject(b);
 
-// Generate Grid
-const spacing = 60;
-for (let x = -2; x <= 2; x++) {
-  for (let z = -2; z <= 2; z++) {
-    if (x === 0 && z === 1) continue; // Keep spawn area clear
-    createBuilding(x * spacing, z * spacing);
+        // We assume the "door" is at a specific offset from building center
+        // Adjust these numbers (0, 0, 8) to match your specific model's door
+        const doorOffset = new THREE.Vector3(0, 0, 8); 
+        const doorWorldPos = b.position.clone().add(doorOffset);
+
+        buildings.push({ mesh: b, box: box, doorWorld: doorWorldPos });
+      }
+    }
+    console.log("City loaded successfully!");
+  },
+  undefined,
+  (error) => {
+    console.error("Error loading building.glb. Check file path!", error);
   }
+);
+
+/* ---------- MOVEMENT & COLLISION ---------- */
+const pBox = new THREE.Box3();
+
+function canMove(nx, nz) {
+  // Update player's virtual hitbox for the next step
+  pBox.setFromCenterAndSize(
+    new THREE.Vector3(nx, 2, nz),
+    new THREE.Vector3(2, 4, 2)
+  );
+
+  for (const b of buildings) {
+    if (pBox.intersectsBox(b.box)) return false;
+  }
+  return true;
 }
 
 /* ---------- INPUT HANDLING ---------- */
@@ -186,34 +191,19 @@ window.addEventListener("pointermove", e => {
   lastX = e.clientX; lastY = e.clientY;
 });
 
-/* ---------- MOVEMENT & COLLISION LOGIC ---------- */
-const pBox = new THREE.Box3();
-function canMove(nx, nz) {
-  // Create a bounding box for the player's potential next position
-  pBox.setFromCenterAndSize(
-    new THREE.Vector3(nx, 2, nz),
-    new THREE.Vector3(2, 4, 2)
-  );
-  // Check against every building's static box
-  for (const b of buildings) {
-    if (pBox.intersectsBox(b.box)) return false;
-  }
-  return true;
-}
-
-/* ---------- INTERACTION ---------- */
+/* ---------- ENTER / EXIT ---------- */
 let inside = false;
 document.getElementById("enterBtn").onclick = () => {
   if (!inside) {
     for (const b of buildings) {
-      if (player.position.distanceTo(b.doorWorld) < 6) {
-        player.position.set(0, 2, -500); // Move to "Interior" area
+      if (player.position.distanceTo(b.doorWorld) < 10) {
+        player.position.set(0, 2, -500); // Teleport to "Interior"
         inside = true; return;
       }
     }
-    alert("Walk closer to a building door!");
+    alert("Get closer to a door!");
   } else {
-    player.position.set(0, 2, 80); // Exit back to street
+    player.position.set(0, 2, 80); // Teleport back outside
     inside = false;
   }
 };
@@ -232,7 +222,6 @@ function animate() {
   let nx = player.position.x;
   let nz = player.position.z;
 
-  // Move Relative to Camera Yaw
   if (move.up) { nx -= Math.sin(yaw) * speed; nz -= Math.cos(yaw) * speed; }
   if (move.down) { nx += Math.sin(yaw) * speed; nz += Math.cos(yaw) * speed; }
   if (move.left) { nx -= Math.cos(yaw) * speed; nz += Math.sin(yaw) * speed; }
