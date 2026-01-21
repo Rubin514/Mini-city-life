@@ -9,14 +9,53 @@
 body {
   margin: 0;
   overflow: hidden;
-  background: #87ceeb;
   font-family: sans-serif;
 }
+
+/* CANVAS */
 canvas {
   display: block;
   touch-action: none;
 }
 
+/* HOME SCREEN */
+#homeScreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: black;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+  color: white;
+}
+
+#homeScreen h1 {
+  font-size: 3em;
+  margin-bottom: 40px;
+  color: gray;
+}
+
+#homeScreen button {
+  font-size: 24px;
+  padding: 15px 40px;
+  border: none;
+  border-radius: 12px;
+  background: orange;
+  color: white;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+#homeScreen button:hover {
+  background: darkorange;
+}
+
+/* CONTROLS */
 #controls {
   position: fixed;
   bottom: 20px;
@@ -50,6 +89,13 @@ canvas {
 
 <body>
 
+<!-- HOME SCREEN -->
+<div id="homeScreen">
+  <h1>Mini City Life 3D</h1>
+  <button id="playBtn">PLAY</button>
+</div>
+
+<!-- GAME CONTROLS -->
 <div id="controls">
   <button class="btn" id="up">⬆</button><br>
   <button class="btn" id="left">⬅</button>
@@ -233,6 +279,14 @@ document.getElementById("enterBtn").onclick=()=>{
     player.position.set(0,2,40);
     inside=false;
   }
+};
+
+/* ---------- HOME SCREEN ---------- */
+const homeScreen = document.getElementById("homeScreen");
+const playBtn = document.getElementById("playBtn");
+
+playBtn.onclick = ()=>{
+  homeScreen.style.display = "none";
 };
 
 /* ---------- LOOP ---------- */
