@@ -2,100 +2,54 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Mini City Life 3D</title>
+<title>Mini City Life 3D - Fixed</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 
 <style>
-body {
-  margin: 0;
-  overflow: hidden;
-  font-family: sans-serif;
-}
-
-/* CANVAS */
-canvas {
-  display: block;
-  touch-action: none;
-}
+body { margin: 0; overflow: hidden; font-family: sans-serif; background: #000; }
+canvas { display: block; touch-action: none; }
 
 /* HOME SCREEN */
 #homeScreen {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: black;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  z-index: 100;
-  color: white;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.9);
+  display: flex; flex-direction: column;
+  justify-content: center; align-items: center;
+  z-index: 100; color: white;
 }
-
-#homeScreen h1 {
-  font-size: 3em;
-  margin-bottom: 40px;
-  color: gray;
-}
-
+#homeScreen h1 { font-size: 3em; color: orange; margin-bottom: 20px; }
 #homeScreen button {
-  font-size: 24px;
-  padding: 15px 40px;
-  border: none;
-  border-radius: 12px;
-  background: orange;
-  color: white;
-  cursor: pointer;
-  transition: 0.2s;
-}
-
-#homeScreen button:hover {
-  background: darkorange;
+  font-size: 24px; padding: 15px 40px;
+  border: none; border-radius: 12px;
+  background: orange; color: white; cursor: pointer;
 }
 
 /* CONTROLS */
-#controls {
-  position: fixed;
-  bottom: 20px;
-  left: 20px;
-  z-index: 10;
-}
+#controls { position: fixed; bottom: 20px; left: 20px; z-index: 10; }
 .btn {
-  width: 60px;
-  height: 60px;
-  margin: 4px;
-  border-radius: 50%;
-  font-size: 20px;
-  background: rgba(255,255,255,0.4);
-  border: 2px solid white;
+  width: 60px; height: 60px; margin: 4px;
+  border-radius: 50%; font-size: 24px;
+  background: rgba(255,255,255,0.3);
+  border: 2px solid white; color: white;
+  user-select: none;
 }
-
 #enterBtn {
-  position: fixed;
-  bottom: 25px;
-  right: 25px;
-  width: 110px;
-  height: 60px;
-  border-radius: 14px;
-  font-size: 18px;
-  background: orange;
-  border: none;
-  z-index: 10;
+  position: fixed; bottom: 25px; right: 25px;
+  width: 110px; height: 60px; border-radius: 14px;
+  font-size: 18px; background: orange; border: none;
+  color: white; z-index: 10; cursor: pointer;
 }
 </style>
 </head>
-
 <body>
 
-<!-- HOME SCREEN -->
 <div id="homeScreen">
   <h1>Mini City Life 3D</h1>
-  <button id="playBtn">PLAY</button>
+  <p>Use WASD or Arrows to Walk. Drag to Look.</p>
+  <button id="playBtn">START GAME</button>
 </div>
 
-<!-- GAME CONTROLS -->
 <div id="controls">
   <button class="btn" id="up">⬆</button><br>
   <button class="btn" id="left">⬅</button>
@@ -118,209 +72,173 @@ canvas {
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-/* ---------- SCENE ---------- */
+/* ---------- SCENE SETUP ---------- */
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb);
+scene.background = new THREE.Color(0x87ceeb); // Sky Blue
 
-/* ---------- CAMERA ---------- */
-const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
 
-/* ---------- RENDERER ---------- */
-const renderer = new THREE.WebGLRenderer({ antialias:true });
-renderer.setSize(innerWidth, innerHeight);
-renderer.setPixelRatio(devicePixelRatio);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
-/* ---------- LIGHT ---------- */
-scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+/* ---------- LIGHTING ---------- */
+const ambient = new THREE.AmbientLight(0xffffff, 0.8);
+scene.add(ambient);
 const sun = new THREE.DirectionalLight(0xffffff, 1);
-sun.position.set(50,100,50);
+sun.position.set(50, 100, 50);
 scene.add(sun);
 
 /* ---------- GROUND ---------- */
 const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(600,600),
-  new THREE.MeshStandardMaterial({ color:0x2e7d32 })
+  new THREE.PlaneGeometry(1000, 1000),
+  new THREE.MeshStandardMaterial({ color: 0x2e7d32 })
 );
-ground.rotation.x = -Math.PI/2;
+ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 
-/* ---------- PLAYER ---------- */
+/* ---------- PLAYER STATE ---------- */
 const player = new THREE.Object3D();
-player.position.set(0,2,40);
+player.position.set(0, 2, 80); // Spawned away from center buildings
 scene.add(player);
 player.add(camera);
 
-let yaw = 0;
-let pitch = 0;
-let targetYaw = 0;
-let targetPitch = 0;
+let yaw = 0, pitch = 0;
+let targetYaw = 0, targetPitch = 0;
+const speed = 0.4;
+const move = { up: false, down: false, left: false, right: false };
 
-const speed = 0.35;
+/* ---------- BUILDINGS & COLLISIONS ---------- */
+const buildings = [];
+const buildingBoxes = []; // For collision math
 
-/* ---------- MOVEMENT INPUT ---------- */
-const move = { up:false, down:false, left:false, right:false };
+function createBuilding(x, z) {
+  // Visual Box
+  const h = 20 + Math.random() * 20;
+  const geo = new THREE.BoxGeometry(15, h, 15);
+  const mat = new THREE.MeshStandardMaterial({ color: 0x808080 });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(x, h/2, z);
+  scene.add(mesh);
 
-function bindBtn(id, key){
-  const el = document.getElementById(id);
-  el.addEventListener("pointerdown", e=>{
-    e.preventDefault();
-    move[key] = true;
-  });
-  el.addEventListener("pointerup", ()=> move[key]=false);
-  el.addEventListener("pointerleave", ()=> move[key]=false);
+  // Door Visual
+  const door = new THREE.Mesh(
+    new THREE.BoxGeometry(3, 5, 0.5),
+    new THREE.MeshStandardMaterial({ color: 0x4e342e })
+  );
+  door.position.set(0, -h/2 + 2.5, 7.6);
+  mesh.add(door);
+
+  // Collision Box (Static)
+  const box = new THREE.Box3().setFromObject(mesh);
+  
+  const doorWorld = new THREE.Vector3();
+  door.getWorldPosition(doorWorld);
+
+  buildings.push({ mesh, box, doorWorld });
 }
 
-bindBtn("up","up");
-bindBtn("down","down");
-bindBtn("left","left");
-bindBtn("right","right");
-
-/* ---------- KEYBOARD ---------- */
-window.addEventListener("keydown", e=>{
-  if(e.key==="w") move.up=true;
-  if(e.key==="s") move.down=true;
-  if(e.key==="a") move.left=true;
-  if(e.key==="d") move.right=true;
-});
-window.addEventListener("keyup", e=>{
-  if(e.key==="w") move.up=false;
-  if(e.key==="s") move.down=false;
-  if(e.key==="a") move.left=false;
-  if(e.key==="d") move.right=false;
-});
-
-/* ---------- LOOK CONTROLS (SWIPE) ---------- */
-let dragging=false, lastX=0, lastY=0;
-
-renderer.domElement.addEventListener("pointerdown", e=>{
-  dragging=true;
-  lastX=e.clientX;
-  lastY=e.clientY;
-});
-renderer.domElement.addEventListener("pointerup", ()=> dragging=false);
-renderer.domElement.addEventListener("pointerleave", ()=> dragging=false);
-
-renderer.domElement.addEventListener("pointermove", e=>{
-  if(!dragging) return;
-
-  const dx = e.clientX - lastX;
-  const dy = e.clientY - lastY;
-
-  targetYaw   -= dx * 0.003;
-  targetPitch -= dy * 0.003;
-
-  targetPitch = Math.max(-0.9, Math.min(0.9, targetPitch));
-
-  lastX = e.clientX;
-  lastY = e.clientY;
-});
-
-/* ---------- BUILDINGS ---------- */
-const buildings=[];
-const loader=new GLTFLoader();
-
-loader.load("models/building.glb", gltf=>{
-  const base=gltf.scene;
-  base.scale.set(3,3,3);
-
-  const spacing=50;
-
-  for(let x=-2;x<=2;x++){
-    for(let z=-2;z<=2;z++){
-      if(x===0 && z===0) continue;
-
-      const b=base.clone();
-      b.position.set(x*spacing,0,z*spacing);
-      scene.add(b);
-
-      const box=new THREE.Box3().setFromObject(b);
-
-      const door=new THREE.Mesh(
-        new THREE.BoxGeometry(2,4,0.4),
-        new THREE.MeshStandardMaterial({ color:0x4e342e })
-      );
-      door.position.set(0,2,6);
-      b.add(door);
-
-      const doorWorld=new THREE.Vector3();
-      door.getWorldPosition(doorWorld);
-
-      buildings.push({ box, doorWorld });
-    }
+// Generate Grid
+const spacing = 60;
+for (let x = -2; x <= 2; x++) {
+  for (let z = -2; z <= 2; z++) {
+    if (x === 0 && z === 1) continue; // Keep spawn area clear
+    createBuilding(x * spacing, z * spacing);
   }
+}
+
+/* ---------- INPUT HANDLING ---------- */
+function bindBtn(id, key) {
+  const el = document.getElementById(id);
+  el.addEventListener("pointerdown", (e) => { e.preventDefault(); move[key] = true; });
+  const stop = (e) => { e.preventDefault(); move[key] = false; };
+  el.addEventListener("pointerup", stop);
+  el.addEventListener("pointerleave", stop);
+}
+bindBtn("up", "up"); bindBtn("down", "down");
+bindBtn("left", "left"); bindBtn("right", "right");
+
+window.addEventListener("keydown", (e) => {
+  const k = e.key.toLowerCase();
+  if (k === "w" || k === "arrowup") move.up = true;
+  if (k === "s" || k === "arrowdown") move.down = true;
+  if (k === "a" || k === "arrowleft") move.left = true;
+  if (k === "d" || k === "arrowright") move.right = true;
+});
+window.addEventListener("keyup", (e) => {
+  const k = e.key.toLowerCase();
+  if (k === "w" || k === "arrowup") move.up = false;
+  if (k === "s" || k === "arrowdown") move.down = false;
+  if (k === "a" || k === "arrowleft") move.left = false;
+  if (k === "d" || k === "arrowright") move.right = false;
 });
 
-/* ---------- COLLISION ---------- */
-function canMove(nx, nz){
-  const pBox=new THREE.Box3(
-    new THREE.Vector3(nx-1,0,nz-1),
-    new THREE.Vector3(nx+1,4,nz+1)
+/* ---------- LOOK CONTROLS ---------- */
+let dragging = false, lastX = 0, lastY = 0;
+renderer.domElement.addEventListener("pointerdown", e => { dragging = true; lastX = e.clientX; lastY = e.clientY; });
+window.addEventListener("pointerup", () => dragging = false);
+window.addEventListener("pointermove", e => {
+  if (!dragging) return;
+  targetYaw -= (e.clientX - lastX) * 0.005;
+  targetPitch -= (e.clientY - lastY) * 0.005;
+  targetPitch = Math.max(-0.9, Math.min(0.9, targetPitch));
+  lastX = e.clientX; lastY = e.clientY;
+});
+
+/* ---------- MOVEMENT & COLLISION LOGIC ---------- */
+const pBox = new THREE.Box3();
+function canMove(nx, nz) {
+  // Create a bounding box for the player's potential next position
+  pBox.setFromCenterAndSize(
+    new THREE.Vector3(nx, 2, nz),
+    new THREE.Vector3(2, 4, 2)
   );
-  for(const b of buildings){
-    if(pBox.intersectsBox(b.box)) return false;
+  // Check against every building's static box
+  for (const b of buildings) {
+    if (pBox.intersectsBox(b.box)) return false;
   }
   return true;
 }
 
-/* ---------- ENTER / EXIT ---------- */
-let inside=false;
-document.getElementById("enterBtn").onclick=()=>{
-  if(!inside){
-    for(const b of buildings){
-      if(player.position.distanceTo(b.doorWorld)<3){
-        player.position.set(0,2,-150);
-        inside=true;
-        return;
+/* ---------- INTERACTION ---------- */
+let inside = false;
+document.getElementById("enterBtn").onclick = () => {
+  if (!inside) {
+    for (const b of buildings) {
+      if (player.position.distanceTo(b.doorWorld) < 6) {
+        player.position.set(0, 2, -500); // Move to "Interior" area
+        inside = true; return;
       }
     }
-    alert("Go near the door");
-  }else{
-    player.position.set(0,2,40);
-    inside=false;
+    alert("Walk closer to a building door!");
+  } else {
+    player.position.set(0, 2, 80); // Exit back to street
+    inside = false;
   }
 };
 
-/* ---------- HOME SCREEN ---------- */
-const homeScreen = document.getElementById("homeScreen");
-const playBtn = document.getElementById("playBtn");
-
-playBtn.onclick = ()=>{
-  homeScreen.style.display = "none";
+document.getElementById("playBtn").onclick = () => {
+  document.getElementById("homeScreen").style.display = "none";
 };
 
-/* ---------- LOOP ---------- */
-function animate(){
+/* ---------- GAME LOOP ---------- */
+function animate() {
   requestAnimationFrame(animate);
 
-  // Smooth camera
-  yaw   += (targetYaw - yaw) * 0.15;
+  yaw += (targetYaw - yaw) * 0.15;
   pitch += (targetPitch - pitch) * 0.15;
 
   let nx = player.position.x;
   let nz = player.position.z;
 
-  // Forward / backward
-  if(move.up){
-    nx -= Math.sin(yaw) * speed;
-    nz -= Math.cos(yaw) * speed;
-  }
-  if(move.down){
-    nx += Math.sin(yaw) * speed;
-    nz += Math.cos(yaw) * speed;
-  }
+  // Move Relative to Camera Yaw
+  if (move.up) { nx -= Math.sin(yaw) * speed; nz -= Math.cos(yaw) * speed; }
+  if (move.down) { nx += Math.sin(yaw) * speed; nz += Math.cos(yaw) * speed; }
+  if (move.left) { nx -= Math.cos(yaw) * speed; nz += Math.sin(yaw) * speed; }
+  if (move.right) { nx += Math.cos(yaw) * speed; nz -= Math.sin(yaw) * speed; }
 
-  // STRAFE LEFT / RIGHT
-  if(move.left){
-    nx -= Math.cos(yaw) * speed;
-    nz += Math.sin(yaw) * speed;
-  }
-  if(move.right){
-    nx += Math.cos(yaw) * speed;
-    nz -= Math.sin(yaw) * speed;
-  }
-
-  if(canMove(nx,nz)){
+  if (canMove(nx, nz)) {
     player.position.x = nx;
     player.position.z = nz;
   }
@@ -328,17 +246,15 @@ function animate(){
   player.rotation.y = yaw;
   camera.rotation.x = pitch;
 
-  renderer.render(scene,camera);
+  renderer.render(scene, camera);
 }
 animate();
 
-/* ---------- RESIZE ---------- */
-onresize=()=>{
-  camera.aspect = innerWidth/innerHeight;
+window.onresize = () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth,innerHeight);
+  renderer.setSize(window.innerWidth, window.innerHeight);
 };
 </script>
-
 </body>
 </html>
