@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mini City Life</title>
 
 <style>
-    body { margin: 0; overflow: hidden; background: #87ceeb; }
+    body { margin: 0; overflow: hidden; background:#87ceeb; }
     canvas { display: block; }
 
     /* Mobile controls */
@@ -14,43 +14,33 @@
         position: fixed;
         bottom: 20px;
         left: 20px;
+        display: grid;
+        grid-template-columns: 60px 60px 60px;
+        grid-template-rows: 60px 60px;
+        gap: 10px;
         z-index: 10;
     }
-    .controls button {
+    .btn {
         width: 60px;
         height: 60px;
-        margin: 5px;
         border-radius: 50%;
-        border: none;
-        background: rgba(0,0,0,0.4);
+        background: rgba(0,0,0,0.5);
         color: white;
-        font-size: 20px;
-    }
-    .enter {
-        position: fixed;
-        bottom: 30px;
-        right: 20px;
-        background: orange;
-        color: black;
-        border-radius: 10px;
-        padding: 15px 25px;
-        font-size: 18px;
+        font-size: 24px;
         border: none;
-        z-index: 10;
     }
 </style>
 </head>
 
 <body>
 
-<!-- MOBILE CONTROLS -->
+<!-- Mobile buttons -->
 <div class="controls">
-    <button id="up">↑</button><br/>
-    <button id="left">←</button>
-    <button id="down">↓</button>
-    <button id="right">→</button>
+    <button class="btn" id="up">↑</button>
+    <button class="btn" id="left">←</button>
+    <button class="btn" id="right">→</button>
+    <button class="btn" id="down">↓</button>
 </div>
-<button class="enter">ENTER</button>
 
 <script type="importmap">
 {
@@ -62,131 +52,148 @@
 </script>
 
 <script type="module">
-import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 /* SCENE */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
-scene.fog = new THREE.Fog(0x87ceeb, 50, 200);
 
 /* CAMERA */
-const camera = new THREE.PerspectiveCamera(
-    75,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    1000
-);
-camera.position.set(0, 3, 10);
+const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
+camera.position.set(0, 6, 10);
 
 /* RENDERER */
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(devicePixelRatio);
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth, innerHeight);
 document.body.appendChild(renderer.domElement);
 
-/* CONTROLS (for desktop testing) */
-const orbit = new OrbitControls(camera, renderer.domElement);
-orbit.enableDamping = true;
-orbit.enablePan = false;
-orbit.maxPolarAngle = Math.PI / 2.1;
+/* CONTROLS */
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.enablePan = false;
+controls.maxPolarAngle = Math.PI / 2.2;
 
-/* LIGHTS */
+/* LIGHT */
 scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-
 const sun = new THREE.DirectionalLight(0xffffff, 1.2);
-sun.position.set(50, 50, 50);
+sun.position.set(50,50,50);
 scene.add(sun);
 
 /* GROUND */
 const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(500, 500),
-    new THREE.MeshStandardMaterial({ color: 0x555555 })
+    new THREE.PlaneGeometry(500,500),
+    new THREE.MeshStandardMaterial({color:0x555555})
 );
-ground.rotation.x = -Math.PI / 2;
+ground.rotation.x = -Math.PI/2;
 scene.add(ground);
 
-scene.add(new THREE.GridHelper(500, 50));
+/* GRID */
+scene.add(new THREE.GridHelper(500, 100));
 
-/* PLAYER (camera holder) */
+/* PLAYER (INVISIBLE COLLIDER) */
 const player = new THREE.Object3D();
-player.position.y = 3; // human height
-player.add(camera);
+player.position.set(0, 0, 0);
 scene.add(player);
 
-/* MOVEMENT */
-const speed = 0.15;
-const move = { up:false, down:false, left:false, right:false };
+/* PLAYER COLLISION BOX */
+const playerBox = new THREE.Box3();
+const playerSize = new THREE.Vector3(1, 2, 1);
 
-document.getElementById("up").ontouchstart = () => move.up = true;
-document.getElementById("up").ontouchend   = () => move.up = false;
-document.getElementById("down").ontouchstart = () => move.down = true;
-document.getElementById("down").ontouchend   = () => move.down = false;
-document.getElementById("left").ontouchstart = () => move.left = true;
-document.getElementById("left").ontouchend   = () => move.left = false;
-document.getElementById("right").ontouchstart = () => move.right = true;
-document.getElementById("right").ontouchend   = () => move.right = false;
+/* BUILDING COLLIDERS */
+const buildingBoxes = [];
 
-/* LOAD BUILDING & CREATE CITY */
+/* LOAD BUILDING */
 const loader = new GLTFLoader();
-
 loader.load("models/building.glb", (gltf) => {
 
-    const base = gltf.scene;
+    const baseModel = gltf.scene;
 
-    // 🔥 AUTO HEIGHT FIX (YOUR BUG FIXED)
-    const box = new THREE.Box3().setFromObject(base);
-    const height = box.max.y - box.min.y;
+    const baseBox = new THREE.Box3().setFromObject(baseModel);
+    const baseSize = new THREE.Vector3();
+    baseBox.getSize(baseSize);
 
-    const spacing = 25;
+    const spacing = baseSize.x + 20;
     const citySize = 4;
 
     for (let x = -citySize; x <= citySize; x++) {
         for (let z = -citySize; z <= citySize; z++) {
 
-            const building = base.clone();
+            const building = baseModel.clone(true);
 
-            building.position.set(
-                x * spacing,
-                height / 2, // PERFECT ground alignment
-                z * spacing
-            );
+            const box = new THREE.Box3().setFromObject(building);
+
+            building.position.y = -box.min.y; // FIX FLOATING
+            building.position.x = x * spacing;
+            building.position.z = z * spacing;
 
             building.rotation.y = Math.random() * Math.PI * 2;
+
             scene.add(building);
+
+            // COLLISION BOX
+            const collider = new THREE.Box3().setFromObject(building);
+            buildingBoxes.push(collider);
         }
     }
 });
 
-/* RESIZE */
-window.addEventListener("resize", () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-});
+/* MOVEMENT */
+const speed = 0.15;
+const move = { up:false, down:false, left:false, right:false };
 
-/* ANIMATE */
-function animate() {
-    requestAnimationFrame(animate);
+function tryMove(dx, dz) {
+    const nextPos = player.position.clone();
+    nextPos.x += dx;
+    nextPos.z += dz;
 
-    const dir = new THREE.Vector3();
-    camera.getWorldDirection(dir);
-    dir.y = 0;
-    dir.normalize();
+    playerBox.setFromCenterAndSize(
+        new THREE.Vector3(nextPos.x, 1, nextPos.z),
+        playerSize
+    );
 
-    if (move.up) player.position.addScaledVector(dir, speed);
-    if (move.down) player.position.addScaledVector(dir, -speed);
-    if (move.left) player.rotation.y += 0.03;
-    if (move.right) player.rotation.y -= 0.03;
+    for (const box of buildingBoxes) {
+        if (playerBox.intersectsBox(box)) return;
+    }
 
-    orbit.target.copy(player.position);
-    orbit.update();
-
-    renderer.render(scene, camera);
+    player.position.copy(nextPos);
+    camera.position.x += dx;
+    camera.position.z += dz;
 }
 
+/* BUTTON EVENTS */
+up.onclick = ()=> move.up = true;
+down.onclick = ()=> move.down = true;
+left.onclick = ()=> move.left = true;
+right.onclick = ()=> move.right = true;
+
+document.body.addEventListener("touchend", ()=> {
+    move.up = move.down = move.left = move.right = false;
+});
+
+/* LOOP */
+function animate(){
+    requestAnimationFrame(animate);
+
+    if(move.up) tryMove(0, -speed);
+    if(move.down) tryMove(0, speed);
+    if(move.left) tryMove(-speed, 0);
+    if(move.right) tryMove(speed, 0);
+
+    controls.target.copy(player.position);
+    controls.update();
+    renderer.render(scene, camera);
+}
 animate();
+
+/* RESIZE */
+addEventListener("resize", ()=>{
+    camera.aspect = innerWidth/innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+});
 </script>
+
 </body>
 </html>
