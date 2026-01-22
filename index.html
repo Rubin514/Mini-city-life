@@ -5,7 +5,7 @@
     <title>Dr. City Life 3D</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Courier New', Courier, monospace; background: #87ceeb; }
+        body { margin: 0; overflow: hidden; font-family: sans-serif; background: #87ceeb; }
         canvas { display: block; touch-action: none; }
 
         /* VINTAGE ARCADE UI */
@@ -14,29 +14,29 @@
             background: rgba(0,0,0,0.85); display: flex; flex-direction: column;
             justify-content: center; align-items: center; z-index: 100; color: #00ff00;
         }
-        #homeScreen h1 { font-size: 3.5em; margin-bottom: 10px; text-shadow: 3px 3px #000; text-align: center; }
+        #homeScreen h1 { font-size: 3em; margin-bottom: 10px; text-shadow: 2px 2px #000; text-align: center; }
         #homeScreen button {
-            font-size: 28px; padding: 10px 60px; border: 4px solid #00ff00; 
-            background: none; color: #00ff00; cursor: pointer; font-weight: bold;
+            font-size: 24px; padding: 10px 40px; border: 3px solid #00ff00; 
+            background: none; color: #00ff00; cursor: pointer; font-weight: bold; border-radius: 8px;
         }
 
         #uiHint {
             position: fixed; top: 15%; left: 50%; transform: translateX(-50%);
-            color: #ffff00; font-size: 24px; font-weight: bold; text-shadow: 2px 2px #000;
+            color: #ffff00; font-size: 20px; font-weight: bold; text-shadow: 2px 2px #000;
             display: none; z-index: 5;
         }
 
         #controls { position: fixed; bottom: 20px; left: 20px; z-index: 10; display: grid; grid-template-areas: ". up ." "left down right"; }
         .btn {
-            width: 75px; height: 75px; margin: 5px; border-radius: 10px; 
-            font-size: 32px; background: rgba(0,0,0,0.6);
-            border: 3px solid #ffffff; color: white; display: flex; align-items: center; justify-content: center;
+            width: 70px; height: 70px; margin: 5px; border-radius: 12px; 
+            font-size: 28px; background: rgba(0,0,0,0.6);
+            border: 2px solid #ffffff; color: white; display: flex; align-items: center; justify-content: center;
         }
         #up { grid-area: up; } #left { grid-area: left; } #right { grid-area: right; } #down { grid-area: down; }
 
         #enterBtn {
-            position: fixed; bottom: 30px; right: 30px; width: 120px; height: 70px; 
-            border-radius: 10px; font-size: 22px; background: #ff0000; border: 4px solid #fff;
+            position: fixed; bottom: 30px; right: 30px; width: 130px; height: 70px; 
+            border-radius: 12px; font-size: 22px; background: #ff0000; border: 3px solid #fff;
             color: white; z-index: 10; cursor: pointer; font-weight: bold;
         }
     </style>
@@ -48,7 +48,7 @@
     <button id="playBtn">START GAME</button>
 </div>
 
-<div id="uiHint">PARK TO ENTER</div>
+<div id="uiHint">DOOR REACHED</div>
 
 <div id="controls">
     <div class="btn" id="up">▲</div>
@@ -72,12 +72,11 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-/* ---------- 1. SCENE & ATMOSPHERE ---------- */
+/* ---------- 1. SCENE SETUP ---------- */
 const scene = new THREE.Scene();
 const skyColor = 0x87ceeb;
 scene.background = new THREE.Color(skyColor);
-// Mobile game fog to hide edges
-scene.fog = new THREE.FogExp2(skyColor, 0.0015);
+scene.fog = new THREE.FogExp2(skyColor, 0.0012);
 
 const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 5000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -85,169 +84,154 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.9));
-const sun = new THREE.DirectionalLight(0xffffff, 1.0);
-sun.position.set(100, 500, 100);
+scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+const sun = new THREE.DirectionalLight(0xffffff, 0.8);
+sun.position.set(50, 200, 50);
 scene.add(sun);
 
-/* ---------- 2. GRASS TEXTURE LOADING ---------- */
+/* ---------- 2. GRASS TEXTURE ---------- */
 const textureLoader = new THREE.TextureLoader();
-const grassTexture = textureLoader.load(
-    'textures/grass.png',
-    () => console.log("Grass texture loaded!"),
+// Force re-load and check path. Try 'grass.png' if it's in the same folder as index.html
+const grassTexture = textureLoader.load('textures/grass.png', 
+    (tex) => {
+        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(100, 100);
+        console.log("Texture loaded!");
+    },
     undefined,
-    (err) => console.error("Could not load grass texture. Check your file path.")
+    (err) => console.error("Grass image not found! Check your 'textures' folder.")
 );
 
-grassTexture.wrapS = THREE.RepeatWrapping;
-grassTexture.wrapT = THREE.RepeatWrapping;
-grassTexture.repeat.set(80, 80); // Adjust this if the grass looks too big
-
-/* ---------- 3. THE WORLD (ISLAND & SEA) ---------- */
-const spacing = 180;
-const gridSize = 10;
+/* ---------- 3. MAP (LAND & SEA) ---------- */
+const spacing = 200;
+const gridSize = 8;
 const mapSize = (gridSize + 2) * spacing;
 
-// LAND (The grass surface)
+// Ground with fallback color
 const land = new THREE.Mesh(
     new THREE.PlaneGeometry(mapSize, mapSize),
-    new THREE.MeshStandardMaterial({ map: grassTexture, color: 0x228b22 }) // Green color as backup
+    new THREE.MeshStandardMaterial({ 
+        map: (grassTexture), 
+        color: 0x1a4d1a // Dark green fallback if texture fails
+    })
 );
 land.rotation.x = -Math.PI / 2;
 scene.add(land);
 
-// SEA
 const sea = new THREE.Mesh(
     new THREE.PlaneGeometry(15000, 15000),
     new THREE.MeshStandardMaterial({ color: 0x0044ff })
 );
 sea.rotation.x = -Math.PI / 2;
-sea.position.y = -3;
+sea.position.y = -5;
 scene.add(sea);
 
-/* ---------- 4. DR. DRIVING ROADS ---------- */
+/* ---------- 4. ROADS ---------- */
 function createRoads() {
-    const roadMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
-    const yellowMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+    const roadMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+    const lineMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
 
     for (let i = -gridSize; i <= gridSize; i++) {
         const pos = i * spacing;
-
-        // Vertical Road
-        const vRoad = new THREE.Mesh(new THREE.PlaneGeometry(45, mapSize), roadMat);
-        vRoad.rotation.x = -Math.PI/2;
-        vRoad.position.set(pos, 0.05, 0); 
-        scene.add(vRoad);
-
-        // Vertical Center Line
-        const vLine = new THREE.Mesh(new THREE.PlaneGeometry(1.5, mapSize), yellowMat);
-        vLine.rotation.x = -Math.PI/2;
-        vLine.position.set(pos, 0.06, 0);
-        scene.add(vLine);
-
-        // Horizontal Road
-        const hRoad = new THREE.Mesh(new THREE.PlaneGeometry(mapSize, 45), roadMat);
-        hRoad.rotation.x = -Math.PI/2;
-        hRoad.position.set(0, 0.05, pos);
-        scene.add(hRoad);
-
-        // Horizontal Center Line
-        const hLine = new THREE.Mesh(new THREE.PlaneGeometry(mapSize, 1.5), yellowMat);
-        hLine.rotation.x = -Math.PI/2;
-        hLine.position.set(0, 0.06, pos);
-        scene.add(hLine);
+        // Vert roads
+        const vR = new THREE.Mesh(new THREE.PlaneGeometry(50, mapSize), roadMat);
+        vR.rotation.x = -Math.PI/2; vR.position.set(pos, 0.1, 0); scene.add(vR);
+        // Yellow line
+        const vL = new THREE.Mesh(new THREE.PlaneGeometry(2, mapSize), lineMat);
+        vL.rotation.x = -Math.PI/2; vL.position.set(pos, 0.12, 0); scene.add(vL);
+        
+        // Horiz roads
+        const hR = new THREE.Mesh(new THREE.PlaneGeometry(mapSize, 50), roadMat);
+        hR.rotation.x = -Math.PI/2; hR.position.set(0, 0.1, pos); scene.add(hR);
+        // Yellow line
+        const hL = new THREE.Mesh(new THREE.PlaneGeometry(mapSize, 2), lineMat);
+        hL.rotation.x = -Math.PI/2; hL.position.set(0, 0.12, pos); scene.add(hL);
     }
 }
 createRoads();
 
-/* ---------- 5. PLAYER SETUP ---------- */
+/* ---------- 5. PLAYER ---------- */
 const player = new THREE.Object3D();
-player.position.set(0, 3, 90); 
+player.position.set(0, 4, 100); 
 scene.add(player);
 player.add(camera);
 
 let yaw = 0, pitch = 0, targetYaw = 0, targetPitch = 0;
-const speed = 1.2; 
+const speed = 1.5; 
 const move = { up: false, down: false, left: false, right: false };
 
-/* ---------- 6. BUILDINGS & RED MARKERS ---------- */
+/* ---------- 6. BUILDINGS ---------- */
 const buildings = [];
 const loader = new GLTFLoader();
 
 loader.load('models/building.glb', (gltf) => {
-    const baseBuilding = gltf.scene;
-    baseBuilding.scale.set(4, 4, 4);
+    const base = gltf.scene;
+    base.scale.set(4, 4, 4);
 
     for (let x = -gridSize; x <= gridSize; x++) {
         for (let z = -gridSize; z <= gridSize; z++) {
-            const bx = x * spacing + 65;
-            const bz = z * spacing + 65;
-
-            const b = baseBuilding.clone();
+            const bx = x * spacing + 70;
+            const bz = z * spacing + 70;
+            const b = base.clone();
             b.position.set(bx, 0, bz);
             scene.add(b);
 
             const box = new THREE.Box3().setFromObject(b);
-            const doorWorldPos = new THREE.Vector3(bx - 22, 2, bz - 22);
+            const doorPos = new THREE.Vector3(bx - 25, 4, bz - 25); // Raised to Y=4
 
-            // Door Marker (X-Ray enabled)
             const marker = new THREE.Mesh(
-                new THREE.SphereGeometry(3.5),
+                new THREE.SphereGeometry(4),
                 new THREE.MeshBasicMaterial({ color: 0xff0000, depthTest: false, transparent: true, opacity: 0.8 })
             );
-            marker.position.copy(doorWorldPos);
+            marker.position.copy(doorPos);
             marker.renderOrder = 999;
             scene.add(marker);
 
-            buildings.push({ box: box, doorWorld: doorWorldPos });
+            buildings.push({ box: box, door: doorPos });
         }
     }
 });
 
-/* ---------- 7. CONTROLS & CAMERA ---------- */
-function bindBtn(id, key) {
+/* ---------- 7. CONTROLS ---------- */
+function bind(id, k) {
     const el = document.getElementById(id);
-    el.addEventListener("pointerdown", (e) => { e.preventDefault(); move[key] = true; });
-    const stop = (e) => { e.preventDefault(); move[key] = false; };
-    el.addEventListener("pointerup", stop);
-    el.addEventListener("pointerleave", stop);
+    el.onpointerdown = (e) => { e.preventDefault(); move[k] = true; };
+    const stop = () => move[k] = false;
+    el.onpointerup = stop; el.onpointerleave = stop;
 }
-bindBtn("up", "up"); bindBtn("down", "down");
-bindBtn("left", "left"); bindBtn("right", "right");
+bind("up", "up"); bind("down", "down"); bind("left", "left"); bind("right", "right");
 
-let dragging = false, lastX = 0, lastY = 0;
-renderer.domElement.addEventListener("pointerdown", e => { dragging = true; lastX = e.clientX; lastY = e.clientY; });
-window.addEventListener("pointerup", () => dragging = false);
-window.addEventListener("pointermove", e => {
-    if (!dragging) return;
-    targetYaw -= (e.clientX - lastX) * 0.007;
-    targetPitch -= (e.clientY - lastY) * 0.007;
-    targetPitch = Math.max(-0.8, Math.min(0.8, targetPitch));
-    lastX = e.clientX; lastY = e.clientY;
-});
+let drag = false, lx, ly;
+renderer.domElement.onpointerdown = e => { drag = true; lx = e.clientX; ly = e.clientY; };
+window.onpointerup = () => drag = false;
+window.onpointermove = e => {
+    if (!drag) return;
+    targetYaw -= (e.clientX - lx) * 0.008;
+    targetPitch -= (e.clientY - ly) * 0.008;
+    targetPitch = Math.max(-0.7, Math.min(0.7, targetPitch));
+    lx = e.clientX; ly = e.clientY;
+};
 
-/* ---------- 8. SYSTEM LOGIC ---------- */
-const playerHitbox = new THREE.Box3();
-const uiHint = document.getElementById("uiHint");
+/* ---------- 8. GAME LOOP ---------- */
+const hitbox = new THREE.Box3();
+const hint = document.getElementById("uiHint");
 
 document.getElementById("enterBtn").onclick = () => {
-    let near = false;
     for (const b of buildings) {
-        if (player.position.distanceTo(b.doorWorld) < 25) {
-            player.position.set(0, 3, -6000); // Teleport to interior
-            near = true; break;
+        if (player.position.distanceTo(b.door) < 30) {
+            player.position.set(0, 4, -8000); // Interior
+            return;
         }
     }
-    if(player.position.z < -5000) player.position.set(0, 3, 90);
+    if(player.position.z < -5000) player.position.set(0, 4, 100);
 };
 
 document.getElementById("playBtn").onclick = () => document.getElementById("homeScreen").style.display = "none";
 
 function animate() {
     requestAnimationFrame(animate);
-
-    yaw += (targetYaw - yaw) * 0.15;
-    pitch += (targetPitch - pitch) * 0.15;
+    yaw += (targetYaw - yaw) * 0.1;
+    pitch += (targetPitch - pitch) * 0.1;
 
     let nx = player.position.x;
     let nz = player.position.z;
@@ -257,20 +241,14 @@ function animate() {
     if (move.left) { nx -= Math.cos(yaw) * speed; nz += Math.sin(yaw) * speed; }
     if (move.right) { nx += Math.cos(yaw) * speed; nz -= Math.sin(yaw) * speed; }
 
-    // Collision Logic
-    playerHitbox.setFromCenterAndSize(new THREE.Vector3(nx, 3, nz), new THREE.Vector3(4, 5, 4));
-    let collision = false;
-    for (const b of buildings) {
-        if (playerHitbox.intersectsBox(b.box)) { collision = true; break; }
-    }
-    if (!collision) { player.position.x = nx; player.position.z = nz; }
+    hitbox.setFromCenterAndSize(new THREE.Vector3(nx, 4, nz), new THREE.Vector3(5, 6, 5));
+    let col = false;
+    for (const b of buildings) if (hitbox.intersectsBox(b.box)) { col = true; break; }
+    if (!col) { player.position.x = nx; player.position.z = nz; }
 
-    // Proximity UI
-    let nearDoor = false;
-    for(const b of buildings) {
-        if(player.position.distanceTo(b.doorWorld) < 25) { nearDoor = true; break; }
-    }
-    uiHint.style.display = nearDoor ? "block" : "none";
+    let near = false;
+    for(const b of buildings) if(player.position.distanceTo(b.door) < 30) { near = true; break; }
+    hint.style.display = near ? "block" : "none";
 
     player.rotation.y = yaw;
     camera.rotation.x = pitch;
