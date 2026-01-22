@@ -2,43 +2,41 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mini City Life 3D - Door Fixed</title>
+    <title>Mini City Life - Dr. Driving Edition</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <style>
-        body { margin: 0; overflow: hidden; font-family: sans-serif; background: #000; }
+        body { margin: 0; overflow: hidden; font-family: 'Courier New', Courier, monospace; background: #87ceeb; }
         canvas { display: block; touch-action: none; }
 
-        /* UI OVERLAYS */
+        /* VINTAGE GAME UI */
         #homeScreen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.95); display: flex; flex-direction: column;
-            justify-content: center; align-items: center; z-index: 100; color: white;
+            background: rgba(0,0,0,0.85); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 100; color: #00ff00;
         }
-        #homeScreen h1 { font-size: 3em; color: orange; margin-bottom: 20px; }
+        #homeScreen h1 { font-size: 4em; margin-bottom: 10px; text-shadow: 3px 3px #000; }
         #homeScreen button {
-            font-size: 24px; padding: 15px 40px; border: none; 
-            border-radius: 12px; background: orange; color: white; cursor: pointer;
+            font-size: 28px; padding: 10px 60px; border: 4px solid #00ff00; 
+            background: none; color: #00ff00; cursor: pointer; font-weight: bold;
         }
 
         #uiHint {
-            position: fixed; top: 20%; left: 50%; transform: translate(-50%, -50%);
-            color: white; background: rgba(255,140,0,0.9); padding: 15px 30px;
-            border-radius: 50px; display: none; pointer-events: none;
-            font-weight: bold; font-size: 20px; z-index: 5; border: 2px solid white;
+            position: fixed; top: 15%; left: 50%; transform: translateX(-50%);
+            color: #ffff00; font-size: 24px; font-weight: bold; text-shadow: 2px 2px #000;
+            display: none; z-index: 5;
         }
 
         #controls { position: fixed; bottom: 20px; left: 20px; z-index: 10; display: grid; grid-template-areas: ". up ." "left down right"; }
         .btn {
-            width: 65px; height: 65px; margin: 5px; border-radius: 50%; 
-            font-size: 24px; background: rgba(255,255,255,0.2);
-            border: 2px solid white; color: white; user-select: none;
-            display: flex; align-items: center; justify-content: center;
+            width: 75px; height: 75px; margin: 5px; border-radius: 10px; 
+            font-size: 32px; background: rgba(0,0,0,0.5);
+            border: 3px solid #ffffff; color: white; display: flex; align-items: center; justify-content: center;
         }
         #up { grid-area: up; } #left { grid-area: left; } #right { grid-area: right; } #down { grid-area: down; }
 
         #enterBtn {
-            position: fixed; bottom: 25px; right: 25px; width: 110px; height: 60px; 
-            border-radius: 14px; font-size: 18px; background: orange; border: none;
+            position: fixed; bottom: 30px; right: 30px; width: 120px; height: 70px; 
+            border-radius: 10px; font-size: 22px; background: #ff0000; border: 4px solid #fff;
             color: white; z-index: 10; cursor: pointer; font-weight: bold;
         }
     </style>
@@ -46,17 +44,17 @@
 <body>
 
 <div id="homeScreen">
-    <h1>Mini City Life 3D</h1>
-    <button id="playBtn">START GAME</button>
+    <h1>DR. CITY LIFE</h1>
+    <button id="playBtn">START</button>
 </div>
 
-<div id="uiHint">DOOR REACHED: PRESS ENTER</div>
+<div id="uiHint">PARK TO ENTER</div>
 
 <div id="controls">
-    <div class="btn" id="up">⬆</div>
-    <div class="btn" id="left">⬅</div>
-    <div class="btn" id="right">➡</div>
-    <div class="btn" id="down">⬇</div>
+    <div class="btn" id="up">▲</div>
+    <div class="btn" id="left">◀</div>
+    <div class="btn" id="right">▶</div>
+    <div class="btn" id="down">▼</div>
 </div>
 
 <button id="enterBtn">ENTER</button>
@@ -74,84 +72,129 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-/* ---------- 1. SCENE SETUP ---------- */
+/* ---------- 1. SCENE & ATMOSPHERE ---------- */
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb);
+const skyColor = 0x87ceeb;
+scene.background = new THREE.Color(skyColor);
+// DR. DRIVING FOG: Hides the edge of the world
+scene.fog = new THREE.FogExp2(skyColor, 0.0018);
 
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 3000);
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 4000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+scene.add(new THREE.AmbientLight(0xffffff, 0.9));
 const sun = new THREE.DirectionalLight(0xffffff, 1.0);
-sun.position.set(50, 100, 50);
+sun.position.set(100, 500, 100);
 scene.add(sun);
 
-const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(5000, 5000),
-    new THREE.MeshStandardMaterial({ color: 0x333333 })
-);
-ground.rotation.x = -Math.PI / 2;
-scene.add(ground);
+/* ---------- 2. THE WORLD (MAP) ---------- */
+const spacing = 180;
+const gridSize = 10; // 10x10 city blocks
+const mapSize = (gridSize + 2) * spacing;
 
-/* ---------- 2. PLAYER ---------- */
+// MAIN ISLAND
+const land = new THREE.Mesh(
+    new THREE.PlaneGeometry(mapSize, mapSize),
+    new THREE.MeshStandardMaterial({ color: 0x228b22 }) // Base green grass
+);
+land.rotation.x = -Math.PI / 2;
+scene.add(land);
+
+// THE SEA
+const sea = new THREE.Mesh(
+    new THREE.PlaneGeometry(12000, 12000),
+    new THREE.MeshStandardMaterial({ color: 0x0044ff })
+);
+sea.rotation.x = -Math.PI / 2;
+sea.position.y = -3;
+scene.add(sea);
+
+/* ---------- 3. ROADS WITH MARKINGS ---------- */
+function createRoadMarkings() {
+    const roadMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+    const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const yellowMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+
+    for (let i = -gridSize; i <= gridSize; i++) {
+        const pos = i * spacing;
+
+        // Vertical Roads
+        const vRoad = new THREE.Mesh(new THREE.PlaneGeometry(40, mapSize), roadMat);
+        vRoad.rotation.x = -Math.PI/2;
+        vRoad.position.set(pos, 0.02, 0);
+        scene.add(vRoad);
+
+        // Vertical Yellow Center Line
+        const vLine = new THREE.Mesh(new THREE.PlaneGeometry(1, mapSize), yellowMat);
+        vLine.rotation.x = -Math.PI/2;
+        vLine.position.set(pos, 0.03, 0);
+        scene.add(vLine);
+
+        // Horizontal Roads
+        const hRoad = new THREE.Mesh(new THREE.PlaneGeometry(mapSize, 40), roadMat);
+        hRoad.rotation.x = -Math.PI/2;
+        hRoad.position.set(0, 0.02, pos);
+        scene.add(hRoad);
+
+        // Horizontal Yellow Center Line
+        const hLine = new THREE.Mesh(new THREE.PlaneGeometry(mapSize, 1), yellowMat);
+        hLine.rotation.x = -Math.PI/2;
+        hLine.position.set(0, 0.03, pos);
+        scene.add(hLine);
+    }
+}
+createRoadMarkings();
+
+/* ---------- 4. PLAYER ---------- */
 const player = new THREE.Object3D();
-player.position.set(0, 2, 0); // Spawning at center street
+player.position.set(0, 2.5, 90); // Spawn on a road
 scene.add(player);
 player.add(camera);
 
 let yaw = 0, pitch = 0, targetYaw = 0, targetPitch = 0;
-const speed = 0.6;
+const speed = 1.0; // Faster for driving feel
 const move = { up: false, down: false, left: false, right: false };
 
-/* ---------- 3. BUILDINGS & DOOR MARKERS ---------- */
+/* ---------- 5. DENSE BUILDINGS ---------- */
 const buildings = [];
 const loader = new GLTFLoader();
 
 loader.load('models/building.glb', (gltf) => {
     const baseBuilding = gltf.scene;
-    baseBuilding.scale.set(3, 3, 3);
-    const spacing = 160; 
+    baseBuilding.scale.set(4, 4, 4);
 
-    for (let x = -3; x <= 3; x++) {
-        for (let z = -3; z <= 3; z++) {
-            // Keep the middle street clear
-            if (Math.abs(x) <= 1 && Math.abs(z) <= 1) continue; 
+    for (let x = -gridSize; x <= gridSize; x++) {
+        for (let z = -gridSize; z <= gridSize; z++) {
+            // Only place buildings in the corners of the road intersections
+            const bx = x * spacing + 60;
+            const bz = z * spacing + 60;
 
             const b = baseBuilding.clone();
-            b.position.set(x * spacing, 0, z * spacing);
+            b.position.set(bx, 0, bz);
             scene.add(b);
 
             const box = new THREE.Box3().setFromObject(b);
+            // Door is at the corner facing the intersection
+            const doorWorldPos = new THREE.Vector3(bx - 15, 2, bz - 15);
 
-            /* --- DOOR POSITION CALCULATION --- */
-            // We use -18 instead of +15 to flip the dot to the other side of the building
-            // Change the -18 to move the dot closer/further from the building center
-            // Change the 0 to move the dot left/right
-            const doorWorldPos = new THREE.Vector3(x * spacing + 0, 5, z * spacing - 18);
-
-            // Red X-Ray marker
-            const markerGeo = new THREE.SphereGeometry(2.5);
-            const markerMat = new THREE.MeshBasicMaterial({ 
-                color: 0xff0000, 
-                depthTest: false, // Visible through building
-                transparent: true,
-                opacity: 0.8
-            });
-            const marker = new THREE.Mesh(markerGeo, markerMat);
+            // Door Marker
+            const marker = new THREE.Mesh(
+                new THREE.SphereGeometry(3),
+                new THREE.MeshBasicMaterial({ color: 0xff0000, depthTest: false, transparent: true, opacity: 0.8 })
+            );
             marker.position.copy(doorWorldPos);
             marker.renderOrder = 999;
             scene.add(marker);
 
-            buildings.push({ mesh: b, box: box, doorWorld: doorWorldPos });
+            buildings.push({ box: box, doorWorld: doorWorldPos });
         }
     }
-    console.log("City Ready. Walk to red dots.");
 });
 
-/* ---------- 4. INPUT HANDLING ---------- */
+/* ---------- 6. INPUTS ---------- */
 function bindBtn(id, key) {
     const el = document.getElementById(id);
     el.addEventListener("pointerdown", (e) => { e.preventDefault(); move[key] = true; });
@@ -162,22 +205,6 @@ function bindBtn(id, key) {
 bindBtn("up", "up"); bindBtn("down", "down");
 bindBtn("left", "left"); bindBtn("right", "right");
 
-window.addEventListener("keydown", (e) => {
-    const k = e.key.toLowerCase();
-    if (k === "w" || k === "arrowup") move.up = true;
-    if (k === "s" || k === "arrowdown") move.down = true;
-    if (k === "a" || k === "arrowleft") move.left = true;
-    if (k === "d" || k === "arrowright") move.right = true;
-});
-window.addEventListener("keyup", (e) => {
-    const k = e.key.toLowerCase();
-    if (k === "w" || k === "arrowup") move.up = false;
-    if (k === "s" || k === "arrowdown") move.down = false;
-    if (k === "a" || k === "arrowleft") move.left = false;
-    if (k === "d" || k === "arrowright") move.right = false;
-});
-
-/* DRAG CAMERA */
 let dragging = false, lastX = 0, lastY = 0;
 renderer.domElement.addEventListener("pointerdown", e => { dragging = true; lastX = e.clientX; lastY = e.clientY; });
 window.addEventListener("pointerup", () => dragging = false);
@@ -185,36 +212,27 @@ window.addEventListener("pointermove", e => {
     if (!dragging) return;
     targetYaw -= (e.clientX - lastX) * 0.007;
     targetPitch -= (e.clientY - lastY) * 0.007;
-    targetPitch = Math.max(-1.1, Math.min(1.1, targetPitch));
+    targetPitch = Math.max(-0.8, Math.min(0.8, targetPitch));
     lastX = e.clientX; lastY = e.clientY;
 });
 
-/* ---------- 5. COLLISION & TELEPORT ---------- */
+/* ---------- 7. ENGINE ---------- */
 const playerHitbox = new THREE.Box3();
 const uiHint = document.getElementById("uiHint");
 
 document.getElementById("enterBtn").onclick = () => {
-    let target = null;
+    let near = false;
     for (const b of buildings) {
-        if (player.position.distanceTo(b.doorWorld) < 22) {
-            target = b; break;
+        if (player.position.distanceTo(b.doorWorld) < 25) {
+            player.position.set(0, 2, -5000); 
+            near = true; break;
         }
     }
-    
-    if (target) {
-        // Move to interior zone (far away from city)
-        player.position.set(0, 2, -3000); 
-    } else if (player.position.z < -2000) {
-        // Return to city center if already inside
-        player.position.set(0, 2, 0); 
-    } else {
-        alert("Walk closer to the red dot!");
-    }
+    if(player.position.z < -4000) player.position.set(0, 2.5, 90);
 };
 
 document.getElementById("playBtn").onclick = () => document.getElementById("homeScreen").style.display = "none";
 
-/* ---------- 6. ANIMATION LOOP ---------- */
 function animate() {
     requestAnimationFrame(animate);
 
@@ -229,18 +247,16 @@ function animate() {
     if (move.left) { nx -= Math.cos(yaw) * speed; nz += Math.sin(yaw) * speed; }
     if (move.right) { nx += Math.cos(yaw) * speed; nz -= Math.sin(yaw) * speed; }
 
-    // Collision Check
-    playerHitbox.setFromCenterAndSize(new THREE.Vector3(nx, 2, nz), new THREE.Vector3(3.5, 4, 3.5));
+    playerHitbox.setFromCenterAndSize(new THREE.Vector3(nx, 2.5, nz), new THREE.Vector3(4, 5, 4));
     let collision = false;
     for (const b of buildings) {
         if (playerHitbox.intersectsBox(b.box)) { collision = true; break; }
     }
     if (!collision) { player.position.x = nx; player.position.z = nz; }
 
-    // Near Door Logic
     let nearDoor = false;
     for(const b of buildings) {
-        if(player.position.distanceTo(b.doorWorld) < 22) { nearDoor = true; break; }
+        if(player.position.distanceTo(b.doorWorld) < 25) { nearDoor = true; break; }
     }
     uiHint.style.display = nearDoor ? "block" : "none";
 
