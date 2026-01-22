@@ -2,42 +2,49 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Dr. City Life 3D</title>
+    <title>Dr. City Life - Pro Edition</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; overflow: hidden; font-family: sans-serif; background: #87ceeb; }
         canvas { display: block; touch-action: none; }
 
-        /* VINTAGE ARCADE UI */
+        /* UI ELEMENTS */
         #homeScreen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85); display: flex; flex-direction: column;
+            background: rgba(0,0,0,0.8); display: flex; flex-direction: column;
             justify-content: center; align-items: center; z-index: 100; color: #00ff00;
         }
-        #homeScreen h1 { font-size: 3em; margin-bottom: 10px; text-shadow: 2px 2px #000; text-align: center; }
-        #homeScreen button {
-            font-size: 24px; padding: 10px 40px; border: 3px solid #00ff00; 
-            background: none; color: #00ff00; cursor: pointer; font-weight: bold; border-radius: 8px;
+        #playBtn {
+            font-size: 24px; padding: 15px 50px; border: 3px solid #00ff00; 
+            background: none; color: #00ff00; cursor: pointer; font-weight: bold;
         }
 
-        #uiHint {
-            position: fixed; top: 15%; left: 50%; transform: translateX(-50%);
-            color: #ffff00; font-size: 20px; font-weight: bold; text-shadow: 2px 2px #000;
-            display: none; z-index: 5;
+        /* MINIMAP BORDER (Visual Only) */
+        #minimapOverlay {
+            position: fixed; top: 10px; right: 10px; width: 150px; height: 150px;
+            border-radius: 50%; border: 4px solid white; pointer-events: none;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5); z-index: 20;
         }
 
         #controls { position: fixed; bottom: 20px; left: 20px; z-index: 10; display: grid; grid-template-areas: ". up ." "left down right"; }
         .btn {
-            width: 70px; height: 70px; margin: 5px; border-radius: 12px; 
+            width: 65px; height: 65px; margin: 5px; border-radius: 12px; 
             font-size: 28px; background: rgba(0,0,0,0.6);
             border: 2px solid #ffffff; color: white; display: flex; align-items: center; justify-content: center;
         }
         #up { grid-area: up; } #left { grid-area: left; } #right { grid-area: right; } #down { grid-area: down; }
 
-        #enterBtn {
-            position: fixed; bottom: 30px; right: 30px; width: 130px; height: 70px; 
-            border-radius: 12px; font-size: 22px; background: #ff0000; border: 3px solid #fff;
-            color: white; z-index: 10; cursor: pointer; font-weight: bold;
+        .action-container { position: fixed; bottom: 30px; right: 30px; display: flex; flex-direction: column; gap: 10px; }
+        .action-btn {
+            width: 120px; height: 60px; border-radius: 12px; font-size: 18px; 
+            color: white; border: 3px solid #fff; cursor: pointer; font-weight: bold;
+        }
+        #jumpBtn { background: #ffa500; }
+        #enterBtn { background: #ff0000; }
+
+        #uiHint {
+            position: fixed; top: 20%; left: 50%; transform: translateX(-50%);
+            color: #ffff00; font-size: 22px; font-weight: bold; text-shadow: 2px 2px #000; display: none;
         }
     </style>
 </head>
@@ -45,10 +52,11 @@
 
 <div id="homeScreen">
     <h1>DR. CITY LIFE</h1>
-    <button id="playBtn">START GAME</button>
+    <button id="playBtn">START</button>
 </div>
 
-<div id="uiHint">DOOR REACHED</div>
+<div id="minimapOverlay"></div>
+<div id="uiHint">PARK HERE</div>
 
 <div id="controls">
     <div class="btn" id="up">▲</div>
@@ -57,7 +65,10 @@
     <div class="btn" id="down">▼</div>
 </div>
 
-<button id="enterBtn">ENTER</button>
+<div class="action-container">
+    <button class="action-btn" id="jumpBtn">JUMP</button>
+    <button class="action-btn" id="enterBtn">ENTER</button>
+</div>
 
 <script type="importmap">
 {
@@ -72,187 +83,174 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-/* ---------- 1. SCENE SETUP ---------- */
+/* ---------- 1. SCENE & CAMERAS ---------- */
 const scene = new THREE.Scene();
-const skyColor = 0x87ceeb;
-scene.background = new THREE.Color(skyColor);
-scene.fog = new THREE.FogExp2(skyColor, 0.0012);
+scene.background = new THREE.Color(0x87ceeb);
+scene.fog = new THREE.FogExp2(0x87ceeb, 0.001);
 
+// Main Camera
 const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 5000);
+// Minimap Camera (Looking down from above)
+const mapCamera = new THREE.OrthographicCamera(-150, 150, 150, -150, 1, 1000);
+mapCamera.position.y = 500;
+mapCamera.lookAt(0,0,0);
+
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(window.devicePixelRatio);
+renderer.autoClear = false; // Required for multiple cameras
 document.body.appendChild(renderer.domElement);
 
-scene.add(new THREE.AmbientLight(0xffffff, 1.0));
-const sun = new THREE.DirectionalLight(0xffffff, 0.8);
-sun.position.set(50, 200, 50);
-scene.add(sun);
+scene.add(new THREE.AmbientLight(0xffffff, 1.2));
 
 /* ---------- 2. GRASS TEXTURE ---------- */
 const textureLoader = new THREE.TextureLoader();
-// Force re-load and check path. Try 'grass.png' if it's in the same folder as index.html
-const grassTexture = textureLoader.load('textures/grass.png', 
-    (tex) => {
-        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-        tex.repeat.set(100, 100);
-        console.log("Texture loaded!");
-    },
-    undefined,
-    (err) => console.error("Grass image not found! Check your 'textures' folder.")
-);
+const landMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+textureLoader.load('textures/grass.png', (tex) => {
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(100, 100);
+    landMat.map = tex;
+    landMat.needsUpdate = true;
+}, undefined, () => { landMat.color.set(0x228b22); });
 
-/* ---------- 3. MAP (LAND & SEA) ---------- */
-const spacing = 200;
-const gridSize = 8;
-const mapSize = (gridSize + 2) * spacing;
-
-// Ground with fallback color
-const land = new THREE.Mesh(
-    new THREE.PlaneGeometry(mapSize, mapSize),
-    new THREE.MeshStandardMaterial({ 
-        map: (grassTexture), 
-        color: 0x1a4d1a // Dark green fallback if texture fails
-    })
-);
+const land = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000), landMat);
 land.rotation.x = -Math.PI / 2;
 scene.add(land);
 
-const sea = new THREE.Mesh(
-    new THREE.PlaneGeometry(15000, 15000),
-    new THREE.MeshStandardMaterial({ color: 0x0044ff })
-);
-sea.rotation.x = -Math.PI / 2;
-sea.position.y = -5;
-scene.add(sea);
+/* ---------- 3. ENVIRONMENT ---------- */
+const sea = new THREE.Mesh(new THREE.PlaneGeometry(15000, 15000), new THREE.MeshBasicMaterial({ color: 0x0044ff }));
+sea.rotation.x = -Math.PI / 2; sea.position.y = -2; scene.add(sea);
 
-/* ---------- 4. ROADS ---------- */
 function createRoads() {
-    const roadMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+    const roadMat = new THREE.MeshLambertMaterial({ color: 0x222222 });
     const lineMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
-
-    for (let i = -gridSize; i <= gridSize; i++) {
-        const pos = i * spacing;
-        // Vert roads
-        const vR = new THREE.Mesh(new THREE.PlaneGeometry(50, mapSize), roadMat);
-        vR.rotation.x = -Math.PI/2; vR.position.set(pos, 0.1, 0); scene.add(vR);
-        // Yellow line
-        const vL = new THREE.Mesh(new THREE.PlaneGeometry(2, mapSize), lineMat);
-        vL.rotation.x = -Math.PI/2; vL.position.set(pos, 0.12, 0); scene.add(vL);
-        
-        // Horiz roads
-        const hR = new THREE.Mesh(new THREE.PlaneGeometry(mapSize, 50), roadMat);
-        hR.rotation.x = -Math.PI/2; hR.position.set(0, 0.1, pos); scene.add(hR);
-        // Yellow line
-        const hL = new THREE.Mesh(new THREE.PlaneGeometry(mapSize, 2), lineMat);
-        hL.rotation.x = -Math.PI/2; hL.position.set(0, 0.12, pos); scene.add(hL);
+    for (let i = -6; i <= 6; i++) {
+        let p = i * 200;
+        let vr = new THREE.Mesh(new THREE.PlaneGeometry(50, 3000), roadMat);
+        vr.rotation.x = -Math.PI/2; vr.position.set(p, 0.05, 0); scene.add(vr);
+        let hr = new THREE.Mesh(new THREE.PlaneGeometry(3000, 50), roadMat);
+        hr.rotation.x = -Math.PI/2; hr.position.set(0, 0.05, p); scene.add(hr);
+        let vl = new THREE.Mesh(new THREE.PlaneGeometry(2, 3000), lineMat);
+        vl.rotation.x = -Math.PI/2; vl.position.set(p, 0.06, 0); scene.add(vl);
+        let hl = new THREE.Mesh(new THREE.PlaneGeometry(3000, 2), lineMat);
+        hl.rotation.x = -Math.PI/2; hl.position.set(0, 0.06, p); scene.add(hl);
     }
 }
 createRoads();
 
-/* ---------- 5. PLAYER ---------- */
+/* ---------- 4. PLAYER & JUMP PHYSICS ---------- */
 const player = new THREE.Object3D();
-player.position.set(0, 4, 100); 
-scene.add(player);
+player.position.set(0, 4, 100); scene.add(player);
 player.add(camera);
 
+// Player Marker for Minimap
+const playerDot = new THREE.Mesh(new THREE.SphereGeometry(8), new THREE.MeshBasicMaterial({ color: 0x00ff00 }));
+player.add(playerDot);
+
 let yaw = 0, pitch = 0, targetYaw = 0, targetPitch = 0;
-const speed = 1.5; 
 const move = { up: false, down: false, left: false, right: false };
 
-/* ---------- 6. BUILDINGS ---------- */
+// Jump Variables
+let velocityY = 0;
+const gravity = -0.015;
+const jumpForce = 0.45;
+let isGrounded = true;
+
+/* ---------- 5. BUILDINGS ---------- */
 const buildings = [];
 const loader = new GLTFLoader();
-
 loader.load('models/building.glb', (gltf) => {
-    const base = gltf.scene;
-    base.scale.set(4, 4, 4);
-
-    for (let x = -gridSize; x <= gridSize; x++) {
-        for (let z = -gridSize; z <= gridSize; z++) {
-            const bx = x * spacing + 70;
-            const bz = z * spacing + 70;
-            const b = base.clone();
-            b.position.set(bx, 0, bz);
-            scene.add(b);
-
+    const base = gltf.scene; base.scale.set(4, 4, 4);
+    for (let x = -5; x <= 5; x++) {
+        for (let z = -5; z <= 5; z++) {
+            const bx = x * 200 + 75, bz = z * 200 + 75;
+            const b = base.clone(); b.position.set(bx, 0, bz); scene.add(b);
             const box = new THREE.Box3().setFromObject(b);
-            const doorPos = new THREE.Vector3(bx - 25, 4, bz - 25); // Raised to Y=4
-
-            const marker = new THREE.Mesh(
-                new THREE.SphereGeometry(4),
-                new THREE.MeshBasicMaterial({ color: 0xff0000, depthTest: false, transparent: true, opacity: 0.8 })
-            );
-            marker.position.copy(doorPos);
-            marker.renderOrder = 999;
-            scene.add(marker);
-
-            buildings.push({ box: box, door: doorPos });
+            const door = new THREE.Vector3(bx-25, 4, bz-25);
+            const m = new THREE.Mesh(new THREE.SphereGeometry(4), new THREE.MeshBasicMaterial({ color: 0xff0000, depthTest: false }));
+            m.position.copy(door); m.renderOrder = 999; scene.add(m);
+            buildings.push({ box, door });
         }
     }
 });
 
-/* ---------- 7. CONTROLS ---------- */
+/* ---------- 6. INPUTS ---------- */
 function bind(id, k) {
     const el = document.getElementById(id);
     el.onpointerdown = (e) => { e.preventDefault(); move[k] = true; };
-    const stop = () => move[k] = false;
-    el.onpointerup = stop; el.onpointerleave = stop;
+    el.onpointerup = el.onpointerleave = () => move[k] = false;
 }
 bind("up", "up"); bind("down", "down"); bind("left", "left"); bind("right", "right");
 
+document.getElementById("jumpBtn").onpointerdown = () => {
+    if (isGrounded) { velocityY = jumpForce; isGrounded = false; }
+};
+
+document.getElementById("playBtn").onclick = () => document.getElementById("homeScreen").style.display = "none";
+document.getElementById("enterBtn").onclick = () => {
+    for (const b of buildings) if (player.position.distanceTo(b.door) < 35) { player.position.set(0, 4, -5000); return; }
+    if(player.position.z < -4000) player.position.set(0, 4, 100);
+};
+
+/* Drag Camera */
 let drag = false, lx, ly;
 renderer.domElement.onpointerdown = e => { drag = true; lx = e.clientX; ly = e.clientY; };
 window.onpointerup = () => drag = false;
 window.onpointermove = e => {
     if (!drag) return;
-    targetYaw -= (e.clientX - lx) * 0.008;
-    targetPitch -= (e.clientY - ly) * 0.008;
+    targetYaw -= (e.clientX - lx) * 0.008; targetPitch -= (e.clientY - ly) * 0.008;
     targetPitch = Math.max(-0.7, Math.min(0.7, targetPitch));
     lx = e.clientX; ly = e.clientY;
 };
 
-/* ---------- 8. GAME LOOP ---------- */
-const hitbox = new THREE.Box3();
-const hint = document.getElementById("uiHint");
-
-document.getElementById("enterBtn").onclick = () => {
-    for (const b of buildings) {
-        if (player.position.distanceTo(b.door) < 30) {
-            player.position.set(0, 4, -8000); // Interior
-            return;
-        }
-    }
-    if(player.position.z < -5000) player.position.set(0, 4, 100);
-};
-
-document.getElementById("playBtn").onclick = () => document.getElementById("homeScreen").style.display = "none";
-
+/* ---------- 7. UPDATE LOOP ---------- */
 function animate() {
     requestAnimationFrame(animate);
-    yaw += (targetYaw - yaw) * 0.1;
-    pitch += (targetPitch - pitch) * 0.1;
+    yaw += (targetYaw - yaw) * 0.1; pitch += (targetPitch - pitch) * 0.1;
 
-    let nx = player.position.x;
-    let nz = player.position.z;
+    // Movement
+    let nx = player.position.x, nz = player.position.z, spd = 1.8;
+    if (move.up) { nx -= Math.sin(yaw) * spd; nz -= Math.cos(yaw) * spd; }
+    if (move.down) { nx += Math.sin(yaw) * spd; nz += Math.cos(yaw) * spd; }
+    if (move.left) { nx -= Math.cos(yaw) * spd; nz += Math.sin(yaw) * spd; }
+    if (move.right) { nx += Math.cos(yaw) * spd; nz -= Math.sin(yaw) * spd; }
 
-    if (move.up) { nx -= Math.sin(yaw) * speed; nz -= Math.cos(yaw) * speed; }
-    if (move.down) { nx += Math.sin(yaw) * speed; nz += Math.cos(yaw) * speed; }
-    if (move.left) { nx -= Math.cos(yaw) * speed; nz += Math.sin(yaw) * speed; }
-    if (move.right) { nx += Math.cos(yaw) * speed; nz -= Math.sin(yaw) * speed; }
+    // Collision
+    const pBox = new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(nx, player.position.y, nz), new THREE.Vector3(6, 6, 6));
+    let hit = false;
+    for (const b of buildings) if (pBox.intersectsBox(b.box)) { hit = true; break; }
+    if (!hit) { player.position.x = nx; player.position.z = nz; }
 
-    hitbox.setFromCenterAndSize(new THREE.Vector3(nx, 4, nz), new THREE.Vector3(5, 6, 5));
-    let col = false;
-    for (const b of buildings) if (hitbox.intersectsBox(b.box)) { col = true; break; }
-    if (!col) { player.position.x = nx; player.position.z = nz; }
+    // Jump Physics
+    velocityY += gravity;
+    player.position.y += velocityY;
+    if (player.position.y <= 4) {
+        player.position.y = 4;
+        velocityY = 0;
+        isGrounded = true;
+    }
 
+    // UI & Camera
     let near = false;
-    for(const b of buildings) if(player.position.distanceTo(b.door) < 30) { near = true; break; }
-    hint.style.display = near ? "block" : "none";
+    for (const b of buildings) if (player.position.distanceTo(b.door) < 35) { near = true; break; }
+    document.getElementById("uiHint").style.display = near ? "block" : "none";
 
-    player.rotation.y = yaw;
-    camera.rotation.x = pitch;
+    player.rotation.y = yaw; camera.rotation.x = pitch;
+
+    // RENDER MAIN SCREEN
+    renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
+    renderer.clear();
     renderer.render(scene, camera);
+
+    // RENDER MINIMAP
+    const mapSize = 150;
+    renderer.setScissorTest(true);
+    renderer.setScissor(window.innerWidth - mapSize - 10, window.innerHeight - mapSize - 10, mapSize, mapSize);
+    renderer.setViewport(window.innerWidth - mapSize - 10, window.innerHeight - mapSize - 10, mapSize, mapSize);
+    
+    mapCamera.position.x = player.position.x;
+    mapCamera.position.z = player.position.z;
+    renderer.render(scene, mapCamera);
+    renderer.setScissorTest(false);
 }
 animate();
 
