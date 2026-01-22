@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mini City Life - Dr. Driving Edition</title>
+    <title>Mini City Life - Grass Upgrade</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Courier New', Courier, monospace; background: #87ceeb; }
@@ -14,7 +14,7 @@
             background: rgba(0,0,0,0.85); display: flex; flex-direction: column;
             justify-content: center; align-items: center; z-index: 100; color: #00ff00;
         }
-        #homeScreen h1 { font-size: 4em; margin-bottom: 10px; text-shadow: 3px 3px #000; }
+        #homeScreen h1 { font-size: 3.5em; margin-bottom: 10px; text-shadow: 3px 3px #000; text-align: center; }
         #homeScreen button {
             font-size: 28px; padding: 10px 60px; border: 4px solid #00ff00; 
             background: none; color: #00ff00; cursor: pointer; font-weight: bold;
@@ -72,14 +72,13 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-/* ---------- 1. SCENE & ATMOSPHERE ---------- */
+/* ---------- 1. SCENE SETUP ---------- */
 const scene = new THREE.Scene();
 const skyColor = 0x87ceeb;
 scene.background = new THREE.Color(skyColor);
-// DR. DRIVING FOG: Hides the edge of the world
-scene.fog = new THREE.FogExp2(skyColor, 0.0018);
+scene.fog = new THREE.FogExp2(skyColor, 0.0015);
 
-const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 4000);
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 5000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
@@ -90,75 +89,84 @@ const sun = new THREE.DirectionalLight(0xffffff, 1.0);
 sun.position.set(100, 500, 100);
 scene.add(sun);
 
-/* ---------- 2. THE WORLD (MAP) ---------- */
+/* ---------- 2. GRASS TEXTURE LOADING ---------- */
+const textureLoader = new THREE.TextureLoader();
+const grassTexture = textureLoader.load('textures/grass.png');
+
+// Make the texture repeat over the whole island
+grassTexture.wrapS = THREE.RepeatWrapping;
+grassTexture.wrapT = THREE.RepeatWrapping;
+// Increase these numbers (e.g., 100, 100) to make the grass pattern smaller and more detailed
+grassTexture.repeat.set(60, 60);
+
+/* ---------- 3. THE WORLD (MAP) ---------- */
 const spacing = 180;
-const gridSize = 10; // 10x10 city blocks
+const gridSize = 10;
 const mapSize = (gridSize + 2) * spacing;
 
-// MAIN ISLAND
+// LAND with GRASS TEXTURE
 const land = new THREE.Mesh(
     new THREE.PlaneGeometry(mapSize, mapSize),
-    new THREE.MeshStandardMaterial({ color: 0x228b22 }) // Base green grass
+    new THREE.MeshStandardMaterial({ map: grassTexture }) // Applied your PNG here
 );
 land.rotation.x = -Math.PI / 2;
 scene.add(land);
 
 // THE SEA
 const sea = new THREE.Mesh(
-    new THREE.PlaneGeometry(12000, 12000),
+    new THREE.PlaneGeometry(15000, 15000),
     new THREE.MeshStandardMaterial({ color: 0x0044ff })
 );
 sea.rotation.x = -Math.PI / 2;
 sea.position.y = -3;
 scene.add(sea);
 
-/* ---------- 3. ROADS WITH MARKINGS ---------- */
-function createRoadMarkings() {
+/* ---------- 4. ROADS ---------- */
+function createRoads() {
     const roadMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
-    const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
     const yellowMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
 
     for (let i = -gridSize; i <= gridSize; i++) {
         const pos = i * spacing;
 
-        // Vertical Roads
-        const vRoad = new THREE.Mesh(new THREE.PlaneGeometry(40, mapSize), roadMat);
+        // Vertical Road
+        const vRoad = new THREE.Mesh(new THREE.PlaneGeometry(45, mapSize), roadMat);
         vRoad.rotation.x = -Math.PI/2;
-        vRoad.position.set(pos, 0.02, 0);
+        vRoad.position.set(pos, 0.05, 0); // Slightly higher than grass
         scene.add(vRoad);
 
-        // Vertical Yellow Center Line
-        const vLine = new THREE.Mesh(new THREE.PlaneGeometry(1, mapSize), yellowMat);
+        // Vertical Yellow Line
+        const vLine = new THREE.Mesh(new THREE.PlaneGeometry(1.5, mapSize), yellowMat);
         vLine.rotation.x = -Math.PI/2;
-        vLine.position.set(pos, 0.03, 0);
+        vLine.position.set(pos, 0.06, 0);
         scene.add(vLine);
 
-        // Horizontal Roads
-        const hRoad = new THREE.Mesh(new THREE.PlaneGeometry(mapSize, 40), roadMat);
+        // Horizontal Road
+        const hRoad = new THREE.Mesh(new THREE.PlaneGeometry(mapSize, 45), roadMat);
         hRoad.rotation.x = -Math.PI/2;
-        hRoad.position.set(0, 0.02, pos);
+        hRoad.position.set(0, 0.05, pos);
         scene.add(hRoad);
 
-        // Horizontal Yellow Center Line
-        const hLine = new THREE.Mesh(new THREE.PlaneGeometry(mapSize, 1), yellowMat);
+        // Horizontal Yellow Line
+        const hLine = new THREE.Mesh(new THREE.PlaneGeometry(mapSize, 1.5), yellowMat);
         hLine.rotation.x = -Math.PI/2;
-        hLine.position.set(0, 0.03, pos);
+        hLine.position.set(0, 0.06, pos);
         scene.add(hLine);
     }
 }
-createRoadMarkings();
+createRoads();
 
-/* ---------- 4. PLAYER ---------- */
+/* ---------- 5. PLAYER ---------- */
 const player = new THREE.Object3D();
-player.position.set(0, 2.5, 90); // Spawn on a road
+player.position.set(0, 3, 90); 
 scene.add(player);
 player.add(camera);
 
 let yaw = 0, pitch = 0, targetYaw = 0, targetPitch = 0;
-const speed = 1.0; // Faster for driving feel
+const speed = 1.2; 
 const move = { up: false, down: false, left: false, right: false };
 
-/* ---------- 5. DENSE BUILDINGS ---------- */
+/* ---------- 6. BUILDINGS ---------- */
 const buildings = [];
 const loader = new GLTFLoader();
 
@@ -168,21 +176,20 @@ loader.load('models/building.glb', (gltf) => {
 
     for (let x = -gridSize; x <= gridSize; x++) {
         for (let z = -gridSize; z <= gridSize; z++) {
-            // Only place buildings in the corners of the road intersections
-            const bx = x * spacing + 60;
-            const bz = z * spacing + 60;
+            // Place buildings on the grass islands between roads
+            const bx = x * spacing + 65;
+            const bz = z * spacing + 65;
 
             const b = baseBuilding.clone();
             b.position.set(bx, 0, bz);
             scene.add(b);
 
             const box = new THREE.Box3().setFromObject(b);
-            // Door is at the corner facing the intersection
-            const doorWorldPos = new THREE.Vector3(bx - 15, 2, bz - 15);
+            const doorWorldPos = new THREE.Vector3(bx - 20, 2, bz - 20);
 
             // Door Marker
             const marker = new THREE.Mesh(
-                new THREE.SphereGeometry(3),
+                new THREE.SphereGeometry(3.5),
                 new THREE.MeshBasicMaterial({ color: 0xff0000, depthTest: false, transparent: true, opacity: 0.8 })
             );
             marker.position.copy(doorWorldPos);
@@ -194,7 +201,7 @@ loader.load('models/building.glb', (gltf) => {
     }
 });
 
-/* ---------- 6. INPUTS ---------- */
+/* ---------- 7. CONTROLS ---------- */
 function bindBtn(id, key) {
     const el = document.getElementById(id);
     el.addEventListener("pointerdown", (e) => { e.preventDefault(); move[key] = true; });
@@ -216,7 +223,7 @@ window.addEventListener("pointermove", e => {
     lastX = e.clientX; lastY = e.clientY;
 });
 
-/* ---------- 7. ENGINE ---------- */
+/* ---------- 8. SYSTEM LOGIC ---------- */
 const playerHitbox = new THREE.Box3();
 const uiHint = document.getElementById("uiHint");
 
@@ -224,11 +231,11 @@ document.getElementById("enterBtn").onclick = () => {
     let near = false;
     for (const b of buildings) {
         if (player.position.distanceTo(b.doorWorld) < 25) {
-            player.position.set(0, 2, -5000); 
+            player.position.set(0, 3, -6000); // Interior Zone
             near = true; break;
         }
     }
-    if(player.position.z < -4000) player.position.set(0, 2.5, 90);
+    if(player.position.z < -5000) player.position.set(0, 3, 90);
 };
 
 document.getElementById("playBtn").onclick = () => document.getElementById("homeScreen").style.display = "none";
