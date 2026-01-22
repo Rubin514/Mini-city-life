@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mini City Life - Grass Upgrade</title>
+    <title>Dr. City Life 3D</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Courier New', Courier, monospace; background: #87ceeb; }
         canvas { display: block; touch-action: none; }
 
-        /* VINTAGE GAME UI */
+        /* VINTAGE ARCADE UI */
         #homeScreen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.85); display: flex; flex-direction: column;
@@ -29,7 +29,7 @@
         #controls { position: fixed; bottom: 20px; left: 20px; z-index: 10; display: grid; grid-template-areas: ". up ." "left down right"; }
         .btn {
             width: 75px; height: 75px; margin: 5px; border-radius: 10px; 
-            font-size: 32px; background: rgba(0,0,0,0.5);
+            font-size: 32px; background: rgba(0,0,0,0.6);
             border: 3px solid #ffffff; color: white; display: flex; align-items: center; justify-content: center;
         }
         #up { grid-area: up; } #left { grid-area: left; } #right { grid-area: right; } #down { grid-area: down; }
@@ -45,7 +45,7 @@
 
 <div id="homeScreen">
     <h1>DR. CITY LIFE</h1>
-    <button id="playBtn">START</button>
+    <button id="playBtn">START GAME</button>
 </div>
 
 <div id="uiHint">PARK TO ENTER</div>
@@ -72,10 +72,11 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-/* ---------- 1. SCENE SETUP ---------- */
+/* ---------- 1. SCENE & ATMOSPHERE ---------- */
 const scene = new THREE.Scene();
 const skyColor = 0x87ceeb;
 scene.background = new THREE.Color(skyColor);
+// Mobile game fog to hide edges
 scene.fog = new THREE.FogExp2(skyColor, 0.0015);
 
 const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 5000);
@@ -91,28 +92,31 @@ scene.add(sun);
 
 /* ---------- 2. GRASS TEXTURE LOADING ---------- */
 const textureLoader = new THREE.TextureLoader();
-const grassTexture = textureLoader.load('textures/grass.png');
+const grassTexture = textureLoader.load(
+    'textures/grass.png',
+    () => console.log("Grass texture loaded!"),
+    undefined,
+    (err) => console.error("Could not load grass texture. Check your file path.")
+);
 
-// Make the texture repeat over the whole island
 grassTexture.wrapS = THREE.RepeatWrapping;
 grassTexture.wrapT = THREE.RepeatWrapping;
-// Increase these numbers (e.g., 100, 100) to make the grass pattern smaller and more detailed
-grassTexture.repeat.set(60, 60);
+grassTexture.repeat.set(80, 80); // Adjust this if the grass looks too big
 
-/* ---------- 3. THE WORLD (MAP) ---------- */
+/* ---------- 3. THE WORLD (ISLAND & SEA) ---------- */
 const spacing = 180;
 const gridSize = 10;
 const mapSize = (gridSize + 2) * spacing;
 
-// LAND with GRASS TEXTURE
+// LAND (The grass surface)
 const land = new THREE.Mesh(
     new THREE.PlaneGeometry(mapSize, mapSize),
-    new THREE.MeshStandardMaterial({ map: grassTexture }) // Applied your PNG here
+    new THREE.MeshStandardMaterial({ map: grassTexture, color: 0x228b22 }) // Green color as backup
 );
 land.rotation.x = -Math.PI / 2;
 scene.add(land);
 
-// THE SEA
+// SEA
 const sea = new THREE.Mesh(
     new THREE.PlaneGeometry(15000, 15000),
     new THREE.MeshStandardMaterial({ color: 0x0044ff })
@@ -121,7 +125,7 @@ sea.rotation.x = -Math.PI / 2;
 sea.position.y = -3;
 scene.add(sea);
 
-/* ---------- 4. ROADS ---------- */
+/* ---------- 4. DR. DRIVING ROADS ---------- */
 function createRoads() {
     const roadMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
     const yellowMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
@@ -132,10 +136,10 @@ function createRoads() {
         // Vertical Road
         const vRoad = new THREE.Mesh(new THREE.PlaneGeometry(45, mapSize), roadMat);
         vRoad.rotation.x = -Math.PI/2;
-        vRoad.position.set(pos, 0.05, 0); // Slightly higher than grass
+        vRoad.position.set(pos, 0.05, 0); 
         scene.add(vRoad);
 
-        // Vertical Yellow Line
+        // Vertical Center Line
         const vLine = new THREE.Mesh(new THREE.PlaneGeometry(1.5, mapSize), yellowMat);
         vLine.rotation.x = -Math.PI/2;
         vLine.position.set(pos, 0.06, 0);
@@ -147,7 +151,7 @@ function createRoads() {
         hRoad.position.set(0, 0.05, pos);
         scene.add(hRoad);
 
-        // Horizontal Yellow Line
+        // Horizontal Center Line
         const hLine = new THREE.Mesh(new THREE.PlaneGeometry(mapSize, 1.5), yellowMat);
         hLine.rotation.x = -Math.PI/2;
         hLine.position.set(0, 0.06, pos);
@@ -156,7 +160,7 @@ function createRoads() {
 }
 createRoads();
 
-/* ---------- 5. PLAYER ---------- */
+/* ---------- 5. PLAYER SETUP ---------- */
 const player = new THREE.Object3D();
 player.position.set(0, 3, 90); 
 scene.add(player);
@@ -166,7 +170,7 @@ let yaw = 0, pitch = 0, targetYaw = 0, targetPitch = 0;
 const speed = 1.2; 
 const move = { up: false, down: false, left: false, right: false };
 
-/* ---------- 6. BUILDINGS ---------- */
+/* ---------- 6. BUILDINGS & RED MARKERS ---------- */
 const buildings = [];
 const loader = new GLTFLoader();
 
@@ -176,7 +180,6 @@ loader.load('models/building.glb', (gltf) => {
 
     for (let x = -gridSize; x <= gridSize; x++) {
         for (let z = -gridSize; z <= gridSize; z++) {
-            // Place buildings on the grass islands between roads
             const bx = x * spacing + 65;
             const bz = z * spacing + 65;
 
@@ -185,9 +188,9 @@ loader.load('models/building.glb', (gltf) => {
             scene.add(b);
 
             const box = new THREE.Box3().setFromObject(b);
-            const doorWorldPos = new THREE.Vector3(bx - 20, 2, bz - 20);
+            const doorWorldPos = new THREE.Vector3(bx - 22, 2, bz - 22);
 
-            // Door Marker
+            // Door Marker (X-Ray enabled)
             const marker = new THREE.Mesh(
                 new THREE.SphereGeometry(3.5),
                 new THREE.MeshBasicMaterial({ color: 0xff0000, depthTest: false, transparent: true, opacity: 0.8 })
@@ -201,7 +204,7 @@ loader.load('models/building.glb', (gltf) => {
     }
 });
 
-/* ---------- 7. CONTROLS ---------- */
+/* ---------- 7. CONTROLS & CAMERA ---------- */
 function bindBtn(id, key) {
     const el = document.getElementById(id);
     el.addEventListener("pointerdown", (e) => { e.preventDefault(); move[key] = true; });
@@ -231,7 +234,7 @@ document.getElementById("enterBtn").onclick = () => {
     let near = false;
     for (const b of buildings) {
         if (player.position.distanceTo(b.doorWorld) < 25) {
-            player.position.set(0, 3, -6000); // Interior Zone
+            player.position.set(0, 3, -6000); // Teleport to interior
             near = true; break;
         }
     }
@@ -254,13 +257,15 @@ function animate() {
     if (move.left) { nx -= Math.cos(yaw) * speed; nz += Math.sin(yaw) * speed; }
     if (move.right) { nx += Math.cos(yaw) * speed; nz -= Math.sin(yaw) * speed; }
 
-    playerHitbox.setFromCenterAndSize(new THREE.Vector3(nx, 2.5, nz), new THREE.Vector3(4, 5, 4));
+    // Collision Logic
+    playerHitbox.setFromCenterAndSize(new THREE.Vector3(nx, 3, nz), new THREE.Vector3(4, 5, 4));
     let collision = false;
     for (const b of buildings) {
         if (playerHitbox.intersectsBox(b.box)) { collision = true; break; }
     }
     if (!collision) { player.position.x = nx; player.position.z = nz; }
 
+    // Proximity UI
     let nearDoor = false;
     for(const b of buildings) {
         if(player.position.distanceTo(b.doorWorld) < 25) { nearDoor = true; break; }
