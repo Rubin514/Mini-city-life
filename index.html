@@ -2,15 +2,16 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mini City Life 3D - Marker Fix</title>
+    <title>Mini City Life 3D - Door Fixed</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; overflow: hidden; font-family: sans-serif; background: #000; }
         canvas { display: block; touch-action: none; }
 
+        /* UI OVERLAYS */
         #homeScreen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9); display: flex; flex-direction: column;
+            background: rgba(0,0,0,0.95); display: flex; flex-direction: column;
             justify-content: center; align-items: center; z-index: 100; color: white;
         }
         #homeScreen h1 { font-size: 3em; color: orange; margin-bottom: 20px; }
@@ -21,7 +22,7 @@
 
         #uiHint {
             position: fixed; top: 20%; left: 50%; transform: translate(-50%, -50%);
-            color: white; background: rgba(255,165,0,0.8); padding: 15px 30px;
+            color: white; background: rgba(255,140,0,0.9); padding: 15px 30px;
             border-radius: 50px; display: none; pointer-events: none;
             font-weight: bold; font-size: 20px; z-index: 5; border: 2px solid white;
         }
@@ -45,11 +46,11 @@
 <body>
 
 <div id="homeScreen">
-    <h1>Mini City 3D</h1>
+    <h1>Mini City Life 3D</h1>
     <button id="playBtn">START GAME</button>
 </div>
 
-<div id="uiHint">DOOR DETECTED: PRESS ENTER</div>
+<div id="uiHint">DOOR REACHED: PRESS ENTER</div>
 
 <div id="controls">
     <div class="btn" id="up">⬆</div>
@@ -73,7 +74,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-/* ---------- SCENE SETUP ---------- */
+/* ---------- 1. SCENE SETUP ---------- */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 
@@ -90,14 +91,14 @@ scene.add(sun);
 
 const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(5000, 5000),
-    new THREE.MeshStandardMaterial({ color: 0x444444 })
+    new THREE.MeshStandardMaterial({ color: 0x333333 })
 );
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 
-/* ---------- PLAYER ---------- */
+/* ---------- 2. PLAYER ---------- */
 const player = new THREE.Object3D();
-player.position.set(0, 2, 0); 
+player.position.set(0, 2, 0); // Spawning at center street
 scene.add(player);
 player.add(camera);
 
@@ -105,17 +106,18 @@ let yaw = 0, pitch = 0, targetYaw = 0, targetPitch = 0;
 const speed = 0.6;
 const move = { up: false, down: false, left: false, right: false };
 
-/* ---------- LOADING BUILDINGS & X-RAY MARKERS ---------- */
+/* ---------- 3. BUILDINGS & DOOR MARKERS ---------- */
 const buildings = [];
 const loader = new GLTFLoader();
 
 loader.load('models/building.glb', (gltf) => {
     const baseBuilding = gltf.scene;
     baseBuilding.scale.set(3, 3, 3);
-    const spacing = 150; 
+    const spacing = 160; 
 
     for (let x = -3; x <= 3; x++) {
         for (let z = -3; z <= 3; z++) {
+            // Keep the middle street clear
             if (Math.abs(x) <= 1 && Math.abs(z) <= 1) continue; 
 
             const b = baseBuilding.clone();
@@ -124,29 +126,32 @@ loader.load('models/building.glb', (gltf) => {
 
             const box = new THREE.Box3().setFromObject(b);
 
-            // Door Point: Try Z + 15 (further out so it's not inside the wall)
-            const doorWorldPos = new THREE.Vector3(x * spacing, 5, z * spacing + 15);
+            /* --- DOOR POSITION CALCULATION --- */
+            // We use -18 instead of +15 to flip the dot to the other side of the building
+            // Change the -18 to move the dot closer/further from the building center
+            // Change the 0 to move the dot left/right
+            const doorWorldPos = new THREE.Vector3(x * spacing + 0, 5, z * spacing - 18);
 
-            // X-RAY MARKER: Visible through walls
+            // Red X-Ray marker
             const markerGeo = new THREE.SphereGeometry(2.5);
             const markerMat = new THREE.MeshBasicMaterial({ 
                 color: 0xff0000, 
-                depthTest: false, // THIS MAKES IT VISIBLE THROUGH WALLS
+                depthTest: false, // Visible through building
                 transparent: true,
                 opacity: 0.8
             });
             const marker = new THREE.Mesh(markerGeo, markerMat);
             marker.position.copy(doorWorldPos);
-            marker.renderOrder = 999; // Ensures it draws on top
+            marker.renderOrder = 999;
             scene.add(marker);
 
             buildings.push({ mesh: b, box: box, doorWorld: doorWorldPos });
         }
     }
-    console.log("Buildings loaded: " + buildings.length);
+    console.log("City Ready. Walk to red dots.");
 });
 
-/* ---------- CONTROLS ---------- */
+/* ---------- 4. INPUT HANDLING ---------- */
 function bindBtn(id, key) {
     const el = document.getElementById(id);
     el.addEventListener("pointerdown", (e) => { e.preventDefault(); move[key] = true; });
@@ -157,7 +162,22 @@ function bindBtn(id, key) {
 bindBtn("up", "up"); bindBtn("down", "down");
 bindBtn("left", "left"); bindBtn("right", "right");
 
-/* MOUSE/TOUCH LOOK */
+window.addEventListener("keydown", (e) => {
+    const k = e.key.toLowerCase();
+    if (k === "w" || k === "arrowup") move.up = true;
+    if (k === "s" || k === "arrowdown") move.down = true;
+    if (k === "a" || k === "arrowleft") move.left = true;
+    if (k === "d" || k === "arrowright") move.right = true;
+});
+window.addEventListener("keyup", (e) => {
+    const k = e.key.toLowerCase();
+    if (k === "w" || k === "arrowup") move.up = false;
+    if (k === "s" || k === "arrowdown") move.down = false;
+    if (k === "a" || k === "arrowleft") move.left = false;
+    if (k === "d" || k === "arrowright") move.right = false;
+});
+
+/* DRAG CAMERA */
 let dragging = false, lastX = 0, lastY = 0;
 renderer.domElement.addEventListener("pointerdown", e => { dragging = true; lastX = e.clientX; lastY = e.clientY; });
 window.addEventListener("pointerup", () => dragging = false);
@@ -169,24 +189,32 @@ window.addEventListener("pointermove", e => {
     lastX = e.clientX; lastY = e.clientY;
 });
 
-/* ---------- GAME LOGIC ---------- */
+/* ---------- 5. COLLISION & TELEPORT ---------- */
 const playerHitbox = new THREE.Box3();
 const uiHint = document.getElementById("uiHint");
 
 document.getElementById("enterBtn").onclick = () => {
-    let near = false;
+    let target = null;
     for (const b of buildings) {
-        if (player.position.distanceTo(b.doorWorld) < 20) {
-            player.position.set(0, 2, -2000); // Teleport
-            near = true; break;
+        if (player.position.distanceTo(b.doorWorld) < 22) {
+            target = b; break;
         }
     }
-    if(!near && player.position.z > -1000) alert("Walk into a Red Glow first!");
-    if(player.position.z < -1000) player.position.set(0,2,0); // Exit
+    
+    if (target) {
+        // Move to interior zone (far away from city)
+        player.position.set(0, 2, -3000); 
+    } else if (player.position.z < -2000) {
+        // Return to city center if already inside
+        player.position.set(0, 2, 0); 
+    } else {
+        alert("Walk closer to the red dot!");
+    }
 };
 
 document.getElementById("playBtn").onclick = () => document.getElementById("homeScreen").style.display = "none";
 
+/* ---------- 6. ANIMATION LOOP ---------- */
 function animate() {
     requestAnimationFrame(animate);
 
@@ -202,17 +230,17 @@ function animate() {
     if (move.right) { nx += Math.cos(yaw) * speed; nz -= Math.sin(yaw) * speed; }
 
     // Collision Check
-    playerHitbox.setFromCenterAndSize(new THREE.Vector3(nx, 2, nz), new THREE.Vector3(3, 4, 3));
+    playerHitbox.setFromCenterAndSize(new THREE.Vector3(nx, 2, nz), new THREE.Vector3(3.5, 4, 3.5));
     let collision = false;
     for (const b of buildings) {
         if (playerHitbox.intersectsBox(b.box)) { collision = true; break; }
     }
     if (!collision) { player.position.x = nx; player.position.z = nz; }
 
-    // UI Hint Logic
+    // Near Door Logic
     let nearDoor = false;
     for(const b of buildings) {
-        if(player.position.distanceTo(b.doorWorld) < 20) { nearDoor = true; break; }
+        if(player.position.distanceTo(b.doorWorld) < 22) { nearDoor = true; break; }
     }
     uiHint.style.display = nearDoor ? "block" : "none";
 
