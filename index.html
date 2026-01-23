@@ -2,26 +2,22 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Dr. City Life - Claude NPC Fix</title>
+    <title>Dr. City Life - NPC Ground Fix</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; overflow: hidden; font-family: sans-serif; background: #87ceeb; }
         canvas { display: block; touch-action: none; }
-
-        /* UI ELEMENTS */
         #homeScreen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.85); display: flex; flex-direction: column;
             justify-content: center; align-items: center; z-index: 100; color: #00ff00;
         }
         #playBtn { font-size: 24px; padding: 15px 50px; border: 3px solid #00ff00; background: none; color: #00ff00; cursor: pointer; font-weight: bold; border-radius: 8px; }
-
         #minimapOverlay {
             position: fixed; top: 10px; right: 10px; width: 150px; height: 150px;
             border-radius: 50%; border: 4px solid white; pointer-events: none; z-index: 20;
             box-shadow: 0 0 10px rgba(0,0,0,0.5);
         }
-
         #controls { position: fixed; bottom: 20px; left: 20px; z-index: 10; display: grid; grid-template-areas: ". up ." "left down right"; }
         .btn {
             width: 65px; height: 65px; margin: 5px; border-radius: 12px; 
@@ -29,13 +25,10 @@
             border: 2px solid #ffffff; color: white; display: flex; align-items: center; justify-content: center;
         }
         #up { grid-area: up; } #left { grid-area: left; } #right { grid-area: right; } #down { grid-area: down; }
-
         .action-container { position: fixed; bottom: 30px; right: 30px; display: flex; flex-direction: column; gap: 10px; }
         .action-btn { width: 120px; height: 60px; border-radius: 12px; font-size: 18px; color: white; border: 3px solid #fff; cursor: pointer; font-weight: bold; }
         #jumpBtn { background: #ffa500; }
         #enterBtn { background: #ff0000; }
-
-        #uiHint { position: fixed; top: 20%; left: 50%; transform: translateX(-50%); color: #ffff00; font-size: 22px; font-weight: bold; text-shadow: 2px 2px #000; display: none; }
     </style>
 </head>
 <body>
@@ -46,7 +39,6 @@
 </div>
 
 <div id="minimapOverlay"></div>
-<div id="uiHint">PARK HERE</div>
 
 <div id="controls">
     <div class="btn" id="up">▲</div>
@@ -73,7 +65,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-/* ---------- 1. SCENE SETUP ---------- */
+/* ---------- 1. SETUP ---------- */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 5000);
@@ -86,18 +78,18 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.autoClear = false;
 document.body.appendChild(renderer.domElement);
 
-scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+scene.add(new THREE.AmbientLight(0xffffff, 1.8));
 
-/* ---------- 2. WORLD ASSETS ---------- */
+/* ---------- 2. WORLD ---------- */
 const textureLoader = new THREE.TextureLoader();
-const landMat = new THREE.MeshLambertMaterial({ color: 0x228b22 });
+const landMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
 textureLoader.load('textures/grass.png', (tex) => {
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
     tex.repeat.set(100, 100);
     landMat.map = tex;
-    landMat.color.set(0xffffff);
     landMat.needsUpdate = true;
-});
+}, undefined, () => { landMat.color.set(0x228b22); });
+
 const land = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), landMat);
 land.rotation.x = -Math.PI / 2;
 scene.add(land);
@@ -109,14 +101,14 @@ scene.add(player);
 player.add(camera);
 
 const pDot = new THREE.Mesh(new THREE.SphereGeometry(15), new THREE.MeshBasicMaterial({ color: 0x00ff00 }));
-pDot.position.y = 80; 
+pDot.position.y = 400; // High up so it only shows on map
 player.add(pDot);
 
 let yaw = 0, pitch = 0, targetYaw = 0, targetPitch = 0, velocityY = 0;
 const gravity = -0.018, jumpForce = 0.5, move = { up: false, down: false, left: false, right: false };
 let isGrounded = true;
 
-/* ---------- 4. ANIMATED NPCs & BUILDINGS ---------- */
+/* ---------- 4. NPC & BUILDINGS ---------- */
 const buildings = [];
 const npcs = [];
 const mixers = []; 
@@ -125,118 +117,85 @@ const loader = new GLTFLoader();
 
 // Load Buildings
 loader.load('models/building.glb', (gltf) => {
-    const base = gltf.scene; base.scale.set(4, 4, 4);
-    for (let x = -4; x <= 4; x++) {
-        for (let z = -4; z <= 4; z++) {
-            const bx = x * 350 + 100, bz = z * 350 + 100;
-            const b = base.clone(); b.position.set(bx, 0, bz); scene.add(b);
-            buildings.push({ box: new THREE.Box3().setFromObject(b), door: new THREE.Vector3(bx-25, 4, bz-25) });
+    gltf.scene.scale.set(4, 4, 4);
+    for (let x = -3; x <= 3; x++) {
+        for (let z = -3; z <= 3; z++) {
+            const b = gltf.scene.clone();
+            b.position.set(x * 400, 0, z * 400);
+            scene.add(b);
+            buildings.push({ box: new THREE.Box3().setFromObject(b) });
         }
     }
 });
 
-// Load Claude NPCs
+// Load NPCs with Ground & Alpha Fix
 loader.load('models/npc.glb', (gltf) => {
     const npcBase = gltf.scene;
     
-    // FIX: Make model parts visible from all angles
-    npcBase.traverse((node) => {
-        if (node.isMesh) {
-            node.material.side = THREE.DoubleSide; 
-            node.material.transparent = false;
-            node.material.depthWrite = true;
+    npcBase.traverse((n) => {
+        if (n.isMesh) {
+            n.material.side = THREE.DoubleSide; 
+            n.material.alphaTest = 0.5; // FIX: Prevents invisible body parts
+            n.material.needsUpdate = true;
         }
     });
 
-    npcBase.scale.set(3.5, 3.5, 3.5);
-
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 15; i++) {
         const npc = npcBase.clone();
-        npc.position.set((Math.random()-0.5)*2500, 0, (Math.random()-0.5)*2500);
+        npc.scale.set(3.5, 3.5, 3.5);
+        npc.position.set((Math.random()-0.5)*2000, 0.5, (Math.random()-0.5)*2000); // Lifted 0.5
         scene.add(npc);
 
-        // Animation Mixer
         const mixer = new THREE.AnimationMixer(npc);
-        if (gltf.animations.length > 0) {
-            mixer.clipAction(gltf.animations[0]).play();
-        }
+        if (gltf.animations.length > 0) mixer.clipAction(gltf.animations[0]).play();
         mixers.push(mixer);
 
-        // Blue Dot for Minimap
         const nDot = new THREE.Mesh(new THREE.SphereGeometry(12), new THREE.MeshBasicMaterial({ color: 0x0000ff }));
-        nDot.position.y = 100;
+        nDot.position.y = 400; // Keeps dots from flying away with animation
         npc.add(nDot);
 
-        npcs.push({ 
-            mesh: npc, 
-            speed: 25 + Math.random() * 30, // Real-time calibrated speed
-            turnTimer: Math.random() * 5 
-        });
+        npcs.push({ mesh: npc, speed: 20 + Math.random() * 20, turnTimer: Math.random() * 5 });
     }
 });
 
-/* ---------- 5. INPUTS ---------- */
-function bind(id, k) {
-    const el = document.getElementById(id);
-    el.onpointerdown = (e) => { e.preventDefault(); move[k] = true; };
-    el.onpointerup = el.onpointerleave = () => move[k] = false;
-}
-bind("up", "up"); bind("down", "down"); bind("left", "left"); bind("right", "right");
-
-document.getElementById("jumpBtn").onpointerdown = () => { if (isGrounded) { velocityY = jumpForce; isGrounded = false; } };
-document.getElementById("playBtn").onclick = () => document.getElementById("homeScreen").style.display = "none";
-
-/* ---------- 6. MAIN LOOP ---------- */
+/* ---------- 5. LOOP ---------- */
 function animate() {
     requestAnimationFrame(animate);
-    const delta = clock.getDelta(); // Smooth time tracking
+    const dt = clock.getDelta();
 
-    // Update NPC Animations & AI
-    mixers.forEach(m => m.update(delta));
-    npcs.forEach(npc => {
-        // Smooth movement using delta
-        npc.mesh.position.x += Math.sin(npc.mesh.rotation.y) * npc.speed * delta;
-        npc.mesh.position.z += Math.cos(npc.mesh.rotation.y) * npc.speed * delta;
-        
-        npc.turnTimer -= delta;
-        if(npc.turnTimer <= 0) {
-            npc.mesh.rotation.y += (Math.random() - 0.5) * 4;
-            npc.turnTimer = 2 + Math.random() * 5;
-        }
-
-        // Boundary safety
-        if(Math.abs(npc.mesh.position.x) > 1950 || Math.abs(npc.mesh.position.z) > 1950) {
-            npc.mesh.rotation.y += Math.PI;
+    mixers.forEach(m => m.update(dt));
+    npcs.forEach(n => {
+        n.mesh.position.x += Math.sin(n.mesh.rotation.y) * n.speed * dt;
+        n.mesh.position.z += Math.cos(n.mesh.rotation.y) * n.speed * dt;
+        n.turnTimer -= dt;
+        if(n.turnTimer <= 0) {
+            n.mesh.rotation.y += (Math.random()-0.5)*3;
+            n.turnTimer = 2 + Math.random()*4;
         }
     });
 
-    // Player Logic
+    // Player
     yaw += (targetYaw - yaw) * 0.1; pitch += (targetPitch - pitch) * 0.1;
-    let nx = player.position.x, nz = player.position.z, pSpd = 120 * delta;
-    
-    if (move.up) { nx -= Math.sin(yaw) * pSpd; nz -= Math.cos(yaw) * pSpd; }
-    if (move.down) { nx += Math.sin(yaw) * pSpd; nz += Math.cos(yaw) * pSpd; }
-    if (move.left) { nx -= Math.cos(yaw) * pSpd; nz += Math.sin(yaw) * pSpd; }
-    if (move.right) { nx += Math.cos(yaw) * pSpd; nz -= Math.sin(yaw) * pSpd; }
+    let nx = player.position.x, nz = player.position.z, spd = 120 * dt;
+    if (move.up) { nx -= Math.sin(yaw) * spd; nz -= Math.cos(yaw) * spd; }
+    if (move.down) { nx += Math.sin(yaw) * spd; nz += Math.cos(yaw) * spd; }
+    if (move.left) { nx -= Math.cos(yaw) * spd; nz += Math.sin(yaw) * spd; }
+    if (move.right) { nx += Math.cos(yaw) * spd; nz -= Math.sin(yaw) * spd; }
 
-    // Building Collision
-    const pBox = new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(nx, player.position.y, nz), new THREE.Vector3(8, 8, 8));
-    let blocked = false;
-    for (const b of buildings) if (pBox.intersectsBox(b.box)) { blocked = true; break; }
-    if (!blocked) { player.position.x = nx; player.position.z = nz; }
+    const pBox = new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(nx, 4, nz), new THREE.Vector3(8, 8, 8));
+    let hit = false;
+    for (const b of buildings) if (pBox.intersectsBox(b.box)) hit = true;
+    if (!hit) { player.position.x = nx; player.position.z = nz; }
 
-    // Gravity
     velocityY += gravity; player.position.y += velocityY;
     if (player.position.y <= 4) { player.position.y = 4; velocityY = 0; isGrounded = true; }
 
     player.rotation.y = yaw; camera.rotation.x = pitch;
 
-    // RENDER: MAIN VIEW
     renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
     renderer.clear();
     renderer.render(scene, camera);
 
-    // RENDER: MINIMAP
     const mSize = 150;
     renderer.setScissorTest(true);
     renderer.setScissor(window.innerWidth - mSize - 10, window.innerHeight - mSize - 10, mSize, mSize);
@@ -247,7 +206,16 @@ function animate() {
 }
 animate();
 
-// Touch Drag
+// Controls
+function bind(id, k) {
+    const el = document.getElementById(id);
+    el.onpointerdown = (e) => { e.preventDefault(); move[k] = true; };
+    el.onpointerup = el.onpointerleave = () => move[k] = false;
+}
+bind("up","up"); bind("down","down"); bind("left","left"); bind("right","right");
+document.getElementById("jumpBtn").onpointerdown = () => { if(isGrounded){ velocityY=jumpForce; isGrounded=false; }};
+document.getElementById("playBtn").onclick = () => document.getElementById("homeScreen").style.display="none";
+
 let drag = false, lx, ly;
 renderer.domElement.onpointerdown = e => { drag = true; lx = e.clientX; ly = e.clientY; };
 window.onpointerup = () => drag = false;
