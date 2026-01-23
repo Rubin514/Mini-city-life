@@ -5,48 +5,39 @@
     <title>Mini City Life</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <style>
-        body { margin: 0; overflow: hidden; font-family: sans-serif; background: #87ceeb; }
+        body { margin: 0; overflow: hidden; font-family: sans-serif; background: #000; }
         canvas { display: block; touch-action: none; }
         
         #homeScreen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(135deg, #1a1a1a 0%, #000 100%); 
-            display: flex; flex-direction: column; justify-content: center; align-items: center; 
-            z-index: 100; color: #fff;
+            background: #111; display: flex; flex-direction: column; 
+            justify-content: center; align-items: center; z-index: 100; color: #fff;
         }
-        #playBtn { 
-            font-size: 28px; padding: 15px 60px; border: 4px solid #00ff00; 
-            background: none; color: #00ff00; cursor: pointer; font-weight: bold; 
-            border-radius: 50px;
-        }
-
-        #minimapOverlay {
-            position: fixed; top: 15px; right: 15px; width: 140px; height: 140px;
-            border-radius: 50%; border: 3px solid white; pointer-events: none; z-index: 20;
-        }
-
+        #playBtn { font-size: 24px; padding: 15px 50px; border: 3px solid #00ff00; background: none; color: #00ff00; cursor: pointer; border-radius: 50px; }
+        
+        #minimapOverlay { position: fixed; top: 15px; right: 15px; width: 140px; height: 140px; border-radius: 50%; border: 3px solid white; pointer-events: none; z-index: 20; }
+        
         #controls { position: fixed; bottom: 25px; left: 25px; z-index: 10; display: grid; grid-template-areas: ". up ." "left down right"; }
-        .btn {
-            width: 65px; height: 65px; margin: 6px; border-radius: 15px; 
-            font-size: 26px; background: rgba(0,0,0,0.5);
-            border: 2px solid white; color: white; 
-            display: flex; align-items: center; justify-content: center;
-        }
+        .btn { width: 60px; height: 60px; margin: 5px; border-radius: 15px; font-size: 24px; background: rgba(0,0,0,0.6); border: 2px solid white; color: white; display: flex; align-items: center; justify-content: center; }
         #up { grid-area: up; } #left { grid-area: left; } #right { grid-area: right; } #down { grid-area: down; }
 
-        .action-container { position: fixed; bottom: 35px; right: 25px; display: flex; flex-direction: column; gap: 12px; }
-        .action-btn { width: 110px; height: 55px; border-radius: 15px; font-size: 18px; color: white; border: 2px solid #fff; font-weight: bold; }
+        .action-container { position: fixed; bottom: 35px; right: 25px; display: flex; flex-direction: column; gap: 10px; }
+        .action-btn { width: 100px; height: 55px; border-radius: 15px; font-size: 18px; color: white; border: 2px solid #fff; font-weight: bold; cursor: pointer; }
         #jumpBtn { background: #ff9800; }
         #enterBtn { background: #f44336; }
+
+        #msg { position: fixed; top: 20%; width: 100%; text-align: center; color: yellow; font-size: 24px; font-weight: bold; display: none; text-shadow: 2px 2px #000; }
     </style>
 </head>
 <body>
 
 <div id="homeScreen">
     <h1>MINI CITY LIFE</h1>
-    <button id="playBtn">START GAME</button>
+    <p id="status">Loading City...</p>
+    <button id="playBtn" style="display:none;">START GAME</button>
 </div>
 
+<div id="msg">PRESS ENTER TO GO HOME</div>
 <div id="minimapOverlay"></div>
 
 <div id="controls">
@@ -78,121 +69,155 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 5000);
-const mapCamera = new THREE.OrthographicCamera(-400, 400, 400, -400, 1, 1500);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const mapCamera = new THREE.OrthographicCamera(-500, 500, 500, -500, 1, 2000);
 mapCamera.position.y = 1000;
 mapCamera.lookAt(0,0,0);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.autoClear = false;
-document.body.appendChild(renderer.domElement);
+scene.add(new THREE.AmbientLight(0xffffff, 2.5));
 
-scene.add(new THREE.AmbientLight(0xffffff, 2.0));
-
-/* --- 2. GROUND --- */
-const land = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000), new THREE.MeshLambertMaterial({ color: 0x228b22 }));
+/* --- 2. GROUND & ROADS --- */
+// Grass
+const land = new THREE.Mesh(new THREE.PlaneGeometry(10000, 10000), new THREE.MeshLambertMaterial({ color: 0x228b22 }));
 land.rotation.x = -Math.PI / 2;
 scene.add(land);
 
-new THREE.TextureLoader().load('textures/grass.png', (tex) => {
-    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(100, 100);
-    land.material.map = tex;
-    land.material.needsUpdate = true;
-});
+// Asphalt Road Grid
+const roadMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
+for(let i = -5; i <= 5; i++) {
+    // Horizontal roads
+    const roadH = new THREE.Mesh(new THREE.PlaneGeometry(10000, 120), roadMat);
+    roadH.rotation.x = -Math.PI / 2;
+    roadH.position.set(0, 0.1, i * 600);
+    scene.add(roadH);
 
-/* --- 3. PLAYER --- */
+    // Vertical roads
+    const roadV = new THREE.Mesh(new THREE.PlaneGeometry(120, 10000), roadMat);
+    roadV.rotation.x = -Math.PI / 2;
+    roadV.position.set(i * 600, 0.1, 0);
+    scene.add(roadV);
+}
+
+/* --- 3. HOME ENTRY --- */
+const homeEntry = new THREE.Mesh(
+    new THREE.CircleGeometry(40, 32),
+    new THREE.MeshBasicMaterial({ color: 0xffff00, side: THREE.DoubleSide, transparent: true, opacity: 0.6 })
+);
+homeEntry.rotation.x = -Math.PI / 2;
+homeEntry.position.set(0, 0.5, 300); // In front of spawn
+scene.add(homeEntry);
+
+/* --- 4. PLAYER --- */
 const player = new THREE.Object3D();
-player.position.set(0, 4, 300); 
+player.position.set(0, 5, 450); // Start on the road
 scene.add(player);
 player.add(camera);
 
-const pDot = new THREE.Mesh(new THREE.SphereGeometry(20), new THREE.MeshBasicMaterial({ color: 0x00ff00 }));
+const pDot = new THREE.Mesh(new THREE.SphereGeometry(25), new THREE.MeshBasicMaterial({ color: 0x00ff00 }));
 pDot.position.y = 800; 
 player.add(pDot);
 
 let yaw = 0, pitch = 0, targetYaw = 0, targetPitch = 0, velocityY = 0;
-const gravity = -0.018, jumpForce = 0.5, move = { up: false, down: false, left: false, right: false };
+const gravity = -0.015, jumpForce = 0.45, move = { up: false, down: false, left: false, right: false };
 let isGrounded = true;
 
-/* --- 4. BUILDINGS --- */
+/* --- 5. BUILDINGS --- */
 const buildings = [];
-const clock = new THREE.Clock();
 const loader = new GLTFLoader();
 
-loader.load('models/building.glb', (gltf) => {
-    const bModel = gltf.scene;
-    bModel.scale.set(4.5, 4.5, 4.5);
-    for (let x = -4; x <= 4; x++) {
-        for (let z = -4; z <= 4; z++) {
-            if (x === 0 && Math.abs(z) < 2) continue; // Keep spawn road clear
-            const b = bModel.clone();
-            b.position.set(x * 500, 0, z * 500);
+loader.load('models/building.glb', 
+    (gltf) => {
+        document.getElementById('status').innerText = "City Loaded!";
+        document.getElementById('playBtn').style.display = "block";
+        createGrid(gltf.scene);
+    },
+    undefined,
+    () => {
+        document.getElementById('status').innerText = "Using backup city...";
+        document.getElementById('playBtn').style.display = "block";
+        const box = new THREE.Mesh(new THREE.BoxGeometry(150, 250, 150), new THREE.MeshLambertMaterial({ color: 0x888888 }));
+        createGrid(box);
+    }
+);
+
+function createGrid(template) {
+    for (let x = -3; x <= 3; x++) {
+        for (let z = -3; z <= 3; z++) {
+            if (x === 0 && z === 0) continue; // Keep center clear
+            const b = template.clone();
+            if(b.isMesh) b.scale.set(1, 1, 1); else b.scale.set(5, 5, 5);
+            b.position.set(x * 600, 0, z * 600);
             scene.add(b);
             buildings.push({ box: new THREE.Box3().setFromObject(b) });
         }
     }
-});
+}
 
-/* --- 5. LOOP --- */
+/* --- 6. GAME LOOP --- */
+const clock = new THREE.Clock();
 function animate() {
     requestAnimationFrame(animate);
     const dt = clock.getDelta();
 
-    // Movement
-    yaw += (targetYaw - yaw) * 0.15; pitch += (targetPitch - pitch) * 0.15;
-    let nx = player.position.x, nz = player.position.z, spd = 130 * dt;
+    yaw += (targetYaw - yaw) * 0.1; pitch += (targetPitch - pitch) * 0.1;
+    let nx = player.position.x, nz = player.position.z, spd = 160 * dt;
     
     if (move.up) { nx -= Math.sin(yaw) * spd; nz -= Math.cos(yaw) * spd; }
     if (move.down) { nx += Math.sin(yaw) * spd; nz += Math.cos(yaw) * spd; }
     if (move.left) { nx -= Math.cos(yaw) * spd; nz += Math.sin(yaw) * spd; }
     if (move.right) { nx += Math.cos(yaw) * spd; nz -= Math.sin(yaw) * spd; }
 
-    const pBox = new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(nx, 4, nz), new THREE.Vector3(12, 12, 12));
+    const pBox = new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(nx, 5, nz), new THREE.Vector3(15, 15, 15));
     let hit = false;
     for (const b of buildings) if (pBox.intersectsBox(b.box)) hit = true;
     if (!hit) { player.position.x = nx; player.position.z = nz; }
 
     velocityY += gravity; player.position.y += velocityY;
-    if (player.position.y <= 4) { player.position.y = 4; velocityY = 0; isGrounded = true; }
+    if (player.position.y <= 5) { player.position.y = 5; velocityY = 0; isGrounded = true; }
 
     player.rotation.y = yaw; camera.rotation.x = pitch;
 
-    // Rendering
+    // Check Home Entry Distance
+    const dist = player.position.distanceTo(homeEntry.position);
+    document.getElementById("msg").style.display = (dist < 50) ? "block" : "none";
+
     renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
-    renderer.clear();
     renderer.render(scene, camera);
 
-    const mSize = 140;
+    // Minimap
     renderer.setScissorTest(true);
-    renderer.setScissor(window.innerWidth - mSize - 15, window.innerHeight - mSize - 15, mSize, mSize);
-    renderer.setViewport(window.innerWidth - mSize - 15, window.innerHeight - mSize - 15, mSize, mSize);
+    renderer.setScissor(window.innerWidth - 155, window.innerHeight - 155, 140, 140);
+    renderer.setViewport(window.innerWidth - 155, window.innerHeight - 155, 140, 140);
     mapCamera.position.set(player.position.x, 1000, player.position.z);
     renderer.render(scene, mapCamera);
     renderer.setScissorTest(false);
 }
 animate();
 
-/* --- 6. CONTROLS --- */
+/* --- 7. CONTROLS --- */
 function bind(id, k) {
     const el = document.getElementById(id);
-    el.addEventListener('pointerdown', (e) => { e.preventDefault(); move[k] = true; });
-    el.addEventListener('pointerup', () => move[k] = false);
+    el.onpointerdown = (e) => { e.preventDefault(); move[k] = true; };
+    el.onpointerup = () => move[k] = false;
 }
 bind("up","up"); bind("down","down"); bind("left","left"); bind("right","right");
+
 document.getElementById("jumpBtn").onpointerdown = () => { if(isGrounded){ velocityY=jumpForce; isGrounded=false; }};
-document.getElementById("playBtn").onclick = () => document.getElementById("homeScreen").style.display="none";
+
+document.getElementById("enterBtn").onclick = () => {
+    const dist = player.position.distanceTo(homeEntry.position);
+    if(dist < 50) alert("Entering Home...");
+};
+
+document.getElementById("playBtn").onclick = () => document.getElementById("homeScreen").style.display = "none";
 
 let drag = false, lx, ly;
-renderer.domElement.addEventListener('pointerdown', e => { drag = true; lx = e.clientX; ly = e.clientY; });
-window.addEventListener('pointerup', () => drag = false);
-window.addEventListener('pointermove', e => { 
-    if (drag) { 
-        targetYaw -= (e.clientX - lx) * 0.007; 
-        targetPitch -= (e.clientY - ly) * 0.007; 
-        lx = e.clientX; ly = e.clientY; 
-    } 
-});
+renderer.domElement.onpointerdown = e => { drag = true; lx = e.clientX; ly = e.clientY; };
+window.onpointerup = () => drag = false;
+window.onpointermove = e => { if (drag) { targetYaw -= (e.clientX - lx) * 0.007; targetPitch -= (e.clientY - ly) * 0.007; lx = e.clientX; ly = e.clientY; } };
 </script>
 </body>
 </html>
