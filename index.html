@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Dr. City Life - Claude Edition</title>
+    <title>Dr. City Life - Claude NPC Fix</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; overflow: hidden; font-family: sans-serif; background: #87ceeb; }
@@ -73,12 +73,12 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-/* ---------- 1. SCENE & CAMERAS ---------- */
+/* ---------- 1. SCENE SETUP ---------- */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 5000);
-const mapCamera = new THREE.OrthographicCamera(-200, 200, 200, -200, 1, 1000);
-mapCamera.position.y = 500;
+const mapCamera = new THREE.OrthographicCamera(-250, 250, 250, -250, 1, 1000);
+mapCamera.position.y = 600;
 mapCamera.lookAt(0,0,0);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -86,9 +86,9 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.autoClear = false;
 document.body.appendChild(renderer.domElement);
 
-scene.add(new THREE.AmbientLight(0xffffff, 1.3));
+scene.add(new THREE.AmbientLight(0xffffff, 1.5));
 
-/* ---------- 2. GRASS & ENVIRONMENT ---------- */
+/* ---------- 2. WORLD ASSETS ---------- */
 const textureLoader = new THREE.TextureLoader();
 const landMat = new THREE.MeshLambertMaterial({ color: 0x228b22 });
 textureLoader.load('textures/grass.png', (tex) => {
@@ -102,73 +102,80 @@ const land = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), landMat);
 land.rotation.x = -Math.PI / 2;
 scene.add(land);
 
-/* ---------- 3. PLAYER & PHYSICS ---------- */
+/* ---------- 3. PLAYER ---------- */
 const player = new THREE.Object3D();
 player.position.set(0, 4, 100);
 scene.add(player);
 player.add(camera);
 
-const pDot = new THREE.Mesh(new THREE.SphereGeometry(12), new THREE.MeshBasicMaterial({ color: 0x00ff00 }));
-pDot.position.y = 50; 
+const pDot = new THREE.Mesh(new THREE.SphereGeometry(15), new THREE.MeshBasicMaterial({ color: 0x00ff00 }));
+pDot.position.y = 80; 
 player.add(pDot);
 
 let yaw = 0, pitch = 0, targetYaw = 0, targetPitch = 0, velocityY = 0;
 const gravity = -0.018, jumpForce = 0.5, move = { up: false, down: false, left: false, right: false };
 let isGrounded = true;
 
-/* ---------- 4. MODELS & ANIMATED NPCs ---------- */
+/* ---------- 4. ANIMATED NPCs & BUILDINGS ---------- */
 const buildings = [];
 const npcs = [];
-const mixers = []; // For NPC Animations
+const mixers = []; 
 const clock = new THREE.Clock();
 const loader = new GLTFLoader();
 
-// Buildings
+// Load Buildings
 loader.load('models/building.glb', (gltf) => {
     const base = gltf.scene; base.scale.set(4, 4, 4);
     for (let x = -4; x <= 4; x++) {
         for (let z = -4; z <= 4; z++) {
-            const bx = x * 300 + 80, bz = z * 300 + 80;
+            const bx = x * 350 + 100, bz = z * 350 + 100;
             const b = base.clone(); b.position.set(bx, 0, bz); scene.add(b);
             buildings.push({ box: new THREE.Box3().setFromObject(b), door: new THREE.Vector3(bx-25, 4, bz-25) });
         }
     }
 });
 
-// Animated NPCs (Claude)
+// Load Claude NPCs
 loader.load('models/npc.glb', (gltf) => {
     const npcBase = gltf.scene;
-    npcBase.scale.set(3, 3, 3);
+    
+    // FIX: Make model parts visible from all angles
+    npcBase.traverse((node) => {
+        if (node.isMesh) {
+            node.material.side = THREE.DoubleSide; 
+            node.material.transparent = false;
+            node.material.depthWrite = true;
+        }
+    });
 
-    for (let i = 0; i < 15; i++) {
+    npcBase.scale.set(3.5, 3.5, 3.5);
+
+    for (let i = 0; i < 20; i++) {
         const npc = npcBase.clone();
-        const rx = (Math.random() - 0.5) * 2000;
-        const rz = (Math.random() - 0.5) * 2000;
-        npc.position.set(rx, 0, rz);
+        npc.position.set((Math.random()-0.5)*2500, 0, (Math.random()-0.5)*2500);
         scene.add(npc);
 
-        // Animation Player
+        // Animation Mixer
         const mixer = new THREE.AnimationMixer(npc);
         if (gltf.animations.length > 0) {
-            const action = mixer.clipAction(gltf.animations[0]);
-            action.play();
+            mixer.clipAction(gltf.animations[0]).play();
         }
         mixers.push(mixer);
 
-        // Minimap Dot
-        const nDot = new THREE.Mesh(new THREE.SphereGeometry(10), new THREE.MeshBasicMaterial({ color: 0x0000ff }));
-        nDot.position.y = 60;
+        // Blue Dot for Minimap
+        const nDot = new THREE.Mesh(new THREE.SphereGeometry(12), new THREE.MeshBasicMaterial({ color: 0x0000ff }));
+        nDot.position.y = 100;
         npc.add(nDot);
 
         npcs.push({ 
             mesh: npc, 
-            speed: 0.3 + Math.random() * 0.4, 
-            turnTimer: Math.random() * 200 
+            speed: 25 + Math.random() * 30, // Real-time calibrated speed
+            turnTimer: Math.random() * 5 
         });
     }
 });
 
-/* ---------- 5. CONTROLS ---------- */
+/* ---------- 5. INPUTS ---------- */
 function bind(id, k) {
     const el = document.getElementById(id);
     el.onpointerdown = (e) => { e.preventDefault(); move[k] = true; };
@@ -179,68 +186,72 @@ bind("up", "up"); bind("down", "down"); bind("left", "left"); bind("right", "rig
 document.getElementById("jumpBtn").onpointerdown = () => { if (isGrounded) { velocityY = jumpForce; isGrounded = false; } };
 document.getElementById("playBtn").onclick = () => document.getElementById("homeScreen").style.display = "none";
 
-/* ---------- 6. GAME LOOP ---------- */
+/* ---------- 6. MAIN LOOP ---------- */
 function animate() {
     requestAnimationFrame(animate);
-    const delta = clock.getDelta();
+    const delta = clock.getDelta(); // Smooth time tracking
 
-    // Update NPC Animations
+    // Update NPC Animations & AI
     mixers.forEach(m => m.update(delta));
-
-    // NPC AI (Walking)
     npcs.forEach(npc => {
-        npc.mesh.position.x += Math.sin(npc.mesh.rotation.y) * npc.speed;
-        npc.mesh.position.z += Math.cos(npc.mesh.rotation.y) * npc.speed;
-        npc.turnTimer--;
+        // Smooth movement using delta
+        npc.mesh.position.x += Math.sin(npc.mesh.rotation.y) * npc.speed * delta;
+        npc.mesh.position.z += Math.cos(npc.mesh.rotation.y) * npc.speed * delta;
+        
+        npc.turnTimer -= delta;
         if(npc.turnTimer <= 0) {
-            npc.mesh.rotation.y += (Math.random() - 0.5) * 2;
-            npc.turnTimer = 100 + Math.random() * 300;
+            npc.mesh.rotation.y += (Math.random() - 0.5) * 4;
+            npc.turnTimer = 2 + Math.random() * 5;
         }
-        // Map Bound check
-        if(Math.abs(npc.mesh.position.x) > 1900 || Math.abs(npc.mesh.position.z) > 1900) { npc.mesh.rotation.y += Math.PI; }
+
+        // Boundary safety
+        if(Math.abs(npc.mesh.position.x) > 1950 || Math.abs(npc.mesh.position.z) > 1950) {
+            npc.mesh.rotation.y += Math.PI;
+        }
     });
 
-    // Player Movement
+    // Player Logic
     yaw += (targetYaw - yaw) * 0.1; pitch += (targetPitch - pitch) * 0.1;
-    let nx = player.position.x, nz = player.position.z, spd = 2.2;
-    if (move.up) { nx -= Math.sin(yaw) * spd; nz -= Math.cos(yaw) * spd; }
-    if (move.down) { nx += Math.sin(yaw) * spd; nz += Math.cos(yaw) * spd; }
-    if (move.left) { nx -= Math.cos(yaw) * spd; nz += Math.sin(yaw) * spd; }
-    if (move.right) { nx += Math.cos(yaw) * spd; nz -= Math.sin(yaw) * spd; }
+    let nx = player.position.x, nz = player.position.z, pSpd = 120 * delta;
+    
+    if (move.up) { nx -= Math.sin(yaw) * pSpd; nz -= Math.cos(yaw) * pSpd; }
+    if (move.down) { nx += Math.sin(yaw) * pSpd; nz += Math.cos(yaw) * pSpd; }
+    if (move.left) { nx -= Math.cos(yaw) * pSpd; nz += Math.sin(yaw) * pSpd; }
+    if (move.right) { nx += Math.cos(yaw) * pSpd; nz -= Math.sin(yaw) * pSpd; }
 
-    const pBox = new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(nx, player.position.y, nz), new THREE.Vector3(6, 6, 6));
-    let hit = false;
-    for (const b of buildings) if (pBox.intersectsBox(b.box)) { hit = true; break; }
-    if (!hit) { player.position.x = nx; player.position.z = nz; }
+    // Building Collision
+    const pBox = new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(nx, player.position.y, nz), new THREE.Vector3(8, 8, 8));
+    let blocked = false;
+    for (const b of buildings) if (pBox.intersectsBox(b.box)) { blocked = true; break; }
+    if (!blocked) { player.position.x = nx; player.position.z = nz; }
 
-    // Physics
+    // Gravity
     velocityY += gravity; player.position.y += velocityY;
     if (player.position.y <= 4) { player.position.y = 4; velocityY = 0; isGrounded = true; }
 
     player.rotation.y = yaw; camera.rotation.x = pitch;
 
-    // RENDER MAIN
+    // RENDER: MAIN VIEW
     renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
     renderer.clear();
     renderer.render(scene, camera);
 
-    // RENDER MINIMAP
+    // RENDER: MINIMAP
     const mSize = 150;
     renderer.setScissorTest(true);
     renderer.setScissor(window.innerWidth - mSize - 10, window.innerHeight - mSize - 10, mSize, mSize);
     renderer.setViewport(window.innerWidth - mSize - 10, window.innerHeight - mSize - 10, mSize, mSize);
-    mapCamera.position.set(player.position.x, 500, player.position.z);
+    mapCamera.position.set(player.position.x, 600, player.position.z);
     renderer.render(scene, mapCamera);
     renderer.setScissorTest(false);
 }
 animate();
 
-// Camera Drag
+// Touch Drag
 let drag = false, lx, ly;
 renderer.domElement.onpointerdown = e => { drag = true; lx = e.clientX; ly = e.clientY; };
 window.onpointerup = () => drag = false;
-window.onpointermove = e => { if (drag) { targetYaw -= (e.clientX - lx) * 0.008; targetPitch -= (e.clientY - ly) * 0.008; lx = e.clientX; ly = e.clientY; } };
+window.onpointermove = e => { if (drag) { targetYaw -= (e.clientX - lx) * 0.007; targetPitch -= (e.clientY - ly) * 0.007; lx = e.clientX; ly = e.clientY; } };
 </script>
 </body>
-    </html>
-    
+</html>
