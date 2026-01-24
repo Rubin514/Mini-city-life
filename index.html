@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mini City Life - Stable Edition</title>
+    <title>Mini City Life - 20 Missions</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; overflow: hidden; background: #87ceeb; font-family: 'Arial Black', sans-serif; touch-action: none; }
@@ -54,12 +54,11 @@
 <button id="jump">JUMP</button>
 
 <script type="importmap">
-{ "imports": { "three": "https://unpkg.com/three@0.152.2/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.152.2/examples/jsm/" } }
+{ "imports": { "three": "https://unpkg.com/three@0.152.2/build/three.module.js" } }
 </script>
 
 <script type="module">
 import * as THREE from "three";
-import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 /* --- 1. CORE ENGINE --- */
 const scene = new THREE.Scene();
@@ -69,7 +68,7 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+scene.add(new THREE.AmbientLight(0xffffff, 1.0));
 const sun = new THREE.DirectionalLight(0xffffff, 0.8);
 sun.position.set(200, 500, 200);
 scene.add(sun);
@@ -78,48 +77,48 @@ const ground = new THREE.Mesh(new THREE.PlaneGeometry(10000, 10000), new THREE.M
 ground.rotation.x = -Math.PI/2;
 scene.add(ground);
 
-/* --- 2. EMERGENCY FALLBACK SYSTEM (Fixes Missing Models) --- */
-const createFallbackBuilding = (color, h) => {
+/* --- 2. BUILT-IN 3D MODELS (No files required!) --- */
+function createBuilding(color, h) {
     const g = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.BoxGeometry(60, h, 60), new THREE.MeshLambertMaterial({ color }));
+    // Main Body
+    const body = new THREE.Mesh(new THREE.BoxGeometry(70, h, 70), new THREE.MeshLambertMaterial({ color }));
     body.position.y = h/2;
+    // Window detailing
+    const winGeo = new THREE.BoxGeometry(72, 10, 10);
+    const winMat = new THREE.MeshLambertMaterial({ color: 0x222222 });
+    for(let i=20; i < h; i+=30) {
+        const w = new THREE.Mesh(winGeo, winMat);
+        w.position.y = i;
+        g.add(w);
+    }
     g.add(body);
     return g;
-};
+}
 
-const createFallbackTree = () => {
+function createTree() {
     const g = new THREE.Group();
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 20), new THREE.MeshLambertMaterial({ color: 0x4d2600 }));
-    trunk.position.y = 10;
-    const leaves = new THREE.Mesh(new THREE.ConeGeometry(20, 40, 8), new THREE.MeshLambertMaterial({ color: 0x1a5d1a }));
-    leaves.position.y = 35;
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 25), new THREE.MeshLambertMaterial({ color: 0x4d2600 }));
+    trunk.position.y = 12.5;
+    const leaves = new THREE.Mesh(new THREE.ConeGeometry(25, 50, 8), new THREE.MeshLambertMaterial({ color: 0x1a5d1a }));
+    leaves.position.y = 45;
     g.add(trunk, leaves);
     return g;
-};
+}
 
-const loader = new GLTFLoader();
 const models = { 
-    b1: createFallbackBuilding(0x888888, 120), 
-    b2: createFallbackBuilding(0x555555, 200), 
-    tree: createFallbackTree() 
+    b1: createBuilding(0x999999, 140), 
+    b2: createBuilding(0x666666, 220), 
+    tree: createTree() 
 };
 
-// Attempt to load GLBs; if they fail, the fallbacks above remain in use.
-const loadWithSafety = (path, key) => {
-    loader.load(path, (g) => { models[key] = g.scene; }, undefined, () => console.warn(`Model ${key} missing at ${path}`));
-};
-loadWithSafety('./models/building.glb', 'b1');
-loadWithSafety('./models/building2.glb', 'b2');
-loadWithSafety('./models/tree1.glb', 'tree');
-
-/* --- 3. 20 MISSIONS ENGINE --- */
+/* --- 3. 20 MISSIONS DATA --- */
 const missions = [];
 for(let i=1; i<=20; i++) {
     missions.push({
         id: i,
         name: "Mission " + i,
-        desc: "Reach the " + (i%2==0 ? "Neon District" : "Old Town") + " target",
-        pos: { x: (Math.random()-0.5)*4000, z: (Math.random()-0.5)*4000 },
+        desc: "Find the " + (i%2==0 ? "Neon Signal" : "Old Landmark"),
+        pos: { x: (Math.random()-0.5)*5000, z: (Math.random()-0.5)*5000 },
         color: i % 2 == 0 ? 0xff00ff : 0x00ffff
     });
 }
@@ -131,8 +130,8 @@ window.startMission = (idx) => {
     const m = missions[idx];
     activeM = m;
     if(targetMesh) scene.remove(targetMesh);
-    targetMesh = new THREE.Mesh(new THREE.TorusGeometry(20, 5, 10, 20), new THREE.MeshBasicMaterial({ color: m.color }));
-    targetMesh.position.set(m.pos.x, 25, m.pos.z);
+    targetMesh = new THREE.Mesh(new THREE.TorusGeometry(30, 8, 12, 24), new THREE.MeshBasicMaterial({ color: m.color }));
+    targetMesh.position.set(m.pos.x, 30, m.pos.z);
     scene.add(targetMesh);
     
     document.getElementById('mTitle').innerText = m.name.toUpperCase();
@@ -142,27 +141,25 @@ window.startMission = (idx) => {
 
 /* --- 4. WORLD BUILDING --- */
 const colliders = [];
-setTimeout(() => {
-    for(let x=-8; x<=8; x++) {
-        for(let z=-8; z<=8; z++) {
-            if(Math.abs(x) < 1 && Math.abs(z) < 1) continue;
-            const px=x*550, pz=z*550;
-            const type = (x+z) % 2 == 0 ? models.b1 : models.b2;
-            const b = type.clone();
-            b.position.set(px, 0, pz);
-            scene.add(b);
-            colliders.push({x:px, z:pz, r:80});
-            
-            const t = models.tree.clone();
-            t.position.set(px+180, 0, pz+180);
-            scene.add(t);
-        }
+for(let x=-10; x<=10; x++) {
+    for(let z=-10; z<=10; z++) {
+        if(Math.abs(x) < 1 && Math.abs(z) < 1) continue;
+        const px=x*600, pz=z*600;
+        const type = (x+z) % 2 == 0 ? models.b1 : models.b2;
+        const b = type.clone();
+        b.position.set(px, 0, pz);
+        scene.add(b);
+        colliders.push({x:px, z:pz, r:90});
+        
+        const t = models.tree.clone();
+        t.position.set(px+200, 0, pz+200);
+        scene.add(t);
     }
-}, 1200);
+}
 
-/* --- 5. PLAYER & LOGIC --- */
+/* --- 5. PLAYER & MOVEMENT --- */
 const player = new THREE.Object3D();
-player.position.set(0, 10, 400);
+player.position.set(0, 10, 500);
 scene.add(player);
 player.add(camera);
 
@@ -170,7 +167,7 @@ let yaw=0, pitch=0, vY=0, input={f:0,b:0,l:0,r:0};
 
 function animate() {
     requestAnimationFrame(animate);
-    let nx=player.position.x, nz=player.position.z, spd=5.5;
+    let nx=player.position.x, nz=player.position.z, spd=6;
     
     if(input.f){ nx -= Math.sin(yaw)*spd; nz -= Math.cos(yaw)*spd; }
     if(input.b){ nx += Math.sin(yaw)*spd; nz += Math.cos(yaw)*spd; }
@@ -188,9 +185,9 @@ function animate() {
         targetMesh.rotation.y += 0.05;
         const d = player.position.distanceTo(targetMesh.position);
         document.getElementById('targetDot').style.display = 'block';
-        document.getElementById('targetDot').style.left = (50 + (activeM.pos.x - player.position.x)/45) + 'px';
-        document.getElementById('targetDot').style.top = (50 + (activeM.pos.z - player.position.z)/45) + 'px';
-        if(d < 60) { alert("MISSION PASSED! REWARD EARNED!"); activeM=null; scene.remove(targetMesh); }
+        document.getElementById('targetDot').style.left = (50 + (activeM.pos.x - player.position.x)/50) + 'px';
+        document.getElementById('targetDot').style.top = (50 + (activeM.pos.z - player.position.z)/50) + 'px';
+        if(d < 70) { alert("MISSION COMPLETE!"); activeM=null; scene.remove(targetMesh); }
     }
 
     player.rotation.y = yaw;
@@ -199,7 +196,7 @@ function animate() {
 }
 animate();
 
-/* --- 6. UI BINDINGS --- */
+/* --- 6. UI --- */
 window.toggleMenu = (show) => document.getElementById('missionOverlay').style.display = show ? 'flex' : 'none';
 
 const list = document.getElementById('missionList');
@@ -217,7 +214,7 @@ const b = (id, k) => {
     e.onpointerup = () => input[k]=0;
 };
 b("u","f"); b("d","b"); b("l","l"); b("r","r");
-document.getElementById("jump").onpointerdown = () => { if(player.position.y<=10.5) vY=0.5; };
+document.getElementById("jump").onpointerdown = () => { if(player.position.y<=11) vY=0.5; };
 
 let drag=false, lx, ly;
 renderer.domElement.onpointerdown = e => { drag=true; lx=e.clientX; ly=e.clientY; };
@@ -225,4 +222,5 @@ window.onpointerup = () => drag=false;
 window.onpointermove = e => { if(drag){ yaw-=(e.clientX-lx)*0.005; pitch-=(e.clientY-ly)*0.005; lx=e.clientX; ly=e.clientY; }};
 </script>
 </body>
-</html>
+    </html>
+    
