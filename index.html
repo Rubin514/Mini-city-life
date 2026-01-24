@@ -2,20 +2,17 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mini City Life - Fixed Loader</title>
+    <title>Mini City Life</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; overflow: hidden; background: #87ceeb; font-family: sans-serif; touch-action: none; }
         canvas { display: block; }
         
-        /* HUD */
         #hud { position: fixed; top: 15px; left: 15px; z-index: 100; pointer-events: none; }
         #minimap { width: 120px; height: 120px; background: rgba(0,0,0,0.7); border: 2px solid #fff; position: relative; border-radius: 5px; }
         #pDot { width: 8px; height: 8px; background: #fff; border-radius: 50%; position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); }
-        #targetDot { width: 10px; height: 10px; background: #f0f; position: absolute; border-radius: 2px; display: none; }
         #missionBox { background: rgba(0,0,0,0.85); color: #0f0; padding: 10px; margin-top: 10px; border-radius: 5px; font-size: 14px; max-width: 200px; border-left: 4px solid #fbc02d; }
 
-        /* UI */
         .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 500; display: none; flex-direction: column; align-items: center; justify-content: center; color: white; padding: 20px; }
         .menu-btn { padding: 12px 25px; margin: 6px; background: #333; border: 1px solid #777; color: #fff; border-radius: 5px; width: 220px; cursor: pointer; font-weight: bold; }
         
@@ -23,30 +20,19 @@
         .btn { width: 60px; height: 60px; background: rgba(255,255,255,0.2); border: 2px solid #fff; border-radius: 15px; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; }
         #jump { position: fixed; bottom: 40px; right: 30px; width: 80px; height: 80px; border-radius: 50%; background: #ff9800; border: 3px solid #fff; }
         
-        #topBtns { position: fixed; top: 15px; right: 15px; z-index: 100; display: flex; gap: 8px; }
         #loading-screen { position: fixed; inset: 0; background: #111; color: #0f0; display: flex; align-items: center; justify-content: center; z-index: 1000; font-family: monospace; }
     </style>
 </head>
 <body>
 
-<div id="loading-screen">DOWNLOADING ASSETS...</div>
+<div id="loading-screen">LOADING CITY MODELS...</div>
 
 <div id="hud">
-    <div id="minimap"><div id="pDot"></div><div id="targetDot"></div></div>
+    <div id="minimap"><div id="pDot"></div></div>
     <div id="missionBox">
-        <div id="mTitle" style="font-weight:bold;">NO MISSION</div>
-        <div id="mGoal">Open the Mission Menu</div>
+        <div id="mTitle" style="font-weight:bold;">MINI CITY</div>
+        <div id="mGoal">Explore the city!</div>
     </div>
-</div>
-
-<div id="topBtns">
-    <button class="menu-btn" style="width:auto;" onclick="openMenu('missionMenu')">MISSIONS</button>
-</div>
-
-<div id="missionMenu" class="overlay">
-    <h2>SELECT MISSION</h2>
-    <div id="missionList" style="overflow-y:auto; max-height: 60vh;"></div>
-    <button class="menu-btn" style="background:#800;" onclick="closeMenu('missionMenu')">CLOSE</button>
 </div>
 
 <div id="controls">
@@ -70,7 +56,6 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-/* --- SCENE SETUP --- */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 5000);
@@ -79,7 +64,7 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+scene.add(new THREE.AmbientLight(0xffffff, 0.8));
 const sun = new THREE.DirectionalLight(0xffffff, 1.0);
 sun.position.set(50, 100, 50);
 scene.add(sun);
@@ -88,14 +73,13 @@ const ground = new THREE.Mesh(new THREE.PlaneGeometry(10000, 10000), new THREE.M
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 
-/* --- ASSET MANAGEMENT --- */
+/* --- FIXED ASSET LOADING --- */
 const models = { b1: null, b2: null, tree: null };
 const colliders = [];
 const loader = new GLTFLoader();
 let assetsToLoad = 3;
 let assetsLoaded = 0;
 
-// This ensures the city only builds AFTER models load
 const checkReady = () => {
     assetsLoaded++;
     if (assetsLoaded >= assetsToLoad) {
@@ -107,14 +91,13 @@ const checkReady = () => {
 const loadAsset = (url, key) => {
     loader.load(url, 
         (gltf) => { 
-            console.log("Loaded:", url);
             models[key] = gltf.scene; 
             checkReady(); 
         }, 
         undefined, 
         (err) => { 
-            console.error("Missing file:", url);
-            // Create a temporary box so the game doesn't crash
+            console.error("Missing:", url);
+            // Create a temporary box if file is actually missing
             const box = new THREE.Group();
             box.add(new THREE.Mesh(new THREE.BoxGeometry(40, 100, 40), new THREE.MeshLambertMaterial({color: 0x555555})));
             models[key] = box;
@@ -123,12 +106,11 @@ const loadAsset = (url, key) => {
     );
 };
 
-// Start loading from your models folder
+// These now match your Screenshot_20260124_213112.jpg exactly
 loadAsset('models/building.glb', 'b1');
-loadAsset('models/building2.glb', 'b2');
-loadAsset('models/tree.glb', 'tree');
+loadAsset('models/building1.glb', 'b2');
+loadAsset('models/tree1.glb', 'tree');
 
-/* --- CITY & PLAYER --- */
 const initCity = () => {
     const spacing = 450;
     for(let x=-5; x<=5; x++){
@@ -137,8 +119,8 @@ const initCity = () => {
             const px = x * spacing;
             const pz = z * spacing;
             
-            const model = (x+z) % 2 === 0 ? models.b1 : models.b2;
-            const b = model.clone();
+            const modelToUse = (x+z) % 2 === 0 ? models.b1 : models.b2;
+            const b = modelToUse.clone();
             b.position.set(px, 0, pz);
             scene.add(b);
             colliders.push({x: px, z: pz, r: 80});
@@ -180,10 +162,6 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-/* --- UI HELPERS --- */
-window.openMenu = (id) => document.getElementById(id).style.display = 'flex';
-window.closeMenu = (id) => document.getElementById(id).style.display = 'none';
-
 const bind = (id, k) => {
     const e = document.getElementById(id);
     e.onpointerdown = (ev) => { ev.preventDefault(); input[k]=1; };
@@ -206,6 +184,12 @@ window.onpointermove = e => {
 };
 
 animate();
+
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
 </script>
 </body>
 </html>
