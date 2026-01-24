@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mini City Life - Building 2 Fix</title>
+    <title>Mini City Life - Final Fix</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; overflow: hidden; font-family: sans-serif; background: #111; }
@@ -12,9 +12,9 @@
         #loaderProgress { width: 0%; height: 100%; background: #00ff00; }
         #playBtn { font-size: 22px; padding: 12px 50px; border: 2px solid #00ff00; background: none; color: #00ff00; cursor: pointer; border-radius: 50px; display: none; margin-top: 25px; }
         #controls { position: fixed; bottom: 25px; left: 20px; z-index: 10; display: grid; grid-template-areas: ". up ." "left down right"; }
-        .btn { width: 60px; height: 60px; margin: 5px; border-radius: 15px; font-size: 24px; background: rgba(0,0,0,0.6); border: 1px solid white; color: white; display: flex; align-items: center; justify-content: center; user-select: none; }
+        .btn { width: 60px; height: 60px; margin: 5px; border-radius: 15px; font-size: 24px; background: rgba(0,0,0,0.6); border: 1.5px solid #fff; color: white; display: flex; align-items: center; justify-content: center; user-select: none; }
         #up { grid-area: up; } #left { grid-area: left; } #right { grid-area: right; } #down { grid-area: down; }
-        #jumpBtn { position: fixed; bottom: 35px; right: 20px; width: 85px; height: 85px; border-radius: 50%; background: #ff9800; color: white; border: 2px solid #fff; font-weight: bold; }
+        #jumpBtn { position: fixed; bottom: 35px; right: 20px; width: 80px; height: 80px; border-radius: 50%; background: #ff9800; color: white; border: 2px solid #fff; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -22,7 +22,7 @@
 <div id="homeScreen">
     <h1>MINI CITY LIFE</h1>
     <div id="loaderBar"><div id="loaderProgress"></div></div>
-    <div id="status" style="margin-top:10px; color:#00ff00;">Loading...</div>
+    <div id="status" style="margin-top:10px; color:#00ff00;">Loading City Assets...</div>
     <button id="playBtn">START GAME</button>
 </div>
 
@@ -48,27 +48,28 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 
+/* --- 1. SCENE SETUP --- */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
-scene.fog = new THREE.Fog(0x87ceeb, 100, 2500);
+scene.fog = new THREE.Fog(0x87ceeb, 200, 3000);
 
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 5000);
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 6000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.2));
 document.body.appendChild(renderer.domElement);
 
-const sun = new THREE.DirectionalLight(0xffffff, 1.2);
-sun.position.set(200, 500, 200);
+scene.add(new THREE.AmbientLight(0xffffff, 1.4));
+const sun = new THREE.DirectionalLight(0xffffff, 1.0);
+sun.position.set(100, 1000, 100);
 scene.add(sun);
-scene.add(new THREE.AmbientLight(0xffffff, 1.0));
 
 // Ground
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(8000, 8000), new THREE.MeshLambertMaterial({ color: 0x44aa44 }));
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(10000, 10000), new THREE.MeshLambertMaterial({ color: 0x3d8c40 }));
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 
-/* --- LOADERS --- */
+/* --- 2. ASSET LOADING --- */
 const manager = new THREE.LoadingManager();
 const draco = new DRACOLoader();
 draco.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
@@ -88,49 +89,45 @@ manager.onLoad = () => {
     generateCity();
 };
 
-// Error tracking for Building 2
-manager.onError = (url) => {
-    console.error("Failed to load: " + url);
-    alert("Check folder! Cannot find: " + url);
-};
-
+// Check filenames carefully: no spaces!
 loader.load('./models/building.glb', (g) => { models.b1 = g.scene; });
 loader.load('./models/building2.glb', (g) => { models.b2 = g.scene; });
 loader.load('./models/tree1.glb', (g) => { models.tree = g.scene; });
 
 function generateCity() {
-    // 6x6 Grid
-    for (let x = -3; x <= 3; x++) {
-        for (let z = -3; z <= 3; z++) {
+    for (let x = -4; x <= 4; x++) {
+        for (let z = -4; z <= 4; z++) {
             if (x === 0 && z === 0) continue; 
             
-            const px = x * 800;
-            const pz = z * 800;
+            const px = x * 900;
+            const pz = z * 900;
 
-            // Cycle between Building 1 and Building 2
-            let mesh;
-            if (Math.random() > 0.5 && models.b2) {
-                mesh = models.b2.clone();
-            } else if (models.b1) {
-                mesh = models.b1.clone();
+            // Use Building 2 if available, otherwise Building 1
+            let source = (Math.random() > 0.5 && models.b2) ? models.b2 : models.b1;
+
+            if (source) {
+                const b = source.clone();
+                b.scale.set(12, 12, 12); // Taller buildings
+                b.position.set(px, 0, pz);
+                scene.add(b);
+                
+                // Tight collision radius (40) to walk near walls
+                colliders.push({ x: px, z: pz, r: 40 });
             }
 
-            if (mesh) {
-                // FIXED SCALE: Use 1.0. If building is still giant, use 0.1
-                mesh.scale.set(1, 1, 1); 
-                mesh.position.set(px, 0, pz);
-                scene.add(mesh);
-                
-                // Collision: This allows you to walk NEAR the building
-                colliders.push({ x: px, z: pz, r: 120 });
+            if (models.tree) {
+                const t = models.tree.clone();
+                t.scale.set(5, 5, 5); // Visible trees
+                t.position.set(px + 250, 0, pz + 250);
+                scene.add(t);
             }
         }
     }
 }
 
-/* --- MOVEMENT SYSTEM --- */
+/* --- 3. PLAYER & MOVEMENT --- */
 const player = new THREE.Object3D();
-player.position.set(0, 8, 200); 
+player.position.set(0, 10, 300); 
 scene.add(player);
 player.add(camera);
 
@@ -140,7 +137,7 @@ const move = { up: false, down: false, left: false, right: false };
 function animate() {
     requestAnimationFrame(animate);
     
-    let nx = player.position.x, nz = player.position.z, spd = 4.0;
+    let nx = player.position.x, nz = player.position.z, spd = 4.5;
     if (move.up) { nx -= Math.sin(yaw) * spd; nz -= Math.cos(yaw) * spd; }
     if (move.down) { nx += Math.sin(yaw) * spd; nz += Math.cos(yaw) * spd; }
     if (move.left) { nx -= Math.cos(yaw) * spd; nz += Math.sin(yaw) * spd; }
@@ -153,7 +150,7 @@ function animate() {
     if (!hit) { player.position.x = nx; player.position.z = nz; }
 
     velocityY -= 0.02; player.position.y += velocityY;
-    if (player.position.y < 8) { player.position.y = 8; velocityY = 0; }
+    if (player.position.y < 10) { player.position.y = 10; velocityY = 0; }
 
     player.rotation.y = yaw;
     camera.rotation.x = pitch;
@@ -161,23 +158,25 @@ function animate() {
 }
 animate();
 
-// Buttons
+/* --- 4. INPUTS --- */
 const bind = (id, k) => {
-    document.getElementById(id).onpointerdown = (e) => { e.preventDefault(); move[k] = true; };
-    document.getElementById(id).onpointerup = () => move[k] = false;
+    const el = document.getElementById(id);
+    el.onpointerdown = (e) => { e.preventDefault(); move[k] = true; };
+    el.onpointerup = () => move[k] = false;
+    el.onpointerleave = () => move[k] = false;
 };
 bind("up","up"); bind("down","down"); bind("left","left"); bind("right","right");
-document.getElementById("jumpBtn").onclick = () => { if(player.position.y <= 8.1) velocityY = 0.5; };
+
+document.getElementById("jumpBtn").onclick = () => { if(player.position.y <= 10.1) velocityY = 0.5; };
 document.getElementById("playBtn").onclick = () => document.getElementById("homeScreen").style.display = "none";
 
-// Camera Look
 let drag = false, lx, ly;
 window.onpointerdown = e => { drag = true; lx = e.clientX; ly = e.clientY; };
 window.onpointerup = () => drag = false;
 window.onpointermove = e => {
     if (drag) {
-        yaw -= (e.clientX - lx) * 0.006;
-        pitch = Math.max(-1, Math.min(1, pitch - (e.clientY - ly) * 0.006));
+        yaw -= (e.clientX - lx) * 0.007;
+        pitch = Math.max(-1.2, Math.min(1.2, pitch - (e.clientY - ly) * 0.007));
         lx = e.clientX; ly = e.clientY;
     }
 };
