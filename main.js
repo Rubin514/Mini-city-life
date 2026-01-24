@@ -1,117 +1,133 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-// --- CONFIGURATION ---
+// --- SCENE SETUP ---
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87CEEB); // Sky Blue
-scene.fog = new THREE.Fog(0x87CEEB, 20, 100);
+const skyColor = 0x87CEEB;
+scene.background = new THREE.Color(skyColor);
+// FIX: Fog now matches sky exactly and starts further away
+scene.fog = new THREE.Fog(skyColor, 50, 150); 
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(window.devicePixelRatio);
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement);
 
-// --- LOADING MANAGER ---
-const progressBar = document.getElementById('progress-bar');
-const percentText = document.getElementById('percent-text');
-const loadingScreen = document.getElementById('loading-screen');
-
-const manager = new THREE.LoadingManager();
-
-manager.onProgress = (url, itemsLoaded, itemsTotal) => {
-    const progress = (itemsLoaded / itemsTotal) * 100;
-    progressBar.style.width = progress + '%';
-    percentText.innerText = `Loading: ${Math.round(progress)}%`;
-};
-
-manager.onLoad = () => {
-    setTimeout(() => {
-        loadingScreen.classList.add('fade-out');
-    }, 500);
-};
-
 // --- LIGHTING ---
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-scene.add(ambientLight);
+const ambient = new THREE.AmbientLight(0xffffff, 1.2); // Brightened
+scene.add(ambient);
+const sun = new THREE.DirectionalLight(0xffffff, 1.0);
+sun.position.set(5, 20, 10);
+scene.add(sun);
 
-const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
-sunLight.position.set(10, 20, 10);
-sunLight.castShadow = true;
-scene.add(sunLight);
+// --- LOADING MANAGER ---
+const manager = new THREE.LoadingManager();
+manager.onProgress = (u, l, t) => document.getElementById('progress').style.width = (l/t*100) + '%';
+manager.onLoad = () => setTimeout(() => document.getElementById('loading-screen').classList.add('hidden'), 500);
 
-// --- WORLD ASSETS ---
 const loader = new GLTFLoader(manager);
 
 // Ground
 const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(200, 200),
+    new THREE.PlaneGeometry(500, 500),
     new THREE.MeshStandardMaterial({ color: 0x444444 })
 );
 ground.rotation.x = -Math.PI / 2;
-ground.receiveShadow = true;
 scene.add(ground);
 
-// Load your specific files
-function placeModel(path, x, z, scale = 1) {
+// Models Loader
+function addModel(path, x, z, s = 1) {
     loader.load(path, (gltf) => {
-        const model = gltf.scene;
-        model.position.set(x, 0, z);
-        model.scale.set(scale, scale, scale);
-        model.traverse(n => { if (n.isMesh) n.castShadow = true; n.receiveShadow = true; });
-        scene.add(model);
+        gltf.scene.position.set(x, 0, z);
+        gltf.scene.scale.set(s, s, s);
+        scene.add(gltf.scene);
     });
 }
 
-// Positioning your models
-placeModel('models/building.glb', -15, -20, 1);
-placeModel('models/building2.glb', 15, -25, 1);
-placeModel('models/tree1.glb', 5, -10, 0.8);
-placeModel('models/tree1.glb', -5, -8, 1);
+addModel('models/building.glb', -15, -20);
+addModel('models/building2.glb', 15, -25);
+addModel('models/tree1.glb', 5, -10);
 
 // --- PLAYER ---
 const player = new THREE.Group();
-const body = new THREE.Mesh(
-    new THREE.CapsuleGeometry(0.5, 1, 4, 8),
-    new THREE.MeshStandardMaterial({ color: 0xff3333 })
-);
+const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.5, 1, 4, 8), new THREE.MeshStandardMaterial({color: 0xff0000}));
 body.position.y = 1;
 player.add(body);
 scene.add(player);
 
-// --- CONTROLS ---
+// --- CONTROLS LOGIC ---
+const input = { forward: 0, side: 0 };
 const keys = {};
+
+// Keyboard
 window.addEventListener('keydown', (e) => keys[e.code] = true);
 window.addEventListener('keyup', (e) => keys[e.code] = false);
 
+// Mobile Joystick Logic
+const knob = document.getElementById('joystick-knob');
+const wrapper = document.getElementById('joystick-wrapper');
+let drag = false;
+
+window.addEventListener('touchstart', (e) => { if(e.target === knob || e.target === wrapper) drag = true; });
+window.addEventListener('touchend', () => {
+    drag = false;
+    knob.style.transform = `translate(0px, 0px)`;
+    input.forward = 0; input.side = 0;
+});
+window.addEventListener('touchmove', (e) => {
+    if (!drag) return;
+    const touch = e.touches[0];
+    const rect = wrapper.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    
+    let dx = touch.clientX - centerX;
+    let dy = touch.clientY - centerY;
+    const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 50);
+    const angle = Math.atan2(dy, dx);
+    
+    const moveX = Math.cos(angle) * dist;
+    const moveY = Math.sin(angle) * dist;
+    
+    knob.style.transform = `translate(${moveX}px, ${moveY}px)`;
+    
+    // Normalize input to -1 to 1
+    input.side = moveX / 50;
+    input.forward = -moveY / 50; 
+});
+
 // --- GAME LOOP ---
 const clock = new THREE.Clock();
-
 function animate() {
     requestAnimationFrame(animate);
-    const delta = clock.getDelta();
-    const moveSpeed = 10 * delta;
+    const dt = clock.getDelta();
+    const speed = 10 * dt;
 
-    if (keys['KeyW']) player.position.z -= moveSpeed;
-    if (keys['KeyS']) player.position.z += moveSpeed;
-    if (keys['KeyA']) player.position.x -= moveSpeed;
-    if (keys['KeyD']) player.position.x += moveSpeed;
+    // Merge Keyboard + Joystick
+    let moveZ = input.forward * -1;
+    let moveX = input.side;
 
-    // Smooth Camera Follow
-    const idealOffset = new THREE.Vector3(0, 5, 10);
-    const cameraPos = player.position.clone().add(idealOffset);
-    camera.position.lerp(cameraPos, 0.1);
+    if (keys['KeyW']) moveZ = -1;
+    if (keys['KeyS']) moveZ = 1;
+    if (keys['KeyA']) moveX = -1;
+    if (keys['KeyD']) moveX = 1;
+
+    player.position.z += moveZ * speed;
+    player.position.x += moveX * speed;
+
+    // Smooth Camera
+    const camTarget = new THREE.Vector3(player.position.x, player.position.y + 6, player.position.z + 12);
+    camera.position.lerp(camTarget, 0.1);
     camera.lookAt(player.position);
 
     renderer.render(scene, camera);
 }
-
 animate();
 
-// Handle Resize
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
-      
+                            
