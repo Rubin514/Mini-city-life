@@ -2,23 +2,29 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mini City Life - Fixed & Optimized</title>
+    <title>Mini City Life - Balanced</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; overflow: hidden; font-family: sans-serif; background: #87ceeb; }
         canvas { display: block; touch-action: none; }
+        
+        /* UI Screens */
         #homeScreen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: #111; display: flex; flex-direction: column; 
             justify-content: center; align-items: center; z-index: 100; color: #fff;
         }
         #playBtn { font-size: 22px; padding: 12px 40px; border: 2px solid #00ff00; background: none; color: #00ff00; cursor: pointer; border-radius: 50px; display: none; }
+        
         #controls { position: fixed; bottom: 20px; left: 20px; z-index: 10; display: grid; grid-template-areas: ". up ." "left down right"; }
         .btn { width: 55px; height: 55px; margin: 4px; border-radius: 12px; font-size: 20px; background: rgba(0,0,0,0.5); border: 1.5px solid white; color: white; display: flex; align-items: center; justify-content: center; user-select: none; }
         #up { grid-area: up; } #left { grid-area: left; } #right { grid-area: right; } #down { grid-area: down; }
+
         .action-container { position: fixed; bottom: 30px; right: 20px; display: flex; flex-direction: column; gap: 8px; }
         .action-btn { width: 90px; height: 50px; border-radius: 12px; font-size: 16px; color: white; border: 1.5px solid #fff; font-weight: bold; }
-        #jumpBtn { background: #ff9800; } #enterBtn { background: #f44336; }
+        #jumpBtn { background: #ff9800; } 
+        #enterBtn { background: #f44336; }
+        
         #msg { position: fixed; top: 20%; width: 100%; text-align: center; color: yellow; font-size: 20px; font-weight: bold; display: none; text-shadow: 2px 2px #000; pointer-events: none; }
     </style>
 </head>
@@ -26,7 +32,7 @@
 
 <div id="homeScreen">
     <h1>MINI CITY LIFE</h1>
-    <p id="status">Engine Warmup...</p>
+    <p id="status">Loading Assets...</p>
     <button id="playBtn">START GAME</button>
 </div>
 
@@ -57,154 +63,117 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-/* --- 1. CORE SETUP --- */
+/* --- 1. SETUP --- */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
-scene.fog = new THREE.Fog(0x87ceeb, 200, 3000); // Added fog to hide edge of world
+// Fog: This gradually hides things far away to save lag
+scene.fog = new THREE.Fog(0x87ceeb, 200, 2500);
 
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.5, 4000);
-const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.5, 3000);
+const renderer = new THREE.WebGLRenderer({ antialias: false }); // False is faster
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Capped at 1.5 for better mobile fps
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 document.body.appendChild(renderer.domElement);
 
 const light = new THREE.AmbientLight(0xffffff, 2.0);
 scene.add(light);
 const sun = new THREE.DirectionalLight(0xffffff, 1.0);
-sun.position.set(100, 500, 100);
+sun.position.set(200, 500, 200);
 scene.add(sun);
 
-/* --- 2. ENVIRONMENT --- */
-const land = new THREE.Mesh(new THREE.PlaneGeometry(10000, 10000), new THREE.MeshLambertMaterial({ color: 0x228b22 }));
+/* --- 2. GROUND & ROADS --- */
+const land = new THREE.Mesh(new THREE.PlaneGeometry(8000, 8000), new THREE.MeshLambertMaterial({ color: 0x228b22 }));
 land.rotation.x = -Math.PI / 2;
 scene.add(land);
 
-// Standard Roads
+// Roads
 const roadMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
-const roadHGeo = new THREE.PlaneGeometry(10000, 180);
-const roadVGeo = new THREE.PlaneGeometry(180, 10000);
+const roadHGeo = new THREE.PlaneGeometry(8000, 180);
+const roadVGeo = new THREE.PlaneGeometry(180, 8000);
 
-for(let i = -5; i <= 5; i++) {
-    const pos = i * 1000;
+for(let i = -4; i <= 4; i++) {
+    const pos = i * 900;
     const rh = new THREE.Mesh(roadHGeo, roadMat);
     rh.rotation.x = -Math.PI/2; rh.position.set(0, 0.2, pos); scene.add(rh);
     const rv = new THREE.Mesh(roadVGeo, roadMat);
     rv.rotation.x = -Math.PI/2; rv.position.set(pos, 0.2, 0); scene.add(rv);
 }
 
-/* --- 3. ASSET MANAGEMENT --- */
+/* --- 3. LOADING --- */
 const manager = new THREE.LoadingManager();
 const loader = new GLTFLoader(manager);
-let modelData = { b1: null, b2: null, tree: null, npc: null };
+const models = { b: [], tree: null, npc: null };
 const colliders = [];
 const entryPoints = [];
 
 manager.onLoad = () => {
     document.getElementById('status').innerText = "Ready!";
     document.getElementById('playBtn').style.display = "block";
-    generateCityInstanced();
+    generateCity();
 };
 
-// FIX: Helper to find the actual Mesh inside the GLB
-function getMesh(scene) {
-    let mesh = null;
-    scene.traverse((child) => {
-        if (child.isMesh && !mesh) mesh = child;
-    });
-    return mesh;
-}
-
-loader.load('models/building.glb', (g) => { modelData.b1 = getMesh(g.scene); });
-loader.load('models/building2.glb', (g) => { modelData.b2 = getMesh(g.scene); });
+// Safe Loading Logic
+loader.load('models/building.glb', (g) => models.b.push(g.scene));
+loader.load('models/building2.glb', (g) => models.b.push(g.scene));
 loader.load('models/tree1.glb', (g) => { 
-    const t = getMesh(g.scene);
-    if(t) t.material.alphaTest = 0.5; // Fix transparent leaves
-    modelData.tree = t; 
+    g.scene.traverse(n => { if(n.isMesh) n.material.alphaTest = 0.5; }); // Fix transparency
+    models.tree = g.scene; 
 });
-loader.load('models/npc.glb', (g) => { modelData.npc = g.scene; });
+loader.load('models/npc.glb', (g) => { models.npc = g.scene; });
 
-function generateCityInstanced() {
-    const dummy = new THREE.Object3D();
+function generateCity() {
     const markerGeo = new THREE.CircleGeometry(40, 16);
-    const markerMat = new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.4 });
+    const markerMat = new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.5, side: THREE.DoubleSide });
 
-    // --- INSTANCING SETUP ---
-    // We create "InstancedMesh" which draws 100 buildings with the cost of 1.
-    let iMesh1, iMesh2, iTree;
-    
-    // Safety check: Only create if models loaded correctly
-    if (modelData.b1) {
-        iMesh1 = new THREE.InstancedMesh(modelData.b1.geometry, modelData.b1.material, 100);
-        scene.add(iMesh1);
-    }
-    if (modelData.b2) {
-        iMesh2 = new THREE.InstancedMesh(modelData.b2.geometry, modelData.b2.material, 100);
-        scene.add(iMesh2);
-    }
-    if (modelData.tree) {
-        iTree = new THREE.InstancedMesh(modelData.tree.geometry, modelData.tree.material, 200);
-        scene.add(iTree);
-    }
-
-    let idx1 = 0, idx2 = 0, idxTree = 0;
-
-    for (let x = -4; x <= 4; x++) {
-        for (let z = -4; z <= 4; z++) {
-            if (x === 0 && z === 0) continue;
+    // Grid Size: -3 to 3 (7x7 grid)
+    for (let x = -3; x <= 3; x++) {
+        for (let z = -3; z <= 3; z++) {
+            if (x === 0 && z === 0) continue; // Clear spawn area
             
-            const bx = x * 1000 + 400;
-            const bz = z * 1000 + 400;
+            const bx = x * 900 + 400;
+            const bz = z * 900 + 400;
 
-            // 1. PLACE BUILDINGS
-            dummy.position.set(bx, 0, bz);
-            dummy.scale.set(6, 6, 6);
-            dummy.rotation.set(0, 0, 0);
-            dummy.updateMatrix();
-
-            if(Math.random() > 0.5 && iMesh1) {
-                iMesh1.setMatrixAt(idx1++, dummy.matrix);
-            } else if (iMesh2) {
-                iMesh2.setMatrixAt(idx2++, dummy.matrix);
+            // 1. PLACE BUILDING
+            // We use .clone() which is safer than Instancing
+            if (models.b.length > 0) {
+                const b = models.b[Math.floor(Math.random() * models.b.length)].clone();
+                b.scale.set(6, 6, 6);
+                b.position.set(bx, 0, bz);
+                scene.add(b);
+                
+                // Add collision box
+                colliders.push({ x: bx, z: bz, r: 120 });
             }
 
-            // Collider
-            colliders.push({ x: bx, z: bz, r: 120 }); // Simple circle collision
-
-            // Entry Marker
+            // 2. ENTRY MARKER
             const entry = new THREE.Mesh(markerGeo, markerMat);
             entry.rotation.x = -Math.PI / 2;
-            entry.position.set(bx - 120, 0.3, bz); 
+            entry.position.set(bx - 120, 0.4, bz); 
             scene.add(entry);
             entryPoints.push(entry.position);
 
-            // 2. PLACE TREES (Added this back!)
-            if(iTree) {
-                // Place 2 trees per block
-                for(let t=0; t<2; t++) {
-                    dummy.position.set(bx + (Math.random()-0.5)*500, 0, bz + (Math.random()-0.5)*500);
-                    dummy.scale.set(4, 4, 4);
-                    dummy.rotation.set(0, Math.random() * Math.PI, 0); // Random rotation
-                    dummy.updateMatrix();
-                    iTree.setMatrixAt(idxTree++, dummy.matrix);
-                }
+            // 3. PLACE TREES
+            if(models.tree) {
+                const t = models.tree.clone();
+                t.scale.set(4, 4, 4);
+                // Random position near building
+                t.position.set(bx + 250, 0, bz + 250);
+                scene.add(t);
             }
         }
     }
     
-    // Notify three.js that the instances are ready
-    if(iMesh1) iMesh1.instanceMatrix.needsUpdate = true;
-    if(iMesh2) iMesh2.instanceMatrix.needsUpdate = true;
-    if(iTree) iTree.instanceMatrix.needsUpdate = true;
-
-    // Place NPC
-    if(modelData.npc) {
-        modelData.npc.scale.set(6, 6, 6);
-        modelData.npc.position.set(60, 0, 400);
-        scene.add(modelData.npc);
+    // NPC Spawn
+    if(models.npc) {
+        const n = models.npc.clone();
+        n.scale.set(6, 6, 6);
+        n.position.set(60, 0, 450);
+        n.rotation.y = Math.PI;
+        scene.add(n);
     }
 }
 
-/* --- 4. GAME LOOP --- */
+/* --- 4. GAME LOGIC --- */
 const player = new THREE.Object3D();
 player.position.set(0, 10, 500); 
 scene.add(player);
@@ -215,17 +184,16 @@ const move = { up: false, down: false, left: false, right: false };
 let isGrounded = true;
 
 function updatePhysics() {
-    let nx = player.position.x, nz = player.position.z, spd = 5.0; // Slightly faster speed
+    let nx = player.position.x, nz = player.position.z, spd = 5.0;
     
     if (move.up) { nx -= Math.sin(yaw) * spd; nz -= Math.cos(yaw) * spd; }
     if (move.down) { nx += Math.sin(yaw) * spd; nz += Math.cos(yaw) * spd; }
     if (move.left) { nx -= Math.cos(yaw) * spd; nz += Math.sin(yaw) * spd; }
     if (move.right) { nx += Math.cos(yaw) * spd; nz -= Math.sin(yaw) * spd; }
 
-    // Fast Circle Collision Check
+    // Simple Circular Collision (Very Fast)
     let collision = false;
-    for (let i = 0; i < colliders.length; i++) {
-        const c = colliders[i];
+    for (const c of colliders) {
         const distSq = (nx - c.x)**2 + (nz - c.z)**2;
         if (distSq < c.r * c.r) { collision = true; break; }
     }
@@ -247,11 +215,8 @@ function animate() {
     updatePhysics();
 
     let near = false;
-    // 80 * 80 = 6400 (Squared distance check is faster for CPU)
-    for(let i = 0; i < entryPoints.length; i++) {
-        if(player.position.distanceToSquared(entryPoints[i]) < 6400) {
-            near = true; break;
-        }
+    for(const pos of entryPoints) {
+        if(player.position.distanceTo(pos) < 80) { near = true; break; }
     }
     document.getElementById("msg").style.display = near ? "block" : "none";
 
@@ -290,3 +255,4 @@ window.addEventListener('resize', () => {
 </script>
 </body>
 </html>
+
