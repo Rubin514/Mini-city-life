@@ -2,230 +2,63 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mini City Life - 20 Missions Fixed</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini City Life</title>
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #000; touch-action: none; }
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Segoe UI', sans-serif; }
         canvas { display: block; }
 
-        /* Loader */
-        #loader { position: fixed; inset: 0; background: #111; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; color: #00ff00; }
-        .bar-bg { width: 220px; height: 12px; background: #222; border-radius: 6px; margin-top: 15px; border: 1px solid #444; overflow: hidden; }
-        #bar { width: 0%; height: 100%; background: #00ff00; transition: width 0.2s; box-shadow: 0 0 15px #00ff00; }
+        /* Loading Screen Styles */
+        #loading-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #111;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            transition: opacity 0.8s ease;
+        }
+        #loading-screen.fade-out { opacity: 0; pointer-events: none; }
+        
+        .loader-bar-container {
+            width: 300px; height: 10px;
+            background: #333; border-radius: 5px;
+            margin-top: 20px; overflow: hidden;
+        }
+        #progress-bar { width: 0%; height: 100%; background: #00ff88; transition: width 0.2s; }
+        h1 { color: white; letter-spacing: 5px; margin: 0; }
+        #percent-text { color: #888; margin-top: 10px; font-size: 0.9rem; }
 
         /* HUD */
-        #mHUD { position: fixed; top: 15px; left: 15px; background: rgba(0,0,0,0.8); padding: 12px; border-radius: 8px; border-left: 5px solid #00ff00; color: white; display: none; z-index: 10; }
-        #controls { position: fixed; bottom: 20px; left: 20px; z-index: 10; display: grid; grid-template-areas: ". u ." "l d r"; gap: 8px; }
-        .btn { width: 60px; height: 60px; border-radius: 12px; background: rgba(0,0,0,0.6); border: 2px solid #fff; color: white; display: flex; align-items: center; justify-content: center; font-size: 22px; user-select: none; }
-        #jump { position: fixed; bottom: 30px; right: 20px; width: 80px; height: 80px; border-radius: 50%; background: #ff9800; border: 2px solid #fff; color: white; font-weight: bold; }
-        #mBtn { position: fixed; top: 15px; right: 15px; padding: 12px 20px; background: #00ff00; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; z-index: 20; color: #000; }
+        #controls-hint {
+            position: absolute; bottom: 20px; left: 20px;
+            color: white; background: rgba(0,0,0,0.5);
+            padding: 10px; border-radius: 5px; pointer-events: none;
+        }
     </style>
 </head>
 <body>
 
-<div id="loader">
-    <div id="perc">0%</div>
-    <div class="bar-bg"><div id="bar"></div></div>
-    <div style="font-size: 10px; margin-top: 10px; letter-spacing: 2px;">LOADING CITY MODELS...</div>
-</div>
+    <div id="loading-screen">
+        <h1>MINI CITY LIFE</h1>
+        <div class="loader-bar-container">
+            <div id="progress-bar"></div>
+        </div>
+        <div id="percent-text">Loading: 0%</div>
+    </div>
 
-<div id="mHUD"><b id="mTitle"></b><br><span id="mDist"></span></div>
-<button id="mBtn">START MISSION</button>
+    <div id="controls-hint">WASD to Move | Models: Building 1, Building 2, Tree</div>
 
-<div id="controls">
-    <div class="btn" style="grid-area: u" id="up">▲</div>
-    <div class="btn" style="grid-area: l" id="left">◀</div>
-    <div class="btn" style="grid-area: d" id="down">▼</div>
-    <div class="btn" style="grid-area: r" id="right">▶</div>
-</div>
-<button id="jump">JUMP</button>
-
-<script type="importmap">
-{ "imports": { "three": "https://unpkg.com/three@0.152.2/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.152.2/examples/jsm/" } }
-</script>
-
-<script type="module">
-import * as THREE from "three";
-import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb);
-scene.fog = new THREE.Fog(0x87ceeb, 500, 10000);
-
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 25000);
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(window.devicePixelRatio);
-document.body.appendChild(renderer.domElement);
-
-scene.add(new THREE.AmbientLight(0xffffff, 1.3));
-const sun = new THREE.DirectionalLight(0xffffff, 1.0);
-sun.position.set(500, 1000, 500);
-scene.add(sun);
-
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(40000, 40000), new THREE.MeshLambertMaterial({ color: 0x3d8c3d }));
-ground.rotation.x = -Math.PI / 2;
-scene.add(ground);
-
-/* --- ASSET LOADING --- */
-const manager = new THREE.LoadingManager();
-const loader = new GLTFLoader(manager);
-const assets = { b1: null, b2: null, tree: null };
-const colliders = [];
-
-manager.onProgress = (url, loaded, total) => {
-    const p = Math.floor((loaded / total) * 100);
-    document.getElementById('bar').style.width = p + '%';
-    document.getElementById('perc').innerText = p + '%';
-};
-
-manager.onLoad = () => {
-    console.log("All GLB files loaded.");
-    buildCity();
-    document.getElementById('loader').style.display = 'none';
-};
-
-manager.onError = (url) => {
-    console.error("Error loading asset:", url);
-};
-
-// Loading from your local ./models/ directory
-loader.load('./models/building.glb', (g) => assets.b1 = g.scene);
-loader.load('./models/building2.glb', (g) => assets.b2 = g.scene);
-loader.load('./models/tree1.glb', (g) => assets.tree = g.scene);
-
-function buildCity() {
-    for (let x = -8; x <= 8; x++) {
-        for (let z = -8; z <= 8; z++) {
-            if (x === 0 && z === 0) continue;
-            const px = x * 1800, pz = z * 1800;
-            
-            // Randomly pick building 1 or 2
-            const bSource = (Math.abs(x + z)) % 2 === 0 ? assets.b1 : assets.b2;
-            
-            if (bSource) {
-                const b = bSource.clone();
-                b.scale.set(80, 80, 80); 
-                b.position.set(px, 0, pz);
-                scene.add(b);
-                // Add collision radius
-                colliders.push({ x: px, z: pz, r: 350 });
-            }
-
-            if (assets.tree) {
-                const t = assets.tree.clone();
-                t.scale.set(40, 40, 40);
-                t.position.set(px + 700, 0, pz + 700);
-                scene.add(t);
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
             }
         }
-    }
-}
-
-/* --- 20 MISSION SYSTEM --- */
-const missions = Array.from({length: 20}, (_, i) => ({
-    id: i + 1,
-    title: `Zone Objective #${i + 1}`,
-    pos: { x: (Math.random()-0.5)*15000, z: (Math.random()-0.5)*15000 }
-}));
-
-let activeM = null, targetMesh = null;
-document.getElementById('mBtn').onclick = () => {
-    activeM = missions[Math.floor(Math.random()*20)];
-    if(targetMesh) scene.remove(targetMesh);
-    
-    // Large Mission Sphere
-    targetMesh = new THREE.Mesh(new THREE.SphereGeometry(150, 32, 32), new THREE.MeshBasicMaterial({color: 0xff00ff}));
-    targetMesh.position.set(activeM.pos.x, 150, activeM.pos.z);
-    scene.add(targetMesh);
-    
-    document.getElementById('mTitle').innerText = activeM.title;
-    document.getElementById('mHUD').style.display = 'block';
-};
-
-/* --- PLAYER --- */
-const player = new THREE.Object3D();
-player.position.set(0, 40, 1000);
-scene.add(player);
-player.add(camera);
-
-let yaw = 0, vY = 0, move = {f:0, b:0, l:0, r:0};
-
-function animate() {
-    requestAnimationFrame(animate);
-    let nx = player.position.x, nz = player.position.z, spd = 15;
-    
-    if(move.f) { nx -= Math.sin(yaw)*spd; nz -= Math.cos(yaw)*spd; }
-    if(move.b) { nx += Math.sin(yaw)*spd; nz += Math.cos(yaw)*spd; }
-    if(move.l) { nx -= Math.cos(yaw)*spd; nz += Math.sin(yaw)*spd; }
-    if(move.r) { nx += Math.cos(yaw)*spd; nz -= Math.sin(yaw)*spd; }
-
-    // Collision Check
-    let hit = false;
-    for(let c of colliders) {
-        if(Math.hypot(nx-c.x, nz-c.z) < c.r) hit = true;
-    }
-    
-    if(!hit) { 
-        player.position.x = nx; 
-        player.position.z = nz; 
-    }
-
-    // Gravity / Jump
-    vY -= 0.04; 
-    player.position.y += vY;
-    if(player.position.y < 40) { 
-        player.position.y = 40; 
-        vY = 0; 
-    }
-
-    // Mission Distance Check
-    if(activeM && targetMesh) {
-        const d = player.position.distanceTo(targetMesh.position);
-        document.getElementById('mDist').innerText = `${Math.round(d)}m to destination`;
-        if(d < 200) { 
-            alert("OBJECTIVE REACHED!"); 
-            activeM = null; 
-            scene.remove(targetMesh); 
-            document.getElementById('mHUD').style.display = 'none'; 
-        }
-    }
-
-    player.rotation.y = yaw;
-    renderer.render(scene, camera);
-}
-animate();
-
-/* --- UI CONTROLS --- */
-const bindBtn = (id, key) => {
-    const el = document.getElementById(id);
-    el.addEventListener('pointerdown', (e) => { e.preventDefault(); move[key] = 1; });
-    el.addEventListener('pointerup', () => move[key] = 0);
-    el.addEventListener('pointerleave', () => move[key] = 0);
-};
-bindBtn("up","f"); bindBtn("down","b"); bindBtn("left","l"); bindBtn("right","r");
-
-document.getElementById("jump").onpointerdown = (e) => { 
-    e.preventDefault();
-    if(player.position.y <= 41) vY = 1.0; 
-};
-
-// Drag to Look
-let drag = false, lastX;
-renderer.domElement.addEventListener('pointerdown', e => { drag = true; lastX = e.clientX; });
-window.addEventListener('pointerup', () => drag = false);
-window.addEventListener('pointermove', e => { 
-    if(drag){ 
-        yaw -= (e.clientX - lastX) * 0.008; 
-        lastX = e.clientX; 
-    } 
-});
-
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-});
-</script>
+    </script>
+    <script type="module" src="main.js"></script>
 </body>
 </html>
