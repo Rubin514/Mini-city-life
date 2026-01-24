@@ -2,51 +2,50 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mini City Life - GTA Mission</title>
+    <title>Mini City - Crazy Key Mission</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Arial Black', sans-serif; background: #000; touch-action: none; }
         canvas { display: block; }
 
-        /* GTA HUD Styles */
-        #missionHUD { 
-            position: fixed; top: 20px; right: 20px;
-            background: rgba(0,0,0,0.8); color: #fff; padding: 15px;
-            border-left: 5px solid #fbc02d; z-index: 50; display: none;
-        }
-        #missionTitle { color: #fbc02d; font-size: 18px; margin-bottom: 5px; }
-        #objectiveText { font-size: 14px; color: #eee; }
+        /* GTA HUD & Minimap */
+        #hud { position: fixed; top: 15px; left: 15px; z-index: 50; color: #fff; text-shadow: 2px 2px #000; pointer-events: none; }
+        #minimap { width: 120px; height: 120px; background: rgba(0,0,0,0.6); border: 3px solid #fff; border-radius: 10px; position: relative; overflow: hidden; }
+        #playerDot { width: 8px; height: 8px; background: #fff; border-radius: 50%; position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); z-index: 5; }
+        #keyDot { width: 10px; height: 10px; background: #ffff00; position: absolute; display: none; border-radius: 2px; }
 
-        /* Big Mission Text (Middle Screen) */
-        #bigText {
-            position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%);
-            font-size: 48px; font-style: italic; color: #fbc02d;
-            text-shadow: 3px 3px #000; z-index: 60; display: none; pointer-events: none;
-        }
+        #missionText { color: #fbc02d; font-size: 16px; margin-top: 10px; background: rgba(0,0,0,0.5); padding: 5px; }
 
-        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; color: #fff; text-align: center; }
-        .btn-ui { width: 220px; padding: 15px; margin: 10px; border: none; background: #fbc02d; color: #000; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 18px; }
+        /* Settings Toggle */
+        #settingsBtn { position: fixed; top: 15px; right: 15px; z-index: 60; background: rgba(0,0,0,0.7); border: 1px solid #fff; color: #fff; padding: 10px; border-radius: 5px; font-size: 12px; }
+        #settingsMenu { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 100; display: none; flex-direction: column; align-items: center; justify-content: center; color: white; }
 
         /* Controls */
         #controls { position: fixed; bottom: 20px; left: 20px; z-index: 10; display: grid; grid-template-areas: ". up ." "left down right"; }
-        .btn { width: 60px; height: 60px; margin: 4px; border-radius: 50%; font-size: 20px; background: rgba(0,0,0,0.6); border: 2px solid #fff; color: white; display: flex; align-items: center; justify-content: center; user-select: none; }
+        .btn { width: 60px; height: 60px; margin: 4px; border-radius: 15px; font-size: 20px; background: rgba(0,0,0,0.6); border: 2px solid #fff; color: white; display: flex; align-items: center; justify-content: center; user-select: none; }
         #up { grid-area: up; } #left { grid-area: left; } #right { grid-area: right; } #down { grid-area: down; }
-        #jumpBtn { position: fixed; bottom: 30px; right: 20px; width: 80px; height: 80px; border-radius: 50%; background: #fbc02d; color: #000; border: 3px solid #fff; font-weight: bold; font-size: 18px; }
+        #jumpBtn { position: fixed; bottom: 30px; right: 20px; width: 80px; height: 80px; border-radius: 50%; background: #fbc02d; color: #000; border: 3px solid #fff; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<div id="missionHUD">
-    <div id="missionTitle">MISSION ACTIVE</div>
-    <div id="objectiveText">Go to the target building</div>
-    <div id="distanceUI" style="color:#fbc02d; margin-top:5px;">Distance: --</div>
+<div id="hud">
+    <div id="minimap">
+        <div id="playerDot"></div>
+        <div id="keyDot"></div>
+    </div>
+    <div id="missionText">FIND THE GOLDEN KEY</div>
 </div>
 
-<div id="bigText">MISSION PASSED</div>
+<button id="settingsBtn">⚙️ SETTINGS</button>
 
-<div id="homeScreen" class="overlay">
-    <h1 style="font-size: 40px; color: #fbc02d;">MINI CITY LIFE</h1>
-    <button id="playBtn" class="btn-ui">START GAME</button>
+<div id="settingsMenu">
+    <h2>SETTINGS</h2>
+    <label>SENSITIVITY</label>
+    <input type="range" id="sensRange" min="1" max="10" value="4">
+    <label>FOV (ZOOM)</label>
+    <input type="range" id="fovRange" min="50" max="90" value="65">
+    <button onclick="document.getElementById('settingsMenu').style.display='none'" style="margin-top:20px; padding:10px 30px; background:#fbc02d;">SAVE</button>
 </div>
 
 <div id="controls">
@@ -71,110 +70,134 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 
-/* --- 1. SETUP --- */
+/* --- ENGINE --- */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
-scene.fog = new THREE.Fog(0x87ceeb, 800, 4000);
+scene.fog = new THREE.Fog(0x87ceeb, 800, 5000);
 
 const camera = new THREE.PerspectiveCamera(65, window.innerWidth/window.innerHeight, 0.1, 10000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 document.body.appendChild(renderer.domElement);
 
-const sun = new THREE.DirectionalLight(0xffffff, 1.2);
-sun.position.set(500, 1000, 250);
+scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+const sun = new THREE.DirectionalLight(0xffffff, 1.0);
+sun.position.set(500, 1000, 500);
 scene.add(sun);
-scene.add(new THREE.AmbientLight(0xffffff, 0.8));
 
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(20000, 20000), new THREE.MeshLambertMaterial({ color: 0x333333 }));
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(15000, 15000), new THREE.MeshLambertMaterial({ color: 0x44aa44 }));
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 
-/* --- 2. ASSET LOADING --- */
+/* --- ASSETS & MISSION --- */
 const loader = new GLTFLoader();
 const draco = new DRACOLoader();
 draco.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
 loader.setDRACOLoader(draco);
 
-const models = { b1: null, b2: null };
+const models = { b1: null, b2: null, tree: null };
 const colliders = [];
-let missionTarget = null;
-let markerMesh = null;
+let keyObj = null;
+let hasKey = false;
+let config = { sens: 0.004 };
 
-loader.load('./models/building.glb', (g) => { models.b1 = g.scene; checkReady(); });
-loader.load('./models/building2.glb', (g) => { models.b2 = g.scene; checkReady(); });
+// Multi-Loader
+const loadModels = async () => {
+    const [m1, m2, mt] = await Promise.all([
+        loader.loadAsync('./models/building.glb'),
+        loader.loadAsync('./models/building2.glb'),
+        loader.loadAsync('./models/tree1.glb')
+    ]);
+    models.b1 = m1.scene;
+    models.b2 = m2.scene;
+    models.tree = mt.scene;
+    initCity();
+};
+loadModels();
 
-function checkReady() {
-    if(models.b1 && models.b2) document.getElementById('playBtn').style.display = "block";
-}
-
-function generateCity() {
-    const tx = (Math.floor(Math.random() * 3) + 2) * 1000;
-    const tz = (Math.floor(Math.random() * 3) + 2) * 1000;
+function initCity() {
+    // Generate Random Key Position
+    const kx = (Math.random() * 4000) - 2000;
+    const kz = (Math.random() * 4000) - 2000;
+    
+    // Create Key Marker
+    const keyGeo = new THREE.TorusGeometry(15, 5, 10, 30);
+    const keyMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+    keyObj = new THREE.Mesh(keyGeo, keyMat);
+    keyObj.position.set(kx, 30, kz);
+    scene.add(keyObj);
+    document.getElementById('keyDot').style.display = 'block';
 
     for (let x = -5; x <= 5; x++) {
         for (let z = -5; z <= 5; z++) {
-            if (x === 0 && z === 0) continue; 
-            const px = x * 1000, pz = z * 1000;
+            if (Math.abs(x) < 1 && Math.abs(z) < 1) continue;
             
-            let source = (px === tx && pz === tz) ? models.b2 : models.b1;
+            const px = x * 1000, pz = z * 1000;
+            // MIXING BUILDINGS: Flip-flop based on grid
+            const source = (x + z) % 2 === 0 ? models.b1 : models.b2;
             const b = source.clone();
-            b.scale.set(12, 12, 12); 
+            b.scale.set(12, 12, 12);
             b.position.set(px, 0, pz);
             scene.add(b);
-            colliders.push({ x: px, z: pz, r: 70 });
+            colliders.push({ x: px, z: pz, r: 80 });
 
-            if(px === tx && pz === tz) {
-                missionTarget = b;
-                // Add Yellow GTA Marker
-                const geo = new THREE.CylinderGeometry(80, 80, 5, 32);
-                const mat = new THREE.MeshBasicMaterial({ color: 0xfbc02d, transparent: true, opacity: 0.6 });
-                markerMesh = new THREE.Mesh(geo, mat);
-                markerMesh.position.set(px, 5, pz);
-                scene.add(markerMesh);
+            // ADD TREES: Randomly place trees near buildings
+            if(models.tree) {
+                const t = models.tree.clone();
+                t.scale.set(6, 6, 6);
+                t.position.set(px + 300, 0, pz + 300);
+                scene.add(t);
             }
         }
     }
 }
 
-/* --- 3. PLAYER & MISSION --- */
+/* --- PLAYER & CONTROLS --- */
 const player = new THREE.Object3D();
-player.position.set(0, 10, 500); 
+player.position.set(0, 10, 500);
 scene.add(player);
 player.add(camera);
 
 let yaw = 0, pitch = 0, velocityY = 0;
-const move = { up: false, down: false, left: false, right: false };
-let state = "IDLE"; // IDLE, ACTIVE, DONE
+const move = { f: 0, b: 0, l: 0, r: 0 };
 
 function animate() {
     requestAnimationFrame(animate);
     
-    let nx = player.position.x, nz = player.position.z, spd = 6.0;
-    if (move.up) { nx -= Math.sin(yaw) * spd; nz -= Math.cos(yaw) * spd; }
-    if (move.down) { nx += Math.sin(yaw) * spd; nz += Math.cos(yaw) * spd; }
-    if (move.left) { nx -= Math.cos(yaw) * spd; nz += Math.sin(yaw) * spd; }
-    if (move.right) { nx += Math.cos(yaw) * spd; nz -= Math.sin(yaw) * spd; }
+    // Movement logic (Fixed Flicker)
+    let spd = 6.0;
+    let nx = player.position.x, nz = player.position.z;
+    if (move.f) { nx -= Math.sin(yaw) * spd; nz -= Math.cos(yaw) * spd; }
+    if (move.b) { nx += Math.sin(yaw) * spd; nz += Math.cos(yaw) * spd; }
+    if (move.l) { nx -= Math.cos(yaw) * spd; nz += Math.sin(yaw) * spd; }
+    if (move.r) { nx += Math.cos(yaw) * spd; nz -= Math.sin(yaw) * spd; }
 
     let hit = false;
-    for (let c of colliders) { if (Math.hypot(nx - c.x, nz - c.z) < c.r) { hit = true; break; } }
+    for (let c of colliders) if (Math.hypot(nx - c.x, nz - c.z) < c.r) hit = true;
     if (!hit) { player.position.x = nx; player.position.z = nz; }
 
     velocityY -= 0.02; player.position.y += velocityY;
     if (player.position.y < 10) { player.position.y = 10; velocityY = 0; }
 
-    // Mission logic
-    if(missionTarget && state === "ACTIVE") {
-        const dist = player.position.distanceTo(missionTarget.position);
-        document.getElementById("distanceUI").innerText = `DISTANCE: ${Math.round(dist/10)}m`;
-        markerMesh.rotation.y += 0.05; // Spin marker
+    // Mission & Minimap Update
+    if(keyObj) {
+        keyObj.rotation.y += 0.05;
+        const dist = player.position.distanceTo(keyObj.position);
+        
+        // Update Key Dot on Minimap
+        const mapX = 60 + (keyObj.position.x - player.position.x) / 50;
+        const mapZ = 60 + (keyObj.position.z - player.position.z) / 50;
+        const kDot = document.getElementById('keyDot');
+        kDot.style.left = mapX + 'px';
+        kDot.style.top = mapZ + 'px';
 
-        if(dist < 150) {
-            state = "DONE";
-            document.getElementById("bigText").style.display = "block";
-            document.getElementById("missionHUD").style.display = "none";
-            markerMesh.material.color.set(0x00ff00);
+        if(dist < 100 && !hasKey) {
+            hasKey = true;
+            scene.remove(keyObj);
+            document.getElementById('missionText').innerText = "KEY OBTAINED! FIND THE CRAZY EXIT";
+            document.getElementById('missionText').style.color = "#00ff00";
+            kDot.style.display = 'none';
         }
     }
 
@@ -184,29 +207,31 @@ function animate() {
 }
 animate();
 
-/* --- 4. INPUTS --- */
+/* --- INPUTS --- */
 const bind = (id, k) => {
     const el = document.getElementById(id);
-    el.addEventListener('pointerdown', (e) => { e.preventDefault(); move[k] = true; });
-    el.addEventListener('pointerup', () => move[k] = false);
+    el.addEventListener('pointerdown', (e) => { e.preventDefault(); move[k] = 1; });
+    el.addEventListener('pointerup', () => move[k] = 0);
 };
-bind("up","up"); bind("down","down"); bind("left","left"); bind("right","right");
-
+bind("up","f"); bind("down","b"); bind("left","l"); bind("right","r");
 document.getElementById("jumpBtn").onclick = () => { if(player.position.y <= 10.1) velocityY = 0.5; };
-document.getElementById("playBtn").onclick = () => {
-    generateCity();
-    state = "ACTIVE";
-    document.getElementById("homeScreen").style.display = "none";
-    document.getElementById("missionHUD").style.display = "block";
+document.getElementById("settingsBtn").onclick = () => document.getElementById("settingsMenu").style.display = "flex";
+
+// Settings Listeners
+document.getElementById("sensRange").oninput = (e) => config.sens = e.target.value * 0.001;
+document.getElementById("fovRange").oninput = (e) => { 
+    camera.fov = e.target.value; 
+    camera.updateProjectionMatrix(); 
 };
 
-let isDragging = false, lx, ly;
-renderer.domElement.addEventListener('pointerdown', e => { isDragging = true; lx = e.clientX; ly = e.clientY; });
-window.addEventListener('pointerup', () => isDragging = false);
+// Smooth Look
+let drag = false, lx, ly;
+renderer.domElement.addEventListener('pointerdown', e => { drag = true; lx = e.clientX; ly = e.clientY; });
+window.addEventListener('pointerup', () => drag = false);
 window.addEventListener('pointermove', e => {
-    if (isDragging) {
-        yaw -= (e.clientX - lx) * 0.004;
-        pitch = Math.max(-1, Math.min(1, pitch - (e.clientY - ly) * 0.004));
+    if (drag) {
+        yaw -= (e.clientX - lx) * config.sens;
+        pitch = Math.max(-1, Math.min(1, pitch - (e.clientY - ly) * config.sens));
         lx = e.clientX; ly = e.clientY;
     }
 });
