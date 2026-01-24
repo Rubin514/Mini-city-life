@@ -52,7 +52,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 scene.fog = new THREE.Fog(0x87ceeb, 500, 10000);
 
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 20000);
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 25000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
@@ -63,7 +63,7 @@ const sun = new THREE.DirectionalLight(0xffffff, 1.0);
 sun.position.set(500, 1000, 500);
 scene.add(sun);
 
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(30000, 30000), new THREE.MeshLambertMaterial({ color: 0x3d8c3d }));
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(40000, 40000), new THREE.MeshLambertMaterial({ color: 0x3d8c3d }));
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 
@@ -80,37 +80,42 @@ manager.onProgress = (url, loaded, total) => {
 };
 
 manager.onLoad = () => {
+    console.log("All GLB files loaded.");
     buildCity();
     document.getElementById('loader').style.display = 'none';
 };
 
-// DIRECT FOLDER PATHS
-loader.load('models/building.glb', (g) => assets.b1 = g.scene);
-loader.load('models/building2.glb', (g) => assets.b2 = g.scene);
-loader.load('models/tree1.glb', (g) => assets.tree = g.scene);
+manager.onError = (url) => {
+    console.error("Error loading asset:", url);
+};
+
+// Loading from your local ./models/ directory
+loader.load('./models/building.glb', (g) => assets.b1 = g.scene);
+loader.load('./models/building2.glb', (g) => assets.b2 = g.scene);
+loader.load('./models/tree1.glb', (g) => assets.tree = g.scene);
 
 function buildCity() {
     for (let x = -8; x <= 8; x++) {
         for (let z = -8; z <= 8; z++) {
             if (x === 0 && z === 0) continue;
-            const px = x * 1500, pz = z * 1500;
+            const px = x * 1800, pz = z * 1800;
             
-            // Choose Building
-            const bSource = (x + z) % 2 === 0 ? assets.b1 : assets.b2;
+            // Randomly pick building 1 or 2
+            const bSource = (Math.abs(x + z)) % 2 === 0 ? assets.b1 : assets.b2;
             
             if (bSource) {
                 const b = bSource.clone();
-                // MASSIVE SCALE FIX: Ensures they aren't invisible
                 b.scale.set(80, 80, 80); 
                 b.position.set(px, 0, pz);
                 scene.add(b);
-                colliders.push({ x: px, z: pz, r: 250 });
+                // Add collision radius
+                colliders.push({ x: px, z: pz, r: 350 });
             }
 
             if (assets.tree) {
                 const t = assets.tree.clone();
                 t.scale.set(40, 40, 40);
-                t.position.set(px + 600, 0, pz + 600);
+                t.position.set(px + 700, 0, pz + 700);
                 scene.add(t);
             }
         }
@@ -121,7 +126,7 @@ function buildCity() {
 const missions = Array.from({length: 20}, (_, i) => ({
     id: i + 1,
     title: `Zone Objective #${i + 1}`,
-    pos: { x: (Math.random()-0.5)*18000, z: (Math.random()-0.5)*18000 }
+    pos: { x: (Math.random()-0.5)*15000, z: (Math.random()-0.5)*15000 }
 }));
 
 let activeM = null, targetMesh = null;
@@ -130,8 +135,8 @@ document.getElementById('mBtn').onclick = () => {
     if(targetMesh) scene.remove(targetMesh);
     
     // Large Mission Sphere
-    targetMesh = new THREE.Mesh(new THREE.SphereGeometry(100, 32, 32), new THREE.MeshBasicMaterial({color: 0xff00ff}));
-    targetMesh.position.set(activeM.pos.x, 100, activeM.pos.z);
+    targetMesh = new THREE.Mesh(new THREE.SphereGeometry(150, 32, 32), new THREE.MeshBasicMaterial({color: 0xff00ff}));
+    targetMesh.position.set(activeM.pos.x, 150, activeM.pos.z);
     scene.add(targetMesh);
     
     document.getElementById('mTitle').innerText = activeM.title;
@@ -140,7 +145,7 @@ document.getElementById('mBtn').onclick = () => {
 
 /* --- PLAYER --- */
 const player = new THREE.Object3D();
-player.position.set(0, 30, 1000);
+player.position.set(0, 40, 1000);
 scene.add(player);
 player.add(camera);
 
@@ -148,24 +153,37 @@ let yaw = 0, vY = 0, move = {f:0, b:0, l:0, r:0};
 
 function animate() {
     requestAnimationFrame(animate);
-    let nx = player.position.x, nz = player.position.z, spd = 12;
+    let nx = player.position.x, nz = player.position.z, spd = 15;
     
     if(move.f) { nx -= Math.sin(yaw)*spd; nz -= Math.cos(yaw)*spd; }
     if(move.b) { nx += Math.sin(yaw)*spd; nz += Math.cos(yaw)*spd; }
     if(move.l) { nx -= Math.cos(yaw)*spd; nz += Math.sin(yaw)*spd; }
     if(move.r) { nx += Math.cos(yaw)*spd; nz -= Math.sin(yaw)*spd; }
 
+    // Collision Check
     let hit = false;
-    for(let c of colliders) if(Math.hypot(nx-c.x, nz-c.z) < c.r) hit = true;
-    if(!hit) { player.position.x = nx; player.position.z = nz; }
+    for(let c of colliders) {
+        if(Math.hypot(nx-c.x, nz-c.z) < c.r) hit = true;
+    }
+    
+    if(!hit) { 
+        player.position.x = nx; 
+        player.position.z = nz; 
+    }
 
-    vY -= 0.04; player.position.y += vY;
-    if(player.position.y < 30) { player.position.y = 30; vY = 0; }
+    // Gravity / Jump
+    vY -= 0.04; 
+    player.position.y += vY;
+    if(player.position.y < 40) { 
+        player.position.y = 40; 
+        vY = 0; 
+    }
 
+    // Mission Distance Check
     if(activeM && targetMesh) {
         const d = player.position.distanceTo(targetMesh.position);
         document.getElementById('mDist').innerText = `${Math.round(d)}m to destination`;
-        if(d < 150) { 
+        if(d < 200) { 
             alert("OBJECTIVE REACHED!"); 
             activeM = null; 
             scene.remove(targetMesh); 
@@ -179,19 +197,29 @@ function animate() {
 animate();
 
 /* --- UI CONTROLS --- */
-const b = (id, k) => {
-    const e = document.getElementById(id);
-    e.onpointerdown = (ev) => { ev.preventDefault(); move[k] = 1; };
-    e.onpointerup = () => move[k] = 0;
+const bindBtn = (id, key) => {
+    const el = document.getElementById(id);
+    el.addEventListener('pointerdown', (e) => { e.preventDefault(); move[key] = 1; });
+    el.addEventListener('pointerup', () => move[key] = 0);
+    el.addEventListener('pointerleave', () => move[key] = 0);
 };
-b("up","f"); b("down","b"); b("left","l"); b("right","r");
+bindBtn("up","f"); bindBtn("down","b"); bindBtn("left","l"); bindBtn("right","r");
 
-document.getElementById("jump").onpointerdown = () => { if(player.position.y <= 31) vY = 0.8; };
+document.getElementById("jump").onpointerdown = (e) => { 
+    e.preventDefault();
+    if(player.position.y <= 41) vY = 1.0; 
+};
 
-let drag = false, lx;
-renderer.domElement.onpointerdown = e => { drag = true; lx = e.clientX; };
-window.onpointerup = () => drag = false;
-window.onpointermove = e => { if(drag){ yaw -= (e.clientX - lx) * 0.007; lx = e.clientX; } };
+// Drag to Look
+let drag = false, lastX;
+renderer.domElement.addEventListener('pointerdown', e => { drag = true; lastX = e.clientX; });
+window.addEventListener('pointerup', () => drag = false);
+window.addEventListener('pointermove', e => { 
+    if(drag){ 
+        yaw -= (e.clientX - lastX) * 0.008; 
+        lastX = e.clientX; 
+    } 
+});
 
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -201,4 +229,3 @@ window.addEventListener('resize', () => {
 </script>
 </body>
 </html>
-
