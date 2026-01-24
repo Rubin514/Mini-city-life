@@ -2,50 +2,54 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mini City Life - 20 Missions</title>
+    <title>Mini City - Smart Loader</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        body { margin: 0; overflow: hidden; background: #87ceeb; font-family: 'Arial Black', sans-serif; touch-action: none; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; touch-action: none; }
         canvas { display: block; }
-        
-        /* HUD & Minimap */
-        #hud { position: fixed; top: 10px; left: 10px; z-index: 100; pointer-events: none; }
-        #minimap { width: 110px; height: 110px; background: rgba(0,0,0,0.8); border: 2px solid #fff; position: relative; border-radius: 10px; }
-        #pDot { width: 6px; height: 6px; background: #fff; border-radius: 50%; position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); z-index: 5; }
-        #targetDot { width: 10px; height: 10px; background: #ff00ff; position: absolute; border-radius: 2px; display: none; border: 1px solid white; }
-        #missionBox { background: rgba(0,0,0,0.85); color: #fbc02d; padding: 12px; margin-top: 10px; border-radius: 5px; font-size: 14px; border-left: 5px solid #fbc02d; width: 180px; }
 
-        /* Mission Menu */
-        #missionOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 500; display: none; flex-direction: column; align-items: center; padding: 20px; overflow-y: auto; color: white; }
-        .mission-btn { background: #333; padding: 15px; margin: 5px; width: 90%; border-radius: 8px; border: 1px solid #555; text-align: left; color: #fff; font-size: 16px; }
-        .mission-btn:active { background: #fbc02d; color: #000; }
+        /* Smart Loading Screen */
+        #loader { position: fixed; inset: 0; background: #111; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; color: #fbc02d; transition: opacity 0.5s; }
+        .bar-bg { width: 250px; height: 12px; background: #333; border-radius: 6px; margin-top: 15px; border: 1px solid #555; }
+        #bar { width: 0%; height: 100%; background: #fbc02d; border-radius: 6px; transition: width 0.2s; }
+
+        /* UI HUD */
+        #hud { position: fixed; top: 10px; left: 10px; z-index: 100; pointer-events: none; visibility: hidden; }
+        #minimap { width: 110px; height: 110px; background: rgba(0,0,0,0.8); border: 2px solid #fff; position: relative; border-radius: 10px; overflow: hidden; }
+        #pDot { width: 6px; height: 6px; background: #fff; border-radius: 50%; position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); }
+        #tDot { width: 10px; height: 10px; background: #ff00ff; position: absolute; border-radius: 2px; display: none; }
+        #msg { background: rgba(0,0,0,0.85); color: #fff; padding: 10px; margin-top: 8px; border-radius: 5px; font-size: 13px; border-left: 4px solid #fbc02d; width: 180px; }
 
         /* Controls */
-        #controls { position: fixed; bottom: 20px; left: 20px; z-index: 100; display: grid; grid-template-areas: ". u ." "l d r"; }
-        .btn { width: 65px; height: 65px; margin: 4px; background: rgba(255,255,255,0.1); border: 2px solid #fff; border-radius: 15px; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; }
-        #jump { position: fixed; bottom: 30px; right: 20px; width: 85px; height: 85px; border-radius: 50%; background: #ff9800; border: 3px solid #fff; color: white; font-weight: bold; }
-        #menuOpen { position: fixed; top: 10px; right: 10px; padding: 12px 20px; background: #fbc02d; color: #000; border-radius: 8px; font-weight: bold; z-index: 100; border: none; }
+        #ctrls { position: fixed; bottom: 20px; left: 20px; z-index: 100; display: grid; grid-template-areas: ". u ." "l d r"; }
+        .btn { width: 60px; height: 60px; margin: 4px; background: rgba(255,255,255,0.1); border: 2px solid #fff; border-radius: 15px; display: flex; align-items: center; justify-content: center; color: white; font-size: 22px; }
+        #jump { position: fixed; bottom: 30px; right: 20px; width: 80px; height: 80px; border-radius: 50%; background: #ff9800; border: 3px solid #fff; color: white; font-weight: bold; }
+        #missionBtn { position: fixed; top: 10px; right: 10px; padding: 12px 20px; background: #fbc02d; color: #000; border-radius: 8px; font-weight: bold; z-index: 100; border: none; }
+
+        #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 500; display: none; flex-direction: column; align-items: center; padding: 20px; overflow-y: auto; color: white; }
+        .m-item { background: #222; padding: 15px; margin: 5px; width: 90%; border-radius: 8px; border: 1px solid #444; }
     </style>
 </head>
 <body>
 
+<div id="loader">
+    <h2 id="status">INITIALIZING ASSETS...</h2>
+    <div class="bar-bg"><div id="bar"></div></div>
+</div>
+
 <div id="hud">
-    <div id="minimap"><div id="pDot"></div><div id="targetDot"></div></div>
-    <div id="missionBox">
-        <b id="mTitle">CITY FREE ROAM</b><br>
-        <span id="mGoal">Open the menu to start a mission</span>
-    </div>
+    <div id="minimap"><div id="pDot"></div><div id="tDot"></div></div>
+    <div id="msg"><b id="title">EXPLORATION MODE</b><br><span id="goal">Find a mission in the menu</span></div>
 </div>
 
-<button id="menuOpen" onclick="toggleMenu(true)">MISSIONS</button>
+<button id="missionBtn" onclick="openMissions()">MISSIONS</button>
 
-<div id="missionOverlay">
-    <h1>CHOOSE A MISSION</h1>
-    <div id="missionList"></div>
-    <button onclick="toggleMenu(false)" style="margin-top:20px; padding:15px 50px; background:#cc0000; color:#fff; border:none; border-radius:8px;">CLOSE</button>
+<div id="overlay" onclick="this.style.display='none'">
+    <h1>20 CITY MISSIONS</h1>
+    <div id="list"></div>
 </div>
 
-<div id="controls">
+<div id="ctrls">
     <div class="btn" style="grid-area:u" id="u">▲</div>
     <div class="btn" style="grid-area:l" id="l">◀</div>
     <div class="btn" style="grid-area:d" id="d">▼</div>
@@ -54,13 +58,20 @@
 <button id="jump">JUMP</button>
 
 <script type="importmap">
-{ "imports": { "three": "https://unpkg.com/three@0.152.2/build/three.module.js" } }
+{ "imports": { "three": "https://unpkg.com/three@0.152.2/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.152.2/examples/jsm/" } }
 </script>
 
 <script type="module">
 import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-/* --- 1. CORE ENGINE --- */
+/* --- SMART ASSET REGISTRY --- */
+const Assets = {
+    tree: null,
+    building: null,
+    isLoaded: false
+};
+
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 5000);
@@ -68,98 +79,94 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-scene.add(new THREE.AmbientLight(0xffffff, 1.0));
-const sun = new THREE.DirectionalLight(0xffffff, 0.8);
-sun.position.set(200, 500, 200);
+scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+const sun = new THREE.DirectionalLight(0xffffff, 0.7);
+sun.position.set(100, 300, 100);
 scene.add(sun);
 
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(10000, 10000), new THREE.MeshLambertMaterial({ color: 0x3a9d23 }));
 ground.rotation.x = -Math.PI/2;
 scene.add(ground);
 
-/* --- 2. BUILT-IN 3D MODELS (No files required!) --- */
-function createBuilding(color, h) {
+/* --- FALLBACKS --- */
+function makeBox(w, h, d, col) {
     const g = new THREE.Group();
-    // Main Body
-    const body = new THREE.Mesh(new THREE.BoxGeometry(70, h, 70), new THREE.MeshLambertMaterial({ color }));
-    body.position.y = h/2;
-    // Window detailing
-    const winGeo = new THREE.BoxGeometry(72, 10, 10);
-    const winMat = new THREE.MeshLambertMaterial({ color: 0x222222 });
-    for(let i=20; i < h; i+=30) {
-        const w = new THREE.Mesh(winGeo, winMat);
-        w.position.y = i;
-        g.add(w);
-    }
-    g.add(body);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color: col }));
+    m.position.y = h/2;
+    g.add(m);
     return g;
 }
 
-function createTree() {
-    const g = new THREE.Group();
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 25), new THREE.MeshLambertMaterial({ color: 0x4d2600 }));
-    trunk.position.y = 12.5;
-    const leaves = new THREE.Mesh(new THREE.ConeGeometry(25, 50, 8), new THREE.MeshLambertMaterial({ color: 0x1a5d1a }));
-    leaves.position.y = 45;
-    g.add(trunk, leaves);
-    return g;
-}
+/* --- THE SMART LOADER --- */
+const manager = new THREE.LoadingManager();
+const loader = new GLTFLoader(manager);
 
-const models = { 
-    b1: createBuilding(0x999999, 140), 
-    b2: createBuilding(0x666666, 220), 
-    tree: createTree() 
+manager.onProgress = (url, itemsLoaded, itemsTotal) => {
+    const progress = (itemsLoaded / itemsTotal) * 100;
+    document.getElementById('bar').style.width = progress + '%';
+    document.getElementById('status').innerText = `LOADING: ${Math.round(progress)}%`;
 };
 
-/* --- 3. 20 MISSIONS DATA --- */
-const missions = [];
-for(let i=1; i<=20; i++) {
-    missions.push({
-        id: i,
-        name: "Mission " + i,
-        desc: "Find the " + (i%2==0 ? "Neon Signal" : "Old Landmark"),
-        pos: { x: (Math.random()-0.5)*5000, z: (Math.random()-0.5)*5000 },
-        color: i % 2 == 0 ? 0xff00ff : 0x00ffff
-    });
-}
+manager.onLoad = () => {
+    document.getElementById('loader').style.opacity = '0';
+    setTimeout(() => {
+        document.getElementById('loader').style.display = 'none';
+        document.getElementById('hud').style.visibility = 'visible';
+        buildCity();
+    }, 500);
+};
 
-let activeM = null;
-let targetMesh = null;
+manager.onError = (url) => {
+    console.warn("Smart Loader: Error loading " + url + ". Falling back to shapes.");
+};
 
-window.startMission = (idx) => {
-    const m = missions[idx];
-    activeM = m;
+// Start Loading Your Files
+loader.load('tree.glb', (g) => Assets.tree = g.scene, undefined, () => Assets.tree = makeBox(10, 40, 10, 0x1a5d1a));
+loader.load('building2.glb', (g) => Assets.building = g.scene, undefined, () => Assets.building = makeBox(60, 150, 60, 0x444444));
+
+/* --- 20 MISSIONS --- */
+const missions = Array.from({length: 20}, (_, i) => ({
+    id: i+1,
+    title: `MISSION ${i+1}`,
+    goal: `Locate the ${['Neon', 'Secret', 'Old', 'Cargo'][i%4]} point`,
+    pos: { x: (Math.random()-0.5)*5000, z: (Math.random()-0.5)*5000 },
+    color: new THREE.Color().setHSL(Math.random(), 0.7, 0.5)
+}));
+
+let activeM = null, targetMesh = null;
+window.startMission = (id) => {
+    activeM = missions[id-1];
     if(targetMesh) scene.remove(targetMesh);
-    targetMesh = new THREE.Mesh(new THREE.TorusGeometry(30, 8, 12, 24), new THREE.MeshBasicMaterial({ color: m.color }));
-    targetMesh.position.set(m.pos.x, 30, m.pos.z);
+    targetMesh = new THREE.Mesh(new THREE.TorusKnotGeometry(15, 5), new THREE.MeshBasicMaterial({ color: activeM.color }));
+    targetMesh.position.set(activeM.pos.x, 30, activeM.pos.z);
     scene.add(targetMesh);
-    
-    document.getElementById('mTitle').innerText = m.name.toUpperCase();
-    document.getElementById('mGoal').innerText = m.desc;
-    toggleMenu(false);
+    document.getElementById('title').innerText = activeM.title;
+    document.getElementById('goal').innerText = activeM.goal;
 };
 
-/* --- 4. WORLD BUILDING --- */
+/* --- CITY BUILDER --- */
 const colliders = [];
-for(let x=-10; x<=10; x++) {
-    for(let z=-10; z<=10; z++) {
-        if(Math.abs(x) < 1 && Math.abs(z) < 1) continue;
-        const px=x*600, pz=z*600;
-        const type = (x+z) % 2 == 0 ? models.b1 : models.b2;
-        const b = type.clone();
-        b.position.set(px, 0, pz);
-        scene.add(b);
-        colliders.push({x:px, z:pz, r:90});
-        
-        const t = models.tree.clone();
-        t.position.set(px+200, 0, pz+200);
-        scene.add(t);
+function buildCity() {
+    const b1 = makeBox(70, 120, 70, 0x888888);
+    for(let x=-8; x<=8; x++) {
+        for(let z=-8; z<=8; z++) {
+            if(x==0 && z==0) continue;
+            const px=x*600, pz=z*600;
+            const b = (x+z)%2==0 ? b1.clone() : (Assets.building || b1).clone();
+            b.position.set(px, 0, pz);
+            scene.add(b);
+            colliders.push({x:px, z:pz, r:85});
+            
+            const t = (Assets.tree || makeBox(10,30,10,0x1a5d1a)).clone();
+            t.position.set(px+150, 0, pz+150);
+            scene.add(t);
+        }
     }
 }
 
-/* --- 5. PLAYER & MOVEMENT --- */
+/* --- PLAYER --- */
 const player = new THREE.Object3D();
-player.position.set(0, 10, 500);
+player.position.set(0, 10, 400);
 scene.add(player);
 player.add(camera);
 
@@ -168,7 +175,6 @@ let yaw=0, pitch=0, vY=0, input={f:0,b:0,l:0,r:0};
 function animate() {
     requestAnimationFrame(animate);
     let nx=player.position.x, nz=player.position.z, spd=6;
-    
     if(input.f){ nx -= Math.sin(yaw)*spd; nz -= Math.cos(yaw)*spd; }
     if(input.b){ nx += Math.sin(yaw)*spd; nz += Math.cos(yaw)*spd; }
     if(input.l){ nx -= Math.cos(yaw)*spd; nz += Math.sin(yaw)*spd; }
@@ -184,37 +190,35 @@ function animate() {
     if(activeM) {
         targetMesh.rotation.y += 0.05;
         const d = player.position.distanceTo(targetMesh.position);
-        document.getElementById('targetDot').style.display = 'block';
-        document.getElementById('targetDot').style.left = (50 + (activeM.pos.x - player.position.x)/50) + 'px';
-        document.getElementById('targetDot').style.top = (50 + (activeM.pos.z - player.position.z)/50) + 'px';
-        if(d < 70) { alert("MISSION COMPLETE!"); activeM=null; scene.remove(targetMesh); }
+        document.getElementById('tDot').style.display = 'block';
+        document.getElementById('tDot').style.left = (50 + (activeM.pos.x - player.position.x)/55) + 'px';
+        document.getElementById('tDot').style.top = (50 + (activeM.pos.z - player.position.z)/55) + 'px';
+        if(d < 65) { alert("PASSED!"); activeM=null; scene.remove(targetMesh); }
     }
 
-    player.rotation.y = yaw;
-    camera.rotation.x = pitch;
+    player.rotation.y = yaw; camera.rotation.x = pitch;
     renderer.render(scene, camera);
 }
 animate();
 
-/* --- 6. UI --- */
-window.toggleMenu = (show) => document.getElementById('missionOverlay').style.display = show ? 'flex' : 'none';
-
-const list = document.getElementById('missionList');
-missions.forEach((m, i) => {
-    const b = document.createElement('button');
-    b.className = 'mission-btn';
-    b.innerHTML = `<b>${m.name}</b><br><small>${m.desc}</small>`;
-    b.onclick = () => startMission(i);
-    list.appendChild(b);
+/* --- UI --- */
+window.openMissions = () => document.getElementById('overlay').style.display = 'flex';
+const list = document.getElementById('list');
+missions.forEach(m => {
+    const d = document.createElement('div');
+    d.className = 'm-item';
+    d.innerHTML = `<b>${m.title}</b><p>${m.goal}</p>`;
+    d.onclick = () => startMission(m.id);
+    list.appendChild(d);
 });
 
-const b = (id, k) => {
+const bind = (id, k) => {
     const e = document.getElementById(id);
     e.onpointerdown = (ev) => { ev.preventDefault(); input[k]=1; };
     e.onpointerup = () => input[k]=0;
 };
-b("u","f"); b("d","b"); b("l","l"); b("r","r");
-document.getElementById("jump").onpointerdown = () => { if(player.position.y<=11) vY=0.5; };
+bind("u","f"); bind("d","b"); bind("l","l"); bind("r","r");
+document.getElementById("jump").onpointerdown = () => { if(player.position.y<=10.5) vY=0.5; };
 
 let drag=false, lx, ly;
 renderer.domElement.onpointerdown = e => { drag=true; lx=e.clientX; ly=e.clientY; };
@@ -222,5 +226,4 @@ window.onpointerup = () => drag=false;
 window.onpointermove = e => { if(drag){ yaw-=(e.clientX-lx)*0.005; pitch-=(e.clientY-ly)*0.005; lx=e.clientX; ly=e.clientY; }};
 </script>
 </body>
-    </html>
-    
+</html>
