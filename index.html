@@ -2,29 +2,29 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mini City Life - 20 Missions</title>
+    <title>Mini City Life - Stable Edition</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        body { margin: 0; overflow: hidden; background: #87ceeb; font-family: 'Arial', sans-serif; touch-action: none; }
+        body { margin: 0; overflow: hidden; background: #87ceeb; font-family: 'Arial Black', sans-serif; touch-action: none; }
         canvas { display: block; }
         
         /* HUD & Minimap */
         #hud { position: fixed; top: 10px; left: 10px; z-index: 100; pointer-events: none; }
-        #minimap { width: 110px; height: 110px; background: rgba(0,0,0,0.7); border: 2px solid #fff; position: relative; border-radius: 8px; }
-        #pDot { width: 6px; height: 6px; background: #fff; border-radius: 50%; position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); }
-        #targetDot { width: 10px; height: 10px; background: #f0f; position: absolute; border-radius: 2px; display: none; border: 1px solid white; }
-        #missionBox { background: rgba(0,0,0,0.85); color: #00ff00; padding: 10px; margin-top: 8px; border-radius: 5px; font-size: 14px; border-left: 4px solid #fbc02d; }
+        #minimap { width: 110px; height: 110px; background: rgba(0,0,0,0.8); border: 2px solid #fff; position: relative; border-radius: 10px; }
+        #pDot { width: 6px; height: 6px; background: #fff; border-radius: 50%; position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); z-index: 5; }
+        #targetDot { width: 10px; height: 10px; background: #ff00ff; position: absolute; border-radius: 2px; display: none; border: 1px solid white; }
+        #missionBox { background: rgba(0,0,0,0.85); color: #fbc02d; padding: 12px; margin-top: 10px; border-radius: 5px; font-size: 14px; border-left: 5px solid #fbc02d; width: 180px; }
 
-        /* Mission Selector Overlay */
+        /* Mission Menu */
         #missionOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 500; display: none; flex-direction: column; align-items: center; padding: 20px; overflow-y: auto; color: white; }
-        .m-card { background: #333; padding: 15px; margin: 8px; width: 85%; border-radius: 10px; border: 1px solid #555; text-align: center; }
-        .m-card:active { background: #fbc02d; color: #000; }
+        .mission-btn { background: #333; padding: 15px; margin: 5px; width: 90%; border-radius: 8px; border: 1px solid #555; text-align: left; color: #fff; font-size: 16px; }
+        .mission-btn:active { background: #fbc02d; color: #000; }
 
-        /* UI Controls */
+        /* Controls */
         #controls { position: fixed; bottom: 20px; left: 20px; z-index: 100; display: grid; grid-template-areas: ". u ." "l d r"; }
-        .btn { width: 60px; height: 60px; margin: 4px; background: rgba(255,255,255,0.15); border: 2px solid #fff; border-radius: 15px; display: flex; align-items: center; justify-content: center; color: white; font-size: 22px; }
-        #jump { position: fixed; bottom: 30px; right: 20px; width: 80px; height: 80px; border-radius: 50%; background: #ff9800; border: 3px solid #fff; color: white; font-weight: bold; }
-        #menuBtn { position: fixed; top: 10px; right: 10px; padding: 10px 20px; background: #fbc02d; color: #000; border-radius: 5px; font-weight: bold; z-index: 100; }
+        .btn { width: 65px; height: 65px; margin: 4px; background: rgba(255,255,255,0.1); border: 2px solid #fff; border-radius: 15px; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; }
+        #jump { position: fixed; bottom: 30px; right: 20px; width: 85px; height: 85px; border-radius: 50%; background: #ff9800; border: 3px solid #fff; color: white; font-weight: bold; }
+        #menuOpen { position: fixed; top: 10px; right: 10px; padding: 12px 20px; background: #fbc02d; color: #000; border-radius: 8px; font-weight: bold; z-index: 100; border: none; }
     </style>
 </head>
 <body>
@@ -32,17 +32,17 @@
 <div id="hud">
     <div id="minimap"><div id="pDot"></div><div id="targetDot"></div></div>
     <div id="missionBox">
-        <b id="mTitle">CITY EXPLORER</b><br>
-        <span id="mGoal">Select a mission from the menu</span>
+        <b id="mTitle">CITY FREE ROAM</b><br>
+        <span id="mGoal">Open the menu to start a mission</span>
     </div>
 </div>
 
-<button id="menuBtn" onclick="toggleMenu()">MISSIONS</button>
+<button id="menuOpen" onclick="toggleMenu(true)">MISSIONS</button>
 
 <div id="missionOverlay">
-    <h2>20 CITY MISSIONS</h2>
-    <div id="list"></div>
-    <button onclick="toggleMenu()" style="margin:20px; padding:15px 40px; background:red; color:white; border:none; border-radius:5px;">CLOSE</button>
+    <h1>CHOOSE A MISSION</h1>
+    <div id="missionList"></div>
+    <button onclick="toggleMenu(false)" style="margin-top:20px; padding:15px 50px; background:#cc0000; color:#fff; border:none; border-radius:8px;">CLOSE</button>
 </div>
 
 <div id="controls">
@@ -61,7 +61,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-/* --- ENGINE --- */
+/* --- 1. CORE ENGINE --- */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 5000);
@@ -69,84 +69,98 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+scene.add(new THREE.AmbientLight(0xffffff, 1.2));
 const sun = new THREE.DirectionalLight(0xffffff, 0.8);
-sun.position.set(100, 200, 100);
+sun.position.set(200, 500, 200);
 scene.add(sun);
 
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(8000, 8000), new THREE.MeshLambertMaterial({ color: 0x3a9d23 }));
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(10000, 10000), new THREE.MeshLambertMaterial({ color: 0x3a9d23 }));
 ground.rotation.x = -Math.PI/2;
 scene.add(ground);
 
-/* --- ASSET FALLBACKS (Fixes the "Missing Building" issue) --- */
-const createBuildingBox = (color, height) => {
+/* --- 2. EMERGENCY FALLBACK SYSTEM (Fixes Missing Models) --- */
+const createFallbackBuilding = (color, h) => {
     const g = new THREE.Group();
-    const b = new THREE.Mesh(new THREE.BoxGeometry(60, height, 60), new THREE.MeshLambertMaterial({ color }));
-    b.position.y = height/2;
-    g.add(b);
+    const body = new THREE.Mesh(new THREE.BoxGeometry(60, h, 60), new THREE.MeshLambertMaterial({ color }));
+    body.position.y = h/2;
+    g.add(body);
+    return g;
+};
+
+const createFallbackTree = () => {
+    const g = new THREE.Group();
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 20), new THREE.MeshLambertMaterial({ color: 0x4d2600 }));
+    trunk.position.y = 10;
+    const leaves = new THREE.Mesh(new THREE.ConeGeometry(20, 40, 8), new THREE.MeshLambertMaterial({ color: 0x1a5d1a }));
+    leaves.position.y = 35;
+    g.add(trunk, leaves);
     return g;
 };
 
 const loader = new GLTFLoader();
-const models = { b1: createBuildingBox(0x777777, 120), b2: createBuildingBox(0x444444, 200), tree: createBuildingBox(0x1a5d1a, 40) };
-
-// Try loading actual GLBs, but keep the boxes if they fail
-const safeLoad = (url, key) => {
-    loader.load(url, (g) => { models[key] = g.scene; }, undefined, () => console.log("Missing " + url + ", using fallback."));
+const models = { 
+    b1: createFallbackBuilding(0x888888, 120), 
+    b2: createFallbackBuilding(0x555555, 200), 
+    tree: createFallbackTree() 
 };
-safeLoad('./models/building.glb', 'b1');
-safeLoad('./models/building2.glb', 'b2');
-safeLoad('./models/tree1.glb', 'tree');
 
-/* --- 20 MISSIONS --- */
-const missionData = [];
+// Attempt to load GLBs; if they fail, the fallbacks above remain in use.
+const loadWithSafety = (path, key) => {
+    loader.load(path, (g) => { models[key] = g.scene; }, undefined, () => console.warn(`Model ${key} missing at ${path}`));
+};
+loadWithSafety('./models/building.glb', 'b1');
+loadWithSafety('./models/building2.glb', 'b2');
+loadWithSafety('./models/tree1.glb', 'tree');
+
+/* --- 3. 20 MISSIONS ENGINE --- */
+const missions = [];
 for(let i=1; i<=20; i++) {
-    missionData.push({
+    missions.push({
         id: i,
-        title: "Mission " + i,
-        goal: "Reach the " + (i % 2 == 0 ? "Blue" : "Yellow") + " Point",
-        x: (Math.random() - 0.5) * 3000,
-        z: (Math.random() - 0.5) * 3000,
-        color: i % 2 == 0 ? 0x00aaff : 0xffff00
+        name: "Mission " + i,
+        desc: "Reach the " + (i%2==0 ? "Neon District" : "Old Town") + " target",
+        pos: { x: (Math.random()-0.5)*4000, z: (Math.random()-0.5)*4000 },
+        color: i % 2 == 0 ? 0xff00ff : 0x00ffff
     });
 }
 
-let activeTarget = null;
+let activeM = null;
 let targetMesh = null;
 
-window.selectMission = (index) => {
-    const m = missionData[index];
-    activeTarget = m;
+window.startMission = (idx) => {
+    const m = missions[idx];
+    activeM = m;
     if(targetMesh) scene.remove(targetMesh);
-    targetMesh = new THREE.Mesh(new THREE.SphereGeometry(25, 16, 16), new THREE.MeshBasicMaterial({ color: m.color }));
-    targetMesh.position.set(m.x, 25, m.z);
+    targetMesh = new THREE.Mesh(new THREE.TorusGeometry(20, 5, 10, 20), new THREE.MeshBasicMaterial({ color: m.color }));
+    targetMesh.position.set(m.pos.x, 25, m.pos.z);
     scene.add(targetMesh);
     
-    document.getElementById('mTitle').innerText = m.title.toUpperCase();
-    document.getElementById('mGoal').innerText = m.goal;
-    document.getElementById('missionOverlay').style.display = 'none';
+    document.getElementById('mTitle').innerText = m.name.toUpperCase();
+    document.getElementById('mGoal').innerText = m.desc;
+    toggleMenu(false);
 };
 
-/* --- WORLD BUILDING --- */
+/* --- 4. WORLD BUILDING --- */
 const colliders = [];
 setTimeout(() => {
-    for(let x=-6; x<=6; x++){
-        for(let z=-6; z<=6; z++){
-            if(x==0 && z==0) continue;
-            const px=x*500, pz=z*500;
-            const b = (x+z)%2==0 ? models.b1.clone() : models.b2.clone();
+    for(let x=-8; x<=8; x++) {
+        for(let z=-8; z<=8; z++) {
+            if(Math.abs(x) < 1 && Math.abs(z) < 1) continue;
+            const px=x*550, pz=z*550;
+            const type = (x+z) % 2 == 0 ? models.b1 : models.b2;
+            const b = type.clone();
             b.position.set(px, 0, pz);
             scene.add(b);
-            colliders.push({x:px, z:pz, r:70});
+            colliders.push({x:px, z:pz, r:80});
             
             const t = models.tree.clone();
-            t.position.set(px+150, 0, pz+150);
+            t.position.set(px+180, 0, pz+180);
             scene.add(t);
         }
     }
-}, 1000);
+}, 1200);
 
-/* --- PLAYER --- */
+/* --- 5. PLAYER & LOGIC --- */
 const player = new THREE.Object3D();
 player.position.set(0, 10, 400);
 scene.add(player);
@@ -156,25 +170,27 @@ let yaw=0, pitch=0, vY=0, input={f:0,b:0,l:0,r:0};
 
 function animate() {
     requestAnimationFrame(animate);
-    let nx=player.position.x, nz=player.position.z, spd=5;
+    let nx=player.position.x, nz=player.position.z, spd=5.5;
+    
     if(input.f){ nx -= Math.sin(yaw)*spd; nz -= Math.cos(yaw)*spd; }
     if(input.b){ nx += Math.sin(yaw)*spd; nz += Math.cos(yaw)*spd; }
     if(input.l){ nx -= Math.cos(yaw)*spd; nz += Math.sin(yaw)*spd; }
     if(input.r){ nx += Math.cos(yaw)*spd; nz -= Math.sin(yaw)*spd; }
 
-    let hit=false;
+    let hit = false;
     for(let c of colliders) if(Math.hypot(nx-c.x, nz-c.z) < c.r) hit=true;
     if(!hit){ player.position.x=nx; player.position.z=nz; }
 
     vY -= 0.02; player.position.y += vY;
     if(player.position.y < 10){ player.position.y=10; vY=0; }
 
-    if(activeTarget){
+    if(activeM) {
+        targetMesh.rotation.y += 0.05;
         const d = player.position.distanceTo(targetMesh.position);
         document.getElementById('targetDot').style.display = 'block';
-        document.getElementById('targetDot').style.left = (50 + (activeTarget.x - player.position.x)/40) + 'px';
-        document.getElementById('targetDot').style.top = (50 + (activeTarget.z - player.position.z)/40) + 'px';
-        if(d < 60) { alert("MISSION PASSED!"); activeTarget=null; scene.remove(targetMesh); }
+        document.getElementById('targetDot').style.left = (50 + (activeM.pos.x - player.position.x)/45) + 'px';
+        document.getElementById('targetDot').style.top = (50 + (activeM.pos.z - player.position.z)/45) + 'px';
+        if(d < 60) { alert("MISSION PASSED! REWARD EARNED!"); activeM=null; scene.remove(targetMesh); }
     }
 
     player.rotation.y = yaw;
@@ -183,19 +199,16 @@ function animate() {
 }
 animate();
 
-/* --- INPUTS --- */
-window.toggleMenu = () => {
-    const o = document.getElementById('missionOverlay');
-    o.style.display = o.style.display === 'flex' ? 'none' : 'flex';
-};
+/* --- 6. UI BINDINGS --- */
+window.toggleMenu = (show) => document.getElementById('missionOverlay').style.display = show ? 'flex' : 'none';
 
-const list = document.getElementById('list');
-missionData.forEach((m, i) => {
-    const div = document.createElement('div');
-    div.className = 'm-card';
-    div.innerHTML = `<b>${m.title}</b><br>${m.goal}`;
-    div.onclick = () => selectMission(i);
-    list.appendChild(div);
+const list = document.getElementById('missionList');
+missions.forEach((m, i) => {
+    const b = document.createElement('button');
+    b.className = 'mission-btn';
+    b.innerHTML = `<b>${m.name}</b><br><small>${m.desc}</small>`;
+    b.onclick = () => startMission(i);
+    list.appendChild(b);
 });
 
 const b = (id, k) => {
