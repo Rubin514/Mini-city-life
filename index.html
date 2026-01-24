@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mini City Life - Pro Optimized</title>
+    <title>Mini City Life - Fixed & Optimized</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; overflow: hidden; font-family: sans-serif; background: #87ceeb; }
@@ -26,7 +26,7 @@
 
 <div id="homeScreen">
     <h1>MINI CITY LIFE</h1>
-    <p id="status">Optimizing Engines...</p>
+    <p id="status">Engine Warmup...</p>
     <button id="playBtn">START GAME</button>
 </div>
 
@@ -60,30 +60,26 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 /* --- 1. CORE SETUP --- */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
-// Fog helps performance by hiding distant objects
-scene.fog = new THREE.Fog(0x87ceeb, 100, 4000);
+scene.fog = new THREE.Fog(0x87ceeb, 200, 3000); // Added fog to hide edge of world
 
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.5, 4000);
-const renderer = new THREE.WebGLRenderer({ 
-    antialias: false, 
-    powerPreference: "high-performance",
-    precision: "mediump" 
-});
+const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Capped at 1.5 for better mobile fps
 document.body.appendChild(renderer.domElement);
 
-const light = new THREE.AmbientLight(0xffffff, 1.8);
+const light = new THREE.AmbientLight(0xffffff, 2.0);
 scene.add(light);
+const sun = new THREE.DirectionalLight(0xffffff, 1.0);
+sun.position.set(100, 500, 100);
+scene.add(sun);
 
 /* --- 2. ENVIRONMENT --- */
-const landGeo = new THREE.PlaneGeometry(10000, 10000);
-const landMat = new THREE.MeshLambertMaterial({ color: 0x228b22 });
-const land = new THREE.Mesh(landGeo, landMat);
+const land = new THREE.Mesh(new THREE.PlaneGeometry(10000, 10000), new THREE.MeshLambertMaterial({ color: 0x228b22 }));
 land.rotation.x = -Math.PI / 2;
 scene.add(land);
 
-// Road Instancing would be better, but keeping logic similar for roads
+// Standard Roads
 const roadMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
 const roadHGeo = new THREE.PlaneGeometry(10000, 180);
 const roadVGeo = new THREE.PlaneGeometry(180, 10000);
@@ -109,53 +105,98 @@ manager.onLoad = () => {
     generateCityInstanced();
 };
 
-loader.load('models/building.glb', (g) => { modelData.b1 = g.scene.children[0]; });
-loader.load('models/building2.glb', (g) => { modelData.b2 = g.scene.children[0]; });
-loader.load('models/tree1.glb', (g) => { modelData.tree = g.scene.children[0]; });
+// FIX: Helper to find the actual Mesh inside the GLB
+function getMesh(scene) {
+    let mesh = null;
+    scene.traverse((child) => {
+        if (child.isMesh && !mesh) mesh = child;
+    });
+    return mesh;
+}
+
+loader.load('models/building.glb', (g) => { modelData.b1 = getMesh(g.scene); });
+loader.load('models/building2.glb', (g) => { modelData.b2 = getMesh(g.scene); });
+loader.load('models/tree1.glb', (g) => { 
+    const t = getMesh(g.scene);
+    if(t) t.material.alphaTest = 0.5; // Fix transparent leaves
+    modelData.tree = t; 
+});
 loader.load('models/npc.glb', (g) => { modelData.npc = g.scene; });
 
 function generateCityInstanced() {
-    const count = 49; // 7x7 grid
     const dummy = new THREE.Object3D();
-    
-    // Create Instanced Meshes
-    const iMesh1 = new THREE.InstancedMesh(modelData.b1.geometry, modelData.b1.material, count);
-    const iMesh2 = new THREE.InstancedMesh(modelData.b2.geometry, modelData.b2.material, count);
-    scene.add(iMesh1, iMesh2);
-
     const markerGeo = new THREE.CircleGeometry(40, 16);
     const markerMat = new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.4 });
 
-    let idx1 = 0, idx2 = 0;
+    // --- INSTANCING SETUP ---
+    // We create "InstancedMesh" which draws 100 buildings with the cost of 1.
+    let iMesh1, iMesh2, iTree;
+    
+    // Safety check: Only create if models loaded correctly
+    if (modelData.b1) {
+        iMesh1 = new THREE.InstancedMesh(modelData.b1.geometry, modelData.b1.material, 100);
+        scene.add(iMesh1);
+    }
+    if (modelData.b2) {
+        iMesh2 = new THREE.InstancedMesh(modelData.b2.geometry, modelData.b2.material, 100);
+        scene.add(iMesh2);
+    }
+    if (modelData.tree) {
+        iTree = new THREE.InstancedMesh(modelData.tree.geometry, modelData.tree.material, 200);
+        scene.add(iTree);
+    }
 
-    for (let x = -3; x <= 3; x++) {
-        for (let z = -3; z <= 3; z++) {
+    let idx1 = 0, idx2 = 0, idxTree = 0;
+
+    for (let x = -4; x <= 4; x++) {
+        for (let z = -4; z <= 4; z++) {
             if (x === 0 && z === 0) continue;
+            
             const bx = x * 1000 + 400;
             const bz = z * 1000 + 400;
 
+            // 1. PLACE BUILDINGS
             dummy.position.set(bx, 0, bz);
             dummy.scale.set(6, 6, 6);
+            dummy.rotation.set(0, 0, 0);
             dummy.updateMatrix();
 
-            if(Math.random() > 0.5) {
+            if(Math.random() > 0.5 && iMesh1) {
                 iMesh1.setMatrixAt(idx1++, dummy.matrix);
-            } else {
+            } else if (iMesh2) {
                 iMesh2.setMatrixAt(idx2++, dummy.matrix);
             }
 
-            // Simple collider data (center + radius is faster than Box3)
-            colliders.push({ x: bx, z: bz, r: 100 });
+            // Collider
+            colliders.push({ x: bx, z: bz, r: 120 }); // Simple circle collision
 
-            // Entry Markers
+            // Entry Marker
             const entry = new THREE.Mesh(markerGeo, markerMat);
             entry.rotation.x = -Math.PI / 2;
             entry.position.set(bx - 120, 0.3, bz); 
             scene.add(entry);
             entryPoints.push(entry.position);
+
+            // 2. PLACE TREES (Added this back!)
+            if(iTree) {
+                // Place 2 trees per block
+                for(let t=0; t<2; t++) {
+                    dummy.position.set(bx + (Math.random()-0.5)*500, 0, bz + (Math.random()-0.5)*500);
+                    dummy.scale.set(4, 4, 4);
+                    dummy.rotation.set(0, Math.random() * Math.PI, 0); // Random rotation
+                    dummy.updateMatrix();
+                    iTree.setMatrixAt(idxTree++, dummy.matrix);
+                }
+            }
         }
     }
     
+    // Notify three.js that the instances are ready
+    if(iMesh1) iMesh1.instanceMatrix.needsUpdate = true;
+    if(iMesh2) iMesh2.instanceMatrix.needsUpdate = true;
+    if(iTree) iTree.instanceMatrix.needsUpdate = true;
+
+    // Place NPC
     if(modelData.npc) {
         modelData.npc.scale.set(6, 6, 6);
         modelData.npc.position.set(60, 0, 400);
@@ -163,7 +204,7 @@ function generateCityInstanced() {
     }
 }
 
-/* --- 4. INTERACTION & PHYSICS --- */
+/* --- 4. GAME LOOP --- */
 const player = new THREE.Object3D();
 player.position.set(0, 10, 500); 
 scene.add(player);
@@ -174,20 +215,19 @@ const move = { up: false, down: false, left: false, right: false };
 let isGrounded = true;
 
 function updatePhysics() {
-    let nx = player.position.x, nz = player.position.z, spd = 4.0;
+    let nx = player.position.x, nz = player.position.z, spd = 5.0; // Slightly faster speed
     
     if (move.up) { nx -= Math.sin(yaw) * spd; nz -= Math.cos(yaw) * spd; }
     if (move.down) { nx += Math.sin(yaw) * spd; nz += Math.cos(yaw) * spd; }
     if (move.left) { nx -= Math.cos(yaw) * spd; nz += Math.sin(yaw) * spd; }
     if (move.right) { nx += Math.cos(yaw) * spd; nz -= Math.sin(yaw) * spd; }
 
-    // Optimized collision (Radial check)
+    // Fast Circle Collision Check
     let collision = false;
     for (let i = 0; i < colliders.length; i++) {
         const c = colliders[i];
-        const dx = nx - c.x;
-        const dz = nz - c.z;
-        if ((dx*dx + dz*dz) < c.r * c.r) { collision = true; break; }
+        const distSq = (nx - c.x)**2 + (nz - c.z)**2;
+        if (distSq < c.r * c.r) { collision = true; break; }
     }
 
     if (!collision) { player.position.x = nx; player.position.z = nz; }
@@ -199,7 +239,6 @@ function updatePhysics() {
 function animate() {
     requestAnimationFrame(animate);
     
-    // Smooth Look
     yaw += (targetYaw - yaw) * 0.15;
     pitch += (targetPitch - pitch) * 0.15;
     player.rotation.y = yaw; 
@@ -207,10 +246,10 @@ function animate() {
 
     updatePhysics();
 
-    // Distance check for UI message
     let near = false;
+    // 80 * 80 = 6400 (Squared distance check is faster for CPU)
     for(let i = 0; i < entryPoints.length; i++) {
-        if(player.position.distanceToSquared(entryPoints[i]) < 6400) { // 80^2 is faster than distanceTo
+        if(player.position.distanceToSquared(entryPoints[i]) < 6400) {
             near = true; break;
         }
     }
