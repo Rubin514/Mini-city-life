@@ -2,281 +2,187 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mini City Life - 20 Missions Edition</title>
+    <title>Mini City - 20 Missions Fix</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #111; touch-action: none; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; touch-action: none; }
         canvas { display: block; }
 
-        /* UI Screens */
-        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; color: #fff; text-align: center; }
-        #settingsScreen, #missionScreen { display: none; background: #1a1a1a; }
-        
-        .menu-box { width: 85%; max-width: 400px; padding: 20px; border: 1px solid #444; border-radius: 15px; max-height: 80vh; overflow-y: auto; }
-        h1 { margin: 0 0 15px; color: #00ff00; letter-spacing: 2px; font-size: 22px; }
-        
-        /* Mission List Styling */
-        .mission-item { background: #222; margin: 10px 0; padding: 12px; border-radius: 8px; border-left: 5px solid #00ff00; text-align: left; cursor: pointer; }
-        .mission-item:active { background: #333; }
-        .mission-item h3 { margin: 0; font-size: 14px; color: #00ff00; }
-        .mission-item p { margin: 5px 0 0; font-size: 12px; color: #ccc; }
-
         /* HUD */
-        #missionHUD { position: fixed; top: 15px; left: 15px; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 8px; border-left: 4px solid #ff9800; color: white; pointer-events: none; z-index: 10; display: none; }
-        
-        .btn-ui { width: 200px; padding: 12px; margin: 10px; border: 2px solid #00ff00; background: none; color: #00ff00; border-radius: 50px; font-weight: bold; cursor: pointer; font-size: 14px; }
-        .setting-item { margin: 15px 0; text-align: left; }
-        input[type=range] { width: 100%; accent-color: #00ff00; }
+        #hud { position: fixed; top: 15px; left: 15px; z-index: 100; color: #fff; pointer-events: none; }
+        #missionHUD { background: rgba(0,0,0,0.8); padding: 12px; border-radius: 8px; border-left: 5px solid #00ff00; display: none; }
 
-        #controls { position: fixed; bottom: 20px; left: 20px; z-index: 10; display: grid; grid-template-areas: ". up ." "left down right"; }
-        .btn { width: 55px; height: 55px; margin: 3px; border-radius: 12px; font-size: 20px; background: rgba(0,0,0,0.5); border: 1.5px solid #fff; color: white; display: flex; align-items: center; justify-content: center; }
-        #jumpBtn { position: fixed; bottom: 30px; right: 20px; width: 75px; height: 75px; border-radius: 50%; background: #ff9800; color: white; border: 2px solid #fff; font-weight: bold; }
-        #missionToggle { position: fixed; top: 15px; right: 15px; padding: 10px 20px; background: #00ff00; color: #000; border-radius: 5px; font-weight: bold; z-index: 50; border: none; }
+        /* Controls */
+        #ctrls { position: fixed; bottom: 20px; left: 20px; z-index: 100; display: grid; grid-template-areas: ". u ." "l d r"; }
+        .btn { width: 60px; height: 60px; margin: 4px; background: rgba(255,255,255,0.1); border: 2px solid #fff; border-radius: 15px; display: flex; align-items: center; justify-content: center; color: white; font-size: 22px; }
+        #jump { position: fixed; bottom: 30px; right: 20px; width: 80px; height: 80px; border-radius: 50%; background: #ff9800; border: 3px solid #fff; color: white; font-weight: bold; }
+        
+        #menuBtn { position: fixed; top: 15px; right: 15px; padding: 12px 20px; background: #00ff00; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 500; display: none; flex-direction: column; align-items: center; padding: 20px; overflow-y: auto; color: white; }
+        .m-item { background: #222; padding: 15px; margin: 5px; width: 90%; border-radius: 8px; border: 1px solid #444; }
     </style>
 </head>
 <body>
 
-<div id="missionHUD">
-    <small style="color: #ff9800;">ACTIVE MISSION</small><br>
-    <b id="hudTitle">Explore City</b><br>
-    <span id="hudDistance">0m away</span>
-</div>
-
-<button id="missionToggle" onclick="showMissions()">MISSIONS</button>
-
-<div id="homeScreen" class="overlay">
-    <h1>MINI CITY LIFE</h1>
-    <div id="loaderBar" style="width:200px; height:6px; background:#333; margin-bottom:10px;"><div id="loaderProgress" style="width:0; height:100%; background:#00ff00;"></div></div>
-    <button id="playBtn" class="btn-ui" style="display:none;">START GAME</button>
-    <button id="openSettings" class="btn-ui" style="border-color:#fff; color:#fff;">SETTINGS</button>
-</div>
-
-<div id="missionScreen" class="overlay">
-    <div class="menu-box">
-        <h1>SELECT MISSION</h1>
-        <div id="missionList"></div>
-        <button class="btn-ui" onclick="hideMissions()" style="border-color:red; color:red;">CLOSE</button>
+<div id="hud">
+    <div id="missionHUD">
+        <b id="mTitle">City Mission</b><br>
+        <span id="mDist">Distance: 0m</span>
     </div>
 </div>
 
-<div id="settingsScreen" class="overlay">
-    <div class="menu-box">
-        <h1>SETTINGS</h1>
-        <div class="setting-item"><label>SENSITIVITY</label><input type="range" id="sensInput" min="1" max="10" value="3"></div>
-        <div class="setting-item"><label>FOG DISTANCE</label><input type="range" id="fogInput" min="500" max="5000" value="2500"></div>
-        <div class="setting-item"><label>FOV (ZOOM)</label><input type="range" id="fovInput" min="45" max="90" value="60"></div>
-        <button id="closeSettings" class="btn-ui">SAVE & BACK</button>
-    </div>
+<button id="menuBtn" onclick="toggleMenu(true)">MISSIONS</button>
+
+<div id="overlay">
+    <h1>20 MISSIONS</h1>
+    <div id="list"></div>
+    <button onclick="toggleMenu(false)" style="margin-top:20px; padding:15px; background:red; color:#fff; border:none; border-radius:8px;">CLOSE</button>
 </div>
 
-<div id="controls">
-    <div class="btn" id="up">▲</div>
-    <div class="btn" id="left">◀</div>
-    <div class="btn" id="right">▶</div>
-    <div class="btn" id="down">▼</div>
+<div id="ctrls">
+    <div class="btn" style="grid-area:u" id="u">▲</div>
+    <div class="btn" style="grid-area:l" id="l">◀</div>
+    <div class="btn" style="grid-area:d" id="d">▼</div>
+    <div class="btn" style="grid-area:r" id="r">▶</div>
 </div>
-<button id="jumpBtn">JUMP</button>
+<button id="jump">JUMP</button>
 
 <script type="importmap">
-{
-    "imports": {
-        "three": "https://unpkg.com/three@0.152.2/build/three.module.js",
-        "three/addons/": "https://unpkg.com/three@0.152.2/examples/jsm/"
-    }
-}
+{ "imports": { "three": "https://unpkg.com/three@0.152.2/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.152.2/examples/jsm/" } }
 </script>
 
 <script type="module">
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-/* --- 1. CONFIG & MISSIONS --- */
-let config = { sensitivity: 0.003, fov: 60, fogNear: 500, fogFar: 2500 };
-
-const missions = Array.from({length: 20}, (_, i) => ({
-    id: i,
-    title: `Mission ${i + 1}`,
-    desc: `Reach the coordinates at Point ${String.fromCharCode(65 + i)}`,
-    pos: { x: (Math.random() - 0.5) * 8000, z: (Math.random() - 0.5) * 8000 },
-    color: Math.random() * 0xffffff
-}));
-
-let activeMission = null;
-let targetMarker = null;
-
-/* --- 2. ENGINE SETUP --- */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
-scene.fog = new THREE.Fog(0x87ceeb, config.fogNear, config.fogFar);
-
-const camera = new THREE.PerspectiveCamera(config.fov, window.innerWidth/window.innerHeight, 0.1, 15000);
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 10000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
 scene.add(new THREE.AmbientLight(0xffffff, 1.2));
-const sun = new THREE.DirectionalLight(0xffffff, 1.0);
-sun.position.set(200, 1000, 200);
+const sun = new THREE.DirectionalLight(0xffffff, 0.8);
+sun.position.set(100, 500, 100);
 scene.add(sun);
 
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(15000, 15000), new THREE.MeshLambertMaterial({ color: 0x44aa44 }));
-ground.rotation.x = -Math.PI / 2;
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(10000, 10000), new THREE.MeshLambertMaterial({ color: 0x3a9d23 }));
+ground.rotation.x = -Math.PI/2;
 scene.add(ground);
 
-/* --- 3. SMART LOADER --- */
-const manager = new THREE.LoadingManager();
-const loader = new GLTFLoader(manager);
-const models = { b1: null, b2: null, tree: null };
+/* --- LOADING ASSETS --- */
+const loader = new GLTFLoader();
+const assets = { b1: null, b2: null, tree: null };
+
+// Manual check: Make sure these names match your files exactly!
+loader.load('building.glb', (g) => { assets.b1 = g.scene; buildCity(); });
+loader.load('building2.glb', (g) => { assets.b2 = g.scene; buildCity(); });
+loader.load('tree1.glb', (g) => { assets.tree = g.scene; buildCity(); });
+
+/* --- CITY GENERATOR --- */
 const colliders = [];
+let cityBuilt = false;
 
-manager.onProgress = (url, loaded, total) => {
-    document.getElementById('loaderProgress').style.width = (loaded/total * 100) + '%';
-};
+function buildCity() {
+    // Only build once all 3 models are ready
+    if (!assets.b1 || !assets.b2 || !assets.tree || cityBuilt) return;
+    cityBuilt = true;
 
-manager.onLoad = () => {
-    document.getElementById('playBtn').style.display = "block";
-    generateCity();
-    setupMissionList();
-};
+    for (let x = -8; x <= 8; x++) {
+        for (let z = -8; z <= 8; z++) {
+            if (x === 0 && z === 0) continue;
+            const px = x * 800, pz = z * 800;
 
-// Loading from your specific paths
-const fallbackBox = new THREE.BoxGeometry(50, 200, 50);
-const fallbackMat = new THREE.MeshLambertMaterial({color: 0x666666});
+            // USE BUILDING 1 and BUILDING 2
+            const bModel = (x + z) % 2 === 0 ? assets.b1.clone() : assets.b2.clone();
+            bModel.position.set(px, 0, pz);
+            scene.add(bModel);
+            colliders.push({ x: px, z: pz, r: 100 });
 
-loader.load('./models/building.glb', (g) => { models.b1 = g.scene; }, undefined, () => { models.b1 = new THREE.Mesh(fallbackBox, fallbackMat); });
-loader.load('./models/building2.glb', (g) => { models.b2 = g.scene; }, undefined, () => { models.b2 = new THREE.Mesh(fallbackBox, fallbackMat); });
-loader.load('./models/tree1.glb', (g) => { models.tree = g.scene; });
-
-function generateCity() {
-    for (let x = -5; x <= 5; x++) {
-        for (let z = -5; z <= 5; z++) {
-            if (x === 0 && z === 0) continue; 
-            const px = x * 1200, pz = z * 1200;
-            let source = (x + z) % 2 === 0 ? models.b1 : models.b2;
-            if (source) {
-                const b = source.clone();
-                b.scale.set(15, 15, 15); 
-                b.position.set(px, 0, pz);
-                scene.add(b);
-                colliders.push({ x: px, z: pz, r: 100 });
-            }
+            // USE TREE 1
+            const tModel = assets.tree.clone();
+            tModel.position.set(px + 200, 0, pz + 200);
+            scene.add(tModel);
         }
     }
 }
 
-/* --- 4. PLAYER --- */
+/* --- MISSIONS --- */
+const missions = Array.from({length: 20}, (_, i) => ({
+    id: i, title: `Mission ${i+1}`,
+    pos: { x: (Math.random()-0.5)*7000, z: (Math.random()-0.5)*7000 }
+}));
+
+let activeM = null, targetMesh = null;
+window.startMission = (i) => {
+    activeM = missions[i];
+    if (targetMesh) scene.remove(targetMesh);
+    targetMesh = new THREE.Mesh(new THREE.SphereGeometry(40), new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true }));
+    targetMesh.position.set(activeM.pos.x, 40, activeM.pos.z);
+    scene.add(targetMesh);
+    document.getElementById('mTitle').innerText = activeM.title;
+    document.getElementById('missionHUD').style.display = 'block';
+    toggleMenu(false);
+};
+
+/* --- PLAYER --- */
 const player = new THREE.Object3D();
-player.position.set(0, 10, 500); 
+player.position.set(0, 10, 400);
 scene.add(player);
 player.add(camera);
 
-let yaw = 0, pitch = 0, velocityY = 0;
-const move = { up: false, down: false, left: false, right: false };
+let yaw=0, pitch=0, vY=0, input={f:0,b:0,l:0,r:0};
 
 function animate() {
     requestAnimationFrame(animate);
-    let nx = player.position.x, nz = player.position.z, spd = 6;
-    if (move.up) { nx -= Math.sin(yaw) * spd; nz -= Math.cos(yaw) * spd; }
-    if (move.down) { nx += Math.sin(yaw) * spd; nz += Math.cos(yaw) * spd; }
-    if (move.left) { nx -= Math.cos(yaw) * spd; nz += Math.sin(yaw) * spd; }
-    if (move.right) { nx += Math.cos(yaw) * spd; nz -= Math.sin(yaw) * spd; }
+    let nx=player.position.x, nz=player.position.z, spd=7;
+    if(input.f){ nx -= Math.sin(yaw)*spd; nz -= Math.cos(yaw)*spd; }
+    if(input.b){ nx += Math.sin(yaw)*spd; nz += Math.cos(yaw)*spd; }
+    if(input.l){ nx -= Math.cos(yaw)*spd; nz += Math.sin(yaw)*spd; }
+    if(input.r){ nx += Math.cos(yaw)*spd; nz -= Math.sin(yaw)*spd; }
 
     let hit = false;
-    for (let c of colliders) { if (Math.hypot(nx - c.x, nz - c.z) < c.r) { hit = true; break; } }
-    if (!hit) { player.position.x = nx; player.position.z = nz; }
+    for(let c of colliders) if(Math.hypot(nx-c.x, nz-c.z) < c.r) hit=true;
+    if(!hit){ player.position.x=nx; player.position.z=nz; }
 
-    velocityY -= 0.02; player.position.y += velocityY;
-    if (player.position.y < 10) { player.position.y = 10; velocityY = 0; }
+    vY -= 0.02; player.position.y += vY;
+    if(player.position.y < 10){ player.position.y=10; vY=0; }
 
-    // Mission Logic
-    if (activeMission) {
-        const dist = Math.hypot(player.position.x - activeMission.pos.x, player.position.z - activeMission.pos.z);
-        document.getElementById('hudDistance').innerText = Math.round(dist) + "m away";
-        targetMarker.rotation.y += 0.05;
-        if (dist < 50) {
-            alert("Mission Accomplished!");
-            completeMission();
-        }
+    if(activeM) {
+        const d = player.position.distanceTo(targetMesh.position);
+        document.getElementById('mDist').innerText = `Distance: ${Math.round(d)}m`;
+        if(d < 70) { alert("Mission Clear!"); activeM=null; scene.remove(targetMesh); document.getElementById('missionHUD').style.display = 'none'; }
     }
 
     player.rotation.y = yaw;
-    camera.rotation.x = pitch;
     renderer.render(scene, camera);
 }
 animate();
 
-/* --- 5. MISSION SYSTEM --- */
-function setupMissionList() {
-    const list = document.getElementById('missionList');
-    missions.forEach(m => {
-        const div = document.createElement('div');
-        div.className = 'mission-item';
-        div.innerHTML = `<h3>${m.title}</h3><p>${m.desc}</p>`;
-        div.onclick = () => selectMission(m);
-        list.appendChild(div);
-    });
-}
-
-window.showMissions = () => document.getElementById('missionScreen').style.display = 'flex';
-window.hideMissions = () => document.getElementById('missionScreen').style.display = 'none';
-
-function selectMission(m) {
-    if(targetMarker) scene.remove(targetMarker);
-    activeMission = m;
-    
-    // Create Mission Marker (A floating ring)
-    const geo = new THREE.TorusGeometry(30, 5, 16, 100);
-    const mat = new THREE.MeshBasicMaterial({ color: m.color });
-    targetMarker = new THREE.Mesh(geo, mat);
-    targetMarker.position.set(m.pos.x, 30, m.pos.z);
-    targetMarker.rotation.x = Math.PI/2;
-    scene.add(targetMarker);
-
-    document.getElementById('hudTitle').innerText = m.title;
-    document.getElementById('missionHUD').style.display = 'block';
-    hideMissions();
-}
-
-function completeMission() {
-    activeMission = null;
-    if(targetMarker) scene.remove(targetMarker);
-    document.getElementById('missionHUD').style.display = 'none';
-}
-
-/* --- 6. UI & INPUT --- */
-const bind = (id, k) => {
-    const el = document.getElementById(id);
-    el.addEventListener('pointerdown', (e) => { e.preventDefault(); move[k] = true; });
-    el.addEventListener('pointerup', () => move[k] = false);
-};
-bind("up","up"); bind("down","down"); bind("left","left"); bind("right","right");
-
-document.getElementById("jumpBtn").addEventListener('pointerdown', (e) => {
-    e.preventDefault(); if(player.position.y <= 10.1) velocityY = 0.5;
+/* --- UI --- */
+window.toggleMenu = (s) => document.getElementById('overlay').style.display = s?'flex':'none';
+const list = document.getElementById('list');
+missions.forEach((m, i) => {
+    const b = document.createElement('div');
+    b.className = 'm-item';
+    b.innerHTML = `<b>${m.title}</b>`;
+    b.onclick = () => startMission(i);
+    list.appendChild(b);
 });
 
-document.getElementById("openSettings").onclick = () => document.getElementById("settingsScreen").style.display = "flex";
-document.getElementById("closeSettings").onclick = () => {
-    config.sensitivity = document.getElementById("sensInput").value * 0.001;
-    scene.fog.far = parseInt(document.getElementById("fogInput").value);
-    camera.fov = parseInt(document.getElementById("fovInput").value);
-    camera.updateProjectionMatrix();
-    document.getElementById("settingsScreen").style.display = "none";
+const b = (id, k) => {
+    const e = document.getElementById(id);
+    e.onpointerdown = (ev) => { ev.preventDefault(); input[k]=1; };
+    e.onpointerup = () => input[k]=0;
 };
+b("u","f"); b("d","b"); b("l","l"); b("r","r");
+document.getElementById("jump").onpointerdown = () => { if(player.position.y<=11) vY=0.6; };
 
-document.getElementById("playBtn").onclick = () => document.getElementById("homeScreen").style.display = "none";
-
-let isDragging = false, lastX, lastY;
-renderer.domElement.addEventListener('pointerdown', e => { isDragging = true; lastX = e.clientX; lastY = e.clientY; });
-window.addEventListener('pointerup', () => isDragging = false);
-window.addEventListener('pointermove', e => {
-    if (isDragging) {
-        yaw -= (e.clientX - lastX) * config.sensitivity;
-        pitch = Math.max(-1, Math.min(1, pitch - (e.clientY - lastY) * config.sensitivity));
-        lastX = e.clientX; lastY = e.clientY;
-    }
-});
+let drag=false, lx;
+renderer.domElement.onpointerdown = e => { drag=true; lx=e.clientX; };
+window.onpointerup = () => drag=false;
+window.onpointermove = e => { if(drag){ yaw-=(e.clientX-lx)*0.005; lx=e.clientX; }};
 </script>
 </body>
-    </html>
-    
+</html>
