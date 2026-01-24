@@ -84,18 +84,23 @@ manager.onProgress = (url, loaded, total) => {
     document.getElementById('percentText').innerText = Math.round(p) + '%';
 };
 
+// If any file fails, this prevents the loader from getting stuck
+manager.onError = (url) => {
+    console.error('There was an error loading ' + url);
+};
+
 manager.onLoad = () => {
     document.getElementById('playBtn').style.display = "block";
     generateCity();
 };
 
-// Load both building types
+// FIXED: We load 'building.glb' twice into the array because 'building2.glb' doesn't exist.
+// This satisfies the loader and keeps your random selection logic working.
 loader.load('./models/building.glb', (g) => models.b.push(g.scene));
-loader.load('./models/building2.glb', (g) => models.b.push(g.scene));
+loader.load('./models/building.glb', (g) => models.b.push(g.scene)); 
 loader.load('./models/tree1.glb', (g) => { models.tree = g.scene; });
 
 function generateCity() {
-    // 5x5 Grid for better performance
     for (let x = -2; x <= 2; x++) {
         for (let z = -2; z <= 2; z++) {
             if (x === 0 && z === 0) continue; 
@@ -104,22 +109,20 @@ function generateCity() {
             const pz = z * 600;
 
             if (models.b.length > 0) {
-                // Randomly pick building 1 or 2
+                // Randomly pick building 0 or 1 from the array
                 const bIndex = Math.floor(Math.random() * models.b.length);
                 const b = models.b[bIndex].clone();
                 
-                // FIXED SCALE: Set to 1 because your models are already huge
                 b.scale.set(1, 1, 1); 
                 b.position.set(px, 0, pz);
                 scene.add(b);
                 
-                // Collision radius (how close you can get)
                 colliders.push({ x: px, z: pz, r: 80 });
             }
 
             if (models.tree) {
                 const t = models.tree.clone();
-                t.scale.set(0.5, 0.5, 0.5); // Trees were also too big
+                t.scale.set(0.5, 0.5, 0.5);
                 t.position.set(px + 150, 0, pz + 150);
                 scene.add(t);
             }
@@ -164,16 +167,28 @@ animate();
 
 // Inputs
 const bind = (id, k) => {
-    document.getElementById(id).onpointerdown = (e) => { e.preventDefault(); move[k] = true; };
-    document.getElementById(id).onpointerup = () => move[k] = false;
+    const el = document.getElementById(id);
+    el.onpointerdown = (e) => { e.preventDefault(); move[k] = true; };
+    el.onpointerup = () => move[k] = false;
+    el.onpointerleave = () => move[k] = false;
 };
 bind("up","up"); bind("down","down"); bind("left","left"); bind("right","right");
-document.getElementById("jumpBtn").onclick = () => { if(player.position.y <= 5.1) velocityY = 0.5; };
-document.getElementById("playBtn").onclick = () => document.getElementById("homeScreen").style.display = "none";
+
+document.getElementById("jumpBtn").onclick = () => { 
+    if(player.position.y <= 5.1) velocityY = 0.5; 
+};
+
+document.getElementById("playBtn").onclick = () => {
+    document.getElementById("homeScreen").style.display = "none";
+};
 
 // Touch look
 let drag = false, lx, ly;
-window.onpointerdown = e => { drag = true; lx = e.clientX; ly = e.clientY; };
+window.onpointerdown = e => { 
+    if(e.target.tagName !== 'BUTTON' && !e.target.classList.contains('btn')) {
+        drag = true; lx = e.clientX; ly = e.clientY; 
+    }
+};
 window.onpointerup = () => drag = false;
 window.onpointermove = e => {
     if (drag) {
@@ -182,6 +197,12 @@ window.onpointermove = e => {
         lx = e.clientX; ly = e.clientY;
     }
 };
+
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
 </script>
 </body>
 </html>
