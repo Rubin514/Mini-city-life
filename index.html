@@ -2,53 +2,19 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mini City Life Mobile</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini City Life</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #87CEEB; font-family: sans-serif; touch-action: none; }
-        canvas { display: block; }
-
-        /* Loading Screen */
-        #loading-screen {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: #111; display: flex; flex-direction: column;
-            align-items: center; justify-content: center; z-index: 100;
-            transition: opacity 0.5s;
-        }
-        .loader { width: 200px; height: 10px; background: #333; border-radius: 5px; margin: 20px; overflow: hidden; }
-        #progress { width: 0%; height: 100%; background: #00ff88; }
-        #loading-screen.hidden { opacity: 0; pointer-events: none; }
-
-        /* Mobile Joystick */
-        #joystick-wrapper {
-            position: absolute; bottom: 40px; left: 40px;
-            width: 120px; height: 120px; background: rgba(255,255,255,0.2);
-            border-radius: 50%; display: flex; align-items: center; justify-content: center;
-            border: 2px solid rgba(255,255,255,0.3); z-index: 10;
-        }
-        #joystick-knob {
-            width: 50px; height: 50px; background: white;
-            border-radius: 50%; position: relative;
-        }
-
-        #ui-text {
-            position: absolute; top: 20px; width: 100%; text-align: center;
-            color: white; text-shadow: 1px 1px 2px black; pointer-events: none;
+        body { margin: 0; overflow: hidden; background-color: #87CEEB; }
+        #instructions {
+            position: absolute; top: 10px; left: 10px;
+            color: white; font-family: sans-serif;
+            background: rgba(0,0,0,0.5); padding: 10px; pointer-events: none;
         }
     </style>
 </head>
 <body>
-
-    <div id="loading-screen">
-        <h2 style="color:white">LOADING CITY...</h2>
-        <div class="loader"><div id="progress"></div></div>
-    </div>
-
-    <div id="ui-text">Use Joystick or WASD to Move</div>
-
-    <div id="joystick-wrapper">
-        <div id="joystick-knob"></div>
-    </div>
+    <div id="instructions">WASD to Move | Mouse to Look</div>
 
     <script type="importmap">
         {
@@ -58,6 +24,97 @@
             }
         }
     </script>
-    <script type="module" src="main.js"></script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+
+        // --- SCENE SETUP ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB); // Sky blue
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // --- LIGHTING ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+        scene.add(ambientLight);
+        const sunLight = new THREE.DirectionalLight(0xffffff, 1);
+        sunLight.position.set(5, 10, 7.5);
+        scene.add(sunLight);
+
+        // --- THE GROUND ---
+        const groundGeo = new THREE.PlaneGeometry(100, 100);
+        const groundMat = new THREE.MeshStandardMaterial({ color: 0x333333 }); // Asphalt grey
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        scene.add(ground);
+
+        // --- LOADING YOUR MODELS ---
+        const loader = new GLTFLoader();
+
+        function loadModel(path, x, z, scale = 1) {
+            loader.load(path, (gltf) => {
+                const model = gltf.scene;
+                model.position.set(x, 0, z);
+                model.scale.set(scale, scale, scale);
+                scene.add(model);
+            }, undefined, (error) => console.error('Error loading:', path, error));
+        }
+
+        // Use your files! Adjust positions (x, z) as needed
+        loadModel('models/building.glb', -10, -10, 2);
+        loadModel('models/building2.glb', 10, -15, 2);
+        loadModel('models/tree.glb', 5, -5, 1);
+        loadModel('models/tree.glb', -5, 5, 1);
+
+        // --- PLAYER CONTROLS ---
+        const controls = new PointerLockControls(camera, document.body);
+        document.addEventListener('click', () => controls.lock());
+
+        const velocity = new THREE.Vector3();
+        const direction = new THREE.Vector3();
+        const moveKeys = { w: false, a: false, s: false, d: false };
+
+        document.addEventListener('keydown', (e) => { if(moveKeys.hasOwnProperty(e.key.toLowerCase())) moveKeys[e.key.toLowerCase()] = true; });
+        document.addEventListener('keyup', (e) => { if(moveKeys.hasOwnProperty(e.key.toLowerCase())) moveKeys[e.key.toLowerCase()] = false; });
+
+        camera.position.y = 1.7; // Human eye level
+
+        // --- ANIMATION LOOP ---
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (controls.isLocked) {
+                const delta = clock.getDelta();
+                velocity.x -= velocity.x * 10.0 * delta;
+                velocity.z -= velocity.z * 10.0 * delta;
+
+                direction.z = Number(moveKeys.w) - Number(moveKeys.s);
+                direction.x = Number(moveKeys.d) - Number(moveKeys.a);
+                direction.normalize();
+
+                if (moveKeys.w || moveKeys.s) velocity.z -= direction.z * 400.0 * delta;
+                if (moveKeys.a || moveKeys.d) velocity.x -= direction.x * 400.0 * delta;
+
+                controls.moveRight(-velocity.x * delta);
+                controls.moveForward(-velocity.z * delta);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // Handle Resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
 </body>
 </html>
