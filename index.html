@@ -2,59 +2,62 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mini City - Crazy Key Mission</title>
+    <title>Mini City - Stable Edition</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Arial Black', sans-serif; background: #000; touch-action: none; }
+        body { margin: 0; overflow: hidden; font-family: sans-serif; background: #000; touch-action: none; }
         canvas { display: block; }
 
-        /* GTA HUD & Minimap */
-        #hud { position: fixed; top: 15px; left: 15px; z-index: 50; color: #fff; text-shadow: 2px 2px #000; pointer-events: none; }
-        #minimap { width: 120px; height: 120px; background: rgba(0,0,0,0.6); border: 3px solid #fff; border-radius: 10px; position: relative; overflow: hidden; }
-        #playerDot { width: 8px; height: 8px; background: #fff; border-radius: 50%; position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); z-index: 5; }
-        #keyDot { width: 10px; height: 10px; background: #ffff00; position: absolute; display: none; border-radius: 2px; }
+        /* Loading Screen */
+        #loader { position: fixed; inset: 0; background: #111; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; color: #00ff00; }
+        #barContainer { width: 200px; height: 10px; background: #333; border-radius: 5px; margin-top: 15px; overflow: hidden; }
+        #bar { width: 0%; height: 100%; background: #00ff00; transition: width 0.3s; }
 
-        #missionText { color: #fbc02d; font-size: 16px; margin-top: 10px; background: rgba(0,0,0,0.5); padding: 5px; }
+        /* HUD */
+        #hud { position: fixed; top: 10px; left: 10px; z-index: 100; pointer-events: none; display: none; }
+        #minimap { width: 100px; height: 100px; background: rgba(0,0,0,0.7); border: 2px solid #fff; position: relative; }
+        #pDot { width: 6px; height: 6px; background: #fff; border-radius: 50%; position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); }
+        #kDot { width: 8px; height: 8px; background: #ff0; position: absolute; border-radius: 2px; display: none; }
+        #missionMsg { background: rgba(0,0,0,0.6); color: #fbc02d; padding: 5px; font-weight: bold; margin-top: 5px; font-size: 14px; }
 
-        /* Settings Toggle */
-        #settingsBtn { position: fixed; top: 15px; right: 15px; z-index: 60; background: rgba(0,0,0,0.7); border: 1px solid #fff; color: #fff; padding: 10px; border-radius: 5px; font-size: 12px; }
-        #settingsMenu { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 100; display: none; flex-direction: column; align-items: center; justify-content: center; color: white; }
-
-        /* Controls */
-        #controls { position: fixed; bottom: 20px; left: 20px; z-index: 10; display: grid; grid-template-areas: ". up ." "left down right"; }
-        .btn { width: 60px; height: 60px; margin: 4px; border-radius: 15px; font-size: 20px; background: rgba(0,0,0,0.6); border: 2px solid #fff; color: white; display: flex; align-items: center; justify-content: center; user-select: none; }
-        #up { grid-area: up; } #left { grid-area: left; } #right { grid-area: right; } #down { grid-area: down; }
-        #jumpBtn { position: fixed; bottom: 30px; right: 20px; width: 80px; height: 80px; border-radius: 50%; background: #fbc02d; color: #000; border: 3px solid #fff; font-weight: bold; }
+        /* UI */
+        .ui-btn { position: fixed; z-index: 100; background: rgba(0,0,0,0.5); border: 2px solid #fff; color: #fff; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        #setBtn { top: 10px; right: 10px; padding: 10px; }
+        #controls { bottom: 20px; left: 20px; display: grid; grid-template-areas: ". u ." "l d r"; }
+        .move-btn { width: 60px; height: 60px; margin: 5px; font-size: 24px; }
+        #jump { bottom: 20px; right: 20px; width: 80px; height: 80px; border-radius: 50%; background: #fbc02d; color: #000; }
+        
+        #settings { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 500; display: none; flex-direction: column; align-items: center; justify-content: center; color: #fff; }
     </style>
 </head>
 <body>
 
-<div id="hud">
-    <div id="minimap">
-        <div id="playerDot"></div>
-        <div id="keyDot"></div>
-    </div>
-    <div id="missionText">FIND THE GOLDEN KEY</div>
+<div id="loader">
+    <h2 id="loadStatus">LOADING CITY...</h2>
+    <div id="barContainer"><div id="bar"></div></div>
 </div>
 
-<button id="settingsBtn">⚙️ SETTINGS</button>
-
-<div id="settingsMenu">
+<div id="settings">
     <h2>SETTINGS</h2>
-    <label>SENSITIVITY</label>
-    <input type="range" id="sensRange" min="1" max="10" value="4">
-    <label>FOV (ZOOM)</label>
-    <input type="range" id="fovRange" min="50" max="90" value="65">
-    <button onclick="document.getElementById('settingsMenu').style.display='none'" style="margin-top:20px; padding:10px 30px; background:#fbc02d;">SAVE</button>
+    <p>Sensitivity</p>
+    <input type="range" id="sens" min="1" max="10" value="4">
+    <button onclick="document.getElementById('settings').style.display='none'" style="margin-top:20px; padding:10px 40px; background:#fbc02d;">BACK</button>
 </div>
+
+<div id="hud">
+    <div id="minimap"><div id="pDot"></div><div id="kDot"></div></div>
+    <div id="missionMsg">OBJECTIVE: FIND THE GOLDEN KEY</div>
+</div>
+
+<button id="setBtn" class="ui-btn">SETTINGS</button>
 
 <div id="controls">
-    <div class="btn" id="up">▲</div>
-    <div class="btn" id="left">◀</div>
-    <div class="btn" id="right">▶</div>
-    <div class="btn" id="down">▼</div>
+    <div class="ui-btn move-btn" style="grid-area:u" id="btn_u">▲</div>
+    <div class="ui-btn move-btn" style="grid-area:l" id="btn_l">◀</div>
+    <div class="ui-btn move-btn" style="grid-area:d" id="btn_d">▼</div>
+    <div class="ui-btn move-btn" style="grid-area:r" id="btn_r">▶</div>
 </div>
-<button id="jumpBtn">JUMP</button>
+<button id="jump" class="ui-btn">JUMP</button>
 
 <script type="importmap">
 {
@@ -70,15 +73,12 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 
-/* --- ENGINE --- */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
-scene.fog = new THREE.Fog(0x87ceeb, 800, 5000);
-
-const camera = new THREE.PerspectiveCamera(65, window.innerWidth/window.innerHeight, 0.1, 10000);
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 10000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
 scene.add(new THREE.AmbientLight(0xffffff, 1.2));
@@ -86,118 +86,100 @@ const sun = new THREE.DirectionalLight(0xffffff, 1.0);
 sun.position.set(500, 1000, 500);
 scene.add(sun);
 
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(15000, 15000), new THREE.MeshLambertMaterial({ color: 0x44aa44 }));
+// Ground
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(10000, 10000), new THREE.MeshLambertMaterial({ color: 0x44aa44 }));
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 
-/* --- ASSETS & MISSION --- */
-const loader = new GLTFLoader();
+/* --- STABLE LOADING --- */
+const manager = new THREE.LoadingManager();
 const draco = new DRACOLoader();
 draco.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+const loader = new GLTFLoader(manager);
 loader.setDRACOLoader(draco);
 
 const models = { b1: null, b2: null, tree: null };
 const colliders = [];
 let keyObj = null;
-let hasKey = false;
 let config = { sens: 0.004 };
+let hasKey = false;
 
-// Multi-Loader
-const loadModels = async () => {
-    const [m1, m2, mt] = await Promise.all([
-        loader.loadAsync('./models/building.glb'),
-        loader.loadAsync('./models/building2.glb'),
-        loader.loadAsync('./models/tree1.glb')
-    ]);
-    models.b1 = m1.scene;
-    models.b2 = m2.scene;
-    models.tree = mt.scene;
+manager.onProgress = (u, l, t) => { document.getElementById('bar').style.width = (l/t*100) + '%'; };
+manager.onLoad = () => { 
+    document.getElementById('loader').style.display = 'none'; 
+    document.getElementById('hud').style.display = 'block';
     initCity();
+    animate();
 };
-loadModels();
+
+// Check filenames carefully! No spaces.
+loader.load('./models/building.glb', (g) => models.b1 = g.scene);
+loader.load('./models/building2.glb', (g) => models.b2 = g.scene);
+loader.load('./models/tree1.glb', (g) => models.tree = g.scene);
 
 function initCity() {
-    // Generate Random Key Position
-    const kx = (Math.random() * 4000) - 2000;
-    const kz = (Math.random() * 4000) - 2000;
-    
-    // Create Key Marker
-    const keyGeo = new THREE.TorusGeometry(15, 5, 10, 30);
-    const keyMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
-    keyObj = new THREE.Mesh(keyGeo, keyMat);
-    keyObj.position.set(kx, 30, kz);
+    const kPos = { x: (Math.random()-0.5)*4000, z: (Math.random()-0.5)*4000 };
+    keyObj = new THREE.Mesh(new THREE.TorusGeometry(15, 5, 10, 20), new THREE.MeshBasicMaterial({ color: 0xffff00 }));
+    keyObj.position.set(kPos.x, 25, kPos.z);
     scene.add(keyObj);
-    document.getElementById('keyDot').style.display = 'block';
+    document.getElementById('kDot').style.display = 'block';
 
-    for (let x = -5; x <= 5; x++) {
-        for (let z = -5; z <= 5; z++) {
-            if (Math.abs(x) < 1 && Math.abs(z) < 1) continue;
-            
-            const px = x * 1000, pz = z * 1000;
-            // MIXING BUILDINGS: Flip-flop based on grid
-            const source = (x + z) % 2 === 0 ? models.b1 : models.b2;
-            const b = source.clone();
-            b.scale.set(12, 12, 12);
-            b.position.set(px, 0, pz);
-            scene.add(b);
-            colliders.push({ x: px, z: pz, r: 80 });
-
-            // ADD TREES: Randomly place trees near buildings
-            if(models.tree) {
+    for(let x=-4; x<=4; x++){
+        for(let z=-4; z<=4; z++){
+            if(x==0 && z==0) continue;
+            const px=x*1000, pz=z*1000;
+            const source = (x+z)%2==0 ? models.b1 : models.b2;
+            if(source){
+                const b = source.clone();
+                b.scale.set(12, 12, 12); b.position.set(px,0,pz);
+                scene.add(b);
+                colliders.push({x:px, z:pz, r:85});
+            }
+            if(models.tree){
                 const t = models.tree.clone();
-                t.scale.set(6, 6, 6);
-                t.position.set(px + 300, 0, pz + 300);
+                t.scale.set(6,6,6); t.position.set(px+250, 0, pz+250);
                 scene.add(t);
             }
         }
     }
 }
 
-/* --- PLAYER & CONTROLS --- */
 const player = new THREE.Object3D();
 player.position.set(0, 10, 500);
 scene.add(player);
 player.add(camera);
 
-let yaw = 0, pitch = 0, velocityY = 0;
-const move = { f: 0, b: 0, l: 0, r: 0 };
+let yaw=0, pitch=0, vY=0;
+const input = { f:0, b:0, l:0, r:0 };
 
 function animate() {
     requestAnimationFrame(animate);
-    
-    // Movement logic (Fixed Flicker)
-    let spd = 6.0;
-    let nx = player.position.x, nz = player.position.z;
-    if (move.f) { nx -= Math.sin(yaw) * spd; nz -= Math.cos(yaw) * spd; }
-    if (move.b) { nx += Math.sin(yaw) * spd; nz += Math.cos(yaw) * spd; }
-    if (move.l) { nx -= Math.cos(yaw) * spd; nz += Math.sin(yaw) * spd; }
-    if (move.r) { nx += Math.cos(yaw) * spd; nz -= Math.sin(yaw) * spd; }
+    let nx=player.position.x, nz=player.position.z, spd=6;
+    if(input.f){ nx -= Math.sin(yaw)*spd; nz -= Math.cos(yaw)*spd; }
+    if(input.b){ nx += Math.sin(yaw)*spd; nz += Math.cos(yaw)*spd; }
+    if(input.l){ nx -= Math.cos(yaw)*spd; nz += Math.sin(yaw)*spd; }
+    if(input.r){ nx += Math.cos(yaw)*spd; nz -= Math.sin(yaw)*spd; }
 
-    let hit = false;
-    for (let c of colliders) if (Math.hypot(nx - c.x, nz - c.z) < c.r) hit = true;
-    if (!hit) { player.position.x = nx; player.position.z = nz; }
+    let hit=false;
+    for(let c of colliders) if(Math.hypot(nx-c.x, nz-c.z) < c.r) hit=true;
+    if(!hit){ player.position.x=nx; player.position.z=nz; }
 
-    velocityY -= 0.02; player.position.y += velocityY;
-    if (player.position.y < 10) { player.position.y = 10; velocityY = 0; }
+    vY -= 0.02; player.position.y += vY;
+    if(player.position.y < 10){ player.position.y=10; vY=0; }
 
-    // Mission & Minimap Update
-    if(keyObj) {
-        keyObj.rotation.y += 0.05;
-        const dist = player.position.distanceTo(keyObj.position);
+    if(keyObj && !hasKey){
+        keyObj.rotation.y += 0.04;
+        const d = player.position.distanceTo(keyObj.position);
         
-        // Update Key Dot on Minimap
-        const mapX = 60 + (keyObj.position.x - player.position.x) / 50;
-        const mapZ = 60 + (keyObj.position.z - player.position.z) / 50;
-        const kDot = document.getElementById('keyDot');
-        kDot.style.left = mapX + 'px';
-        kDot.style.top = mapZ + 'px';
+        // Minimap logic
+        const kDot = document.getElementById('kDot');
+        kDot.style.left = (50 + (keyObj.position.x - player.position.x)/50) + 'px';
+        kDot.style.top = (50 + (keyObj.position.z - player.position.z)/50) + 'px';
 
-        if(dist < 100 && !hasKey) {
-            hasKey = true;
-            scene.remove(keyObj);
-            document.getElementById('missionText').innerText = "KEY OBTAINED! FIND THE CRAZY EXIT";
-            document.getElementById('missionText').style.color = "#00ff00";
-            kDot.style.display = 'none';
+        if(d < 100){
+            hasKey=true; scene.remove(keyObj); kDot.style.display='none';
+            document.getElementById('missionMsg').innerText = "KEY FOUND! MISSION COMPLETE";
+            document.getElementById('missionMsg').style.color = "#00ff00";
         }
     }
 
@@ -205,36 +187,29 @@ function animate() {
     camera.rotation.x = pitch;
     renderer.render(scene, camera);
 }
-animate();
 
-/* --- INPUTS --- */
-const bind = (id, k) => {
+// Input Binding
+const b = (id, k) => {
     const el = document.getElementById(id);
-    el.addEventListener('pointerdown', (e) => { e.preventDefault(); move[k] = 1; });
-    el.addEventListener('pointerup', () => move[k] = 0);
+    el.onpointerdown = (e) => { e.preventDefault(); input[k]=1; };
+    el.onpointerup = () => input[k]=0;
+    el.onpointerleave = () => input[k]=0;
 };
-bind("up","f"); bind("down","b"); bind("left","l"); bind("right","r");
-document.getElementById("jumpBtn").onclick = () => { if(player.position.y <= 10.1) velocityY = 0.5; };
-document.getElementById("settingsBtn").onclick = () => document.getElementById("settingsMenu").style.display = "flex";
+b("btn_u","f"); b("btn_d","b"); b("btn_l","l"); b("btn_r","r");
+document.getElementById("jump").onpointerdown = () => { if(player.position.y<=10.1) vY=0.5; };
+document.getElementById("setBtn").onclick = () => document.getElementById("settings").style.display='flex';
+document.getElementById("sens").oninput = (e) => config.sens = e.target.value * 0.001;
 
-// Settings Listeners
-document.getElementById("sensRange").oninput = (e) => config.sens = e.target.value * 0.001;
-document.getElementById("fovRange").oninput = (e) => { 
-    camera.fov = e.target.value; 
-    camera.updateProjectionMatrix(); 
-};
-
-// Smooth Look
-let drag = false, lx, ly;
-renderer.domElement.addEventListener('pointerdown', e => { drag = true; lx = e.clientX; ly = e.clientY; });
-window.addEventListener('pointerup', () => drag = false);
-window.addEventListener('pointermove', e => {
-    if (drag) {
-        yaw -= (e.clientX - lx) * config.sens;
-        pitch = Math.max(-1, Math.min(1, pitch - (e.clientY - ly) * config.sens));
-        lx = e.clientX; ly = e.clientY;
+let drag=false, lx, ly;
+renderer.domElement.onpointerdown = e => { drag=true; lx=e.clientX; ly=e.clientY; };
+window.onpointerup = () => drag=false;
+window.onpointermove = e => {
+    if(drag){
+        yaw -= (e.clientX-lx)*config.sens;
+        pitch = Math.max(-1, Math.min(1, pitch-(e.clientY-ly)*config.sens));
+        lx=e.clientX; ly=e.clientY;
     }
-});
+};
 </script>
 </body>
 </html>
