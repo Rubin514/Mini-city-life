@@ -28,7 +28,7 @@
 
 <div id="homeScreen">
     <h1>MINI CITY LIFE</h1>
-    <p id="status">Building Roads...</p>
+    <p id="status">Loading Assets...</p>
     <button id="playBtn" style="display:none;">START GAME</button>
 </div>
 
@@ -63,162 +63,139 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 /* --- 1. SETUP --- */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 5000);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 8000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-const mapCamera = new THREE.OrthographicCamera(-600, 600, 600, -600, 1, 2000);
+const mapCamera = new THREE.OrthographicCamera(-800, 800, 800, -800, 1, 2000);
 mapCamera.position.y = 1000;
 mapCamera.lookAt(0,0,0);
 
-scene.add(new THREE.AmbientLight(0xffffff, 2.5));
+scene.add(new THREE.AmbientLight(0xffffff, 2.2));
+const sun = new THREE.DirectionalLight(0xffffff, 1.0);
+sun.position.set(200, 500, 200);
+scene.add(sun);
 
-/* --- 2. GROUND & INDIAN ROADS --- */
-const land = new THREE.Mesh(new THREE.PlaneGeometry(12000, 12000), new THREE.MeshLambertMaterial({ color: 0x228b22 }));
+/* --- 2. INDIAN ROADS --- */
+const land = new THREE.Mesh(new THREE.PlaneGeometry(15000, 15000), new THREE.MeshLambertMaterial({ color: 0x228b22 }));
 land.rotation.x = -Math.PI / 2;
 scene.add(land);
 
 const roadMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
 const stripMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
 
-for(let i = -5; i <= 5; i++) {
-    const pos = i * 600;
+for(let i = -10; i <= 10; i++) {
+    const pos = i * 800;
+    const rh = new THREE.Mesh(new THREE.PlaneGeometry(15000, 160), roadMat);
+    rh.rotation.x = -Math.PI/2; rh.position.set(0, 0.1, pos); scene.add(rh);
+    const rv = new THREE.Mesh(new THREE.PlaneGeometry(160, 15000), roadMat);
+    rv.rotation.x = -Math.PI/2; rv.position.set(pos, 0.1, 0); scene.add(rv);
 
-    // Horizontal Road
-    const roadH = new THREE.Mesh(new THREE.PlaneGeometry(12000, 140), roadMat);
-    roadH.rotation.x = -Math.PI / 2;
-    roadH.position.set(0, 0.1, pos);
-    scene.add(roadH);
-
-    // Vertical Road
-    const roadV = new THREE.Mesh(new THREE.PlaneGeometry(140, 12000), roadMat);
-    roadV.rotation.x = -Math.PI / 2;
-    roadV.position.set(pos, 0.1, 0);
-    scene.add(roadV);
-
-    // White Strips (Dashed Indian Style)
-    for(let j = -6000; j < 6000; j += 80) {
-        // Dash for Horizontal
-        const dashH = new THREE.Mesh(new THREE.PlaneGeometry(40, 4), stripMat);
-        dashH.rotation.x = -Math.PI / 2;
-        dashH.position.set(j, 0.15, pos);
-        scene.add(dashH);
-
-        // Dash for Vertical
-        const dashV = new THREE.Mesh(new THREE.PlaneGeometry(4, 40), stripMat);
-        dashV.rotation.x = -Math.PI / 2;
-        dashV.position.set(pos, 0.15, j);
-        scene.add(dashV);
+    for(let j = -7500; j < 7500; j += 100) {
+        const dh = new THREE.Mesh(new THREE.PlaneGeometry(40, 5), stripMat);
+        dh.rotation.x = -Math.PI/2; dh.position.set(j, 0.15, pos); scene.add(dh);
+        const dv = new THREE.Mesh(new THREE.PlaneGeometry(5, 40), stripMat);
+        dv.rotation.x = -Math.PI/2; dv.position.set(pos, 0.15, j); scene.add(dv);
     }
 }
 
-/* --- 3. BUILDINGS & ENTRIES --- */
-const buildings = [];
-const entryPoints = []; // List of all building doors
+/* --- 3. ASSET LOADING --- */
 const loader = new GLTFLoader();
+const entryPoints = [];
+const colliders = [];
+const models = { b: [], tree: null };
+const manager = new THREE.LoadingManager();
 
-const markerGeo = new THREE.CircleGeometry(30, 32);
-const markerMat = new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.5, side: THREE.DoubleSide });
+manager.onLoad = () => {
+    document.getElementById('status').innerText = "World Built!";
+    document.getElementById('playBtn').style.display = "block";
+    generateCity();
+};
 
-loader.load('models/building.glb', 
-    (gltf) => {
-        document.getElementById('status').innerText = "City Ready!";
-        document.getElementById('playBtn').style.display = "block";
-        createCity(gltf.scene);
-    },
-    undefined,
-    () => {
-        document.getElementById('status').innerText = "Using Backup City...";
-        document.getElementById('playBtn').style.display = "block";
-        const box = new THREE.Mesh(new THREE.BoxGeometry(150, 250, 150), new THREE.MeshLambertMaterial({ color: 0x777777 }));
-        createCity(box);
-    }
-);
+// RENAMED HERE: building.glb and building2.glb
+loader.load('models/building.glb', (g) => models.b.push(g.scene), undefined, null, manager);
+loader.load('models/building2.glb', (g) => models.b.push(g.scene), undefined, null, manager);
+loader.load('models/tree1.glb', (g) => { 
+    g.scene.traverse(n => { if(n.isMesh) n.material.alphaTest = 0.5; });
+    models.tree = g.scene; 
+}, undefined, null, manager);
 
-function createCity(template) {
-    for (let x = -3; x <= 3; x++) {
-        for (let z = -3; z <= 3; z++) {
-            if (x === 0 && z === 0) continue; 
-            const bx = x * 600 + 150;
-            const bz = z * 600 + 150;
+function generateCity() {
+    const markerGeo = new THREE.CircleGeometry(35, 32);
+    const markerMat = new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.5, side: THREE.DoubleSide });
 
-            const b = template.clone();
-            if(!b.isMesh) b.scale.set(5, 5, 5);
+    for (let x = -5; x <= 5; x++) {
+        for (let z = -5; z <= 5; z++) {
+            if (x === 0 && z === 0) continue;
+            const bx = x * 800 + 250;
+            const bz = z * 800 + 250;
+
+            const b = models.b[Math.floor(Math.random() * models.b.length)].clone();
+            b.scale.set(6, 6, 6);
             b.position.set(bx, 0, bz);
             scene.add(b);
-            buildings.push({ box: new THREE.Box3().setFromObject(b) });
+            colliders.push({ box: new THREE.Box3().setFromObject(b) });
 
-            // Add an Entry Marker in front of every building
             const entry = new THREE.Mesh(markerGeo, markerMat);
             entry.rotation.x = -Math.PI / 2;
-            // Place it slightly in front of the building
-            entry.position.set(bx - 80, 0.5, bz); 
+            entry.position.set(bx - 100, 0.5, bz); 
             scene.add(entry);
             entryPoints.push(entry.position);
+
+            for(let i=0; i<4; i++) {
+                if(!models.tree) continue;
+                const tree = models.tree.clone();
+                tree.scale.set(4, 4, 4);
+                tree.position.set(bx + (Math.random()-0.5)*400, 0, bz + (Math.random()-0.5)*400);
+                scene.add(tree);
+            }
         }
     }
 }
 
-/* --- 4. PLAYER --- */
+/* --- 4. PLAYER & LOOP --- */
 const player = new THREE.Object3D();
-player.position.set(0, 5, 450); 
+player.position.set(0, 6, 400); 
 scene.add(player);
 player.add(camera);
-
-const pDot = new THREE.Mesh(new THREE.SphereGeometry(25), new THREE.MeshBasicMaterial({ color: 0x00ff00 }));
-pDot.position.y = 800; 
-player.add(pDot);
 
 let yaw = 0, pitch = 0, targetYaw = 0, targetPitch = 0, velocityY = 0;
 const gravity = -0.015, jumpForce = 0.45, move = { up: false, down: false, left: false, right: false };
 let isGrounded = true;
 
-/* --- 5. LOOP --- */
 const clock = new THREE.Clock();
 function animate() {
     requestAnimationFrame(animate);
     const dt = clock.getDelta();
 
     yaw += (targetYaw - yaw) * 0.1; pitch += (targetPitch - pitch) * 0.1;
-    let nx = player.position.x, nz = player.position.z, spd = 160 * dt;
+    let nx = player.position.x, nz = player.position.z, spd = 220 * dt; // Faster walking
     
     if (move.up) { nx -= Math.sin(yaw) * spd; nz -= Math.cos(yaw) * spd; }
     if (move.down) { nx += Math.sin(yaw) * spd; nz += Math.cos(yaw) * spd; }
     if (move.left) { nx -= Math.cos(yaw) * spd; nz += Math.sin(yaw) * spd; }
     if (move.right) { nx += Math.cos(yaw) * spd; nz -= Math.sin(yaw) * spd; }
 
-    const pBox = new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(nx, 5, nz), new THREE.Vector3(15, 15, 15));
+    const pBox = new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(nx, 6, nz), new THREE.Vector3(15, 15, 15));
     let hit = false;
-    for (const b of buildings) if (pBox.intersectsBox(b.box)) hit = true;
+    for (const c of colliders) if (pBox.intersectsBox(c.box)) hit = true;
     if (!hit) { player.position.x = nx; player.position.z = nz; }
 
     velocityY += gravity; player.position.y += velocityY;
-    if (player.position.y <= 5) { player.position.y = 5; velocityY = 0; isGrounded = true; }
+    if (player.position.y <= 6) { player.position.y = 6; velocityY = 0; isGrounded = true; }
 
     player.rotation.y = yaw; camera.rotation.x = pitch;
 
-    // Proximity check for ALL entries
-    let nearEntry = false;
-    for(const pos of entryPoints) {
-        if(player.position.distanceTo(pos) < 60) { nearEntry = true; break; }
-    }
-    document.getElementById("msg").style.display = nearEntry ? "block" : "none";
+    let near = false;
+    for(const pos of entryPoints) if(player.position.distanceTo(pos) < 70) near = true;
+    document.getElementById("msg").style.display = near ? "block" : "none";
 
-    renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
     renderer.render(scene, camera);
-
-    // Minimap
-    renderer.setScissorTest(true);
-    renderer.setScissor(window.innerWidth - 155, window.innerHeight - 155, 140, 140);
-    renderer.setViewport(window.innerWidth - 155, window.innerHeight - 155, 140, 140);
-    mapCamera.position.set(player.position.x, 1000, player.position.z);
-    renderer.render(scene, mapCamera);
-    renderer.setScissorTest(false);
 }
 animate();
 
-/* --- 6. INPUTS --- */
+/* --- 5. INPUTS --- */
 function bind(id, k) {
     const el = document.getElementById(id);
     el.onpointerdown = (e) => { e.preventDefault(); move[k] = true; };
@@ -228,8 +205,8 @@ bind("up","up"); bind("down","down"); bind("left","left"); bind("right","right")
 document.getElementById("jumpBtn").onpointerdown = () => { if(isGrounded){ velocityY=jumpForce; isGrounded=false; }};
 document.getElementById("enterBtn").onclick = () => {
     let near = false;
-    for(const pos of entryPoints) { if(player.position.distanceTo(pos) < 60) near = true; }
-    if(near) alert("Building Entered!");
+    for(const pos of entryPoints) if(player.position.distanceTo(pos) < 70) near = true;
+    if(near) alert("Building entry success!");
 };
 document.getElementById("playBtn").onclick = () => document.getElementById("homeScreen").style.display = "none";
 
