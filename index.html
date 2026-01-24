@@ -2,48 +2,30 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mini City Life - Indian Edition</title>
+    <title>Mini City Life - GitHub Version</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #000; }
+        body { margin: 0; overflow: hidden; font-family: sans-serif; background: #000; }
         canvas { display: block; touch-action: none; }
-
-        /* UI Screens */
+        
+        /* Loading Screen */
         #homeScreen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(135deg, #1a1a1a 0%, #000 100%);
-            display: flex; flex-direction: column; justify-content: center; align-items: center; 
-            z-index: 100; color: #fff; text-align: center;
+            background: #111; display: flex; flex-direction: column; 
+            justify-content: center; align-items: center; z-index: 100; color: #fff;
         }
-        #playBtn { 
-            font-size: 24px; padding: 15px 50px; border: 3px solid #00ff00; 
-            background: none; color: #00ff00; cursor: pointer; font-weight: bold; 
-            border-radius: 50px; margin-top: 20px; transition: 0.3s;
-        }
-        #playBtn:active { background: #00ff00; color: #000; }
-
-        /* HUD elements */
-        #msg { 
-            position: fixed; top: 15%; width: 100%; text-align: center; 
-            color: #ffff00; font-size: 22px; font-weight: bold; 
-            display: none; text-shadow: 2px 2px #000; pointer-events: none;
-        }
-
+        #playBtn { font-size: 24px; padding: 15px 50px; border: 3px solid #00ff00; background: none; color: #00ff00; cursor: pointer; border-radius: 50px; display: none; }
+        
+        /* HUD */
+        #msg { position: fixed; top: 20%; width: 100%; text-align: center; color: yellow; font-size: 24px; font-weight: bold; display: none; text-shadow: 2px 2px #000; pointer-events: none; }
+        
         /* Controls */
         #controls { position: fixed; bottom: 25px; left: 25px; z-index: 10; display: grid; grid-template-areas: ". up ." "left down right"; }
-        .btn { 
-            width: 65px; height: 65px; margin: 5px; border-radius: 15px; 
-            font-size: 24px; background: rgba(0,0,0,0.6); border: 2px solid #fff; 
-            color: #fff; display: flex; align-items: center; justify-content: center; 
-            user-select: none; -webkit-tap-highlight-color: transparent;
-        }
+        .btn { width: 60px; height: 60px; margin: 5px; border-radius: 15px; font-size: 24px; background: rgba(0,0,0,0.6); border: 2px solid white; color: white; display: flex; align-items: center; justify-content: center; user-select: none; }
         #up { grid-area: up; } #left { grid-area: left; } #right { grid-area: right; } #down { grid-area: down; }
 
-        .action-container { position: fixed; bottom: 35px; right: 25px; display: flex; flex-direction: column; gap: 12px; }
-        .action-btn { 
-            width: 110px; height: 55px; border-radius: 15px; font-size: 18px; 
-            color: #fff; border: 2px solid #fff; font-weight: bold; cursor: pointer;
-        }
+        .action-container { position: fixed; bottom: 35px; right: 25px; display: flex; flex-direction: column; gap: 10px; }
+        .action-btn { width: 100px; height: 55px; border-radius: 15px; font-size: 18px; color: white; border: 2px solid #fff; font-weight: bold; }
         #jumpBtn { background: #ff9800; }
         #enterBtn { background: #f44336; }
     </style>
@@ -52,11 +34,11 @@
 
 <div id="homeScreen">
     <h1>MINI CITY LIFE</h1>
-    <p id="status">Checking Models...</p>
-    <button id="playBtn" style="display:none;">START GAME</button>
+    <p id="status">Loading Assets...</p>
+    <button id="playBtn">START GAME</button>
 </div>
 
-<div id="msg">ENTRY DETECTED - PRESS ENTER</div>
+<div id="msg">ENTRY DETECTED</div>
 
 <div id="controls">
     <div class="btn" id="up">▲</div>
@@ -83,226 +65,164 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-/* --- 1. CORE SETUP --- */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 10000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
-// Lighting
-scene.add(new THREE.AmbientLight(0xffffff, 2.0));
-const sun = new THREE.DirectionalLight(0xffffff, 1.2);
-sun.position.set(500, 1000, 500);
-scene.add(sun);
+scene.add(new THREE.AmbientLight(0xffffff, 2.5));
 
-/* --- 2. THE WORLD (ROADS & GRASS) --- */
-const land = new THREE.Mesh(new THREE.PlaneGeometry(20000, 20000), new THREE.MeshLambertMaterial({ color: 0x2e7d32 }));
+/* --- WORLD DESIGN --- */
+// Grass
+const land = new THREE.Mesh(new THREE.PlaneGeometry(15000, 15000), new THREE.MeshLambertMaterial({ color: 0x228b22 }));
 land.rotation.x = -Math.PI / 2;
 scene.add(land);
 
+// Indian Roads
 const roadMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
 const dashMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
 
-// Indian Road Grid
-for(let i = -10; i <= 10; i++) {
-    const roadPos = i * 800;
+for(let i = -8; i <= 8; i++) {
+    const pos = i * 900;
+    // Roads - Slightly elevated (0.2) to avoid clipping with grass
+    const rh = new THREE.Mesh(new THREE.PlaneGeometry(15000, 180), roadMat);
+    rh.rotation.x = -Math.PI/2; rh.position.set(0, 0.2, pos); scene.add(rh);
+    
+    const rv = new THREE.Mesh(new THREE.PlaneGeometry(180, 15000), roadMat);
+    rv.rotation.x = -Math.PI/2; rv.position.set(pos, 0.2, 0); scene.add(rv);
 
-    // Horizontal Road
-    const roadH = new THREE.Mesh(new THREE.PlaneGeometry(20000, 160), roadMat);
-    roadH.rotation.x = -Math.PI / 2;
-    roadH.position.set(0, 0.1, roadPos);
-    scene.add(roadH);
-
-    // Vertical Road
-    const roadV = new THREE.Mesh(new THREE.PlaneGeometry(160, 20000), roadMat);
-    roadV.rotation.x = -Math.PI / 2;
-    roadV.position.set(roadPos, 0.1, 0);
-    scene.add(roadV);
-
-    // White Dashes (Center lines)
-    for(let j = -10000; j < 10000; j += 100) {
-        const dashH = new THREE.Mesh(new THREE.PlaneGeometry(40, 5), dashMat);
-        dashH.rotation.x = -Math.PI / 2;
-        dashH.position.set(j, 0.15, roadPos);
-        scene.add(dashH);
-
-        const dashV = new THREE.Mesh(new THREE.PlaneGeometry(5, 40), dashMat);
-        dashV.rotation.x = -Math.PI / 2;
-        dashV.position.set(roadPos, 0.15, j);
-        scene.add(dashV);
+    // White Strips
+    for(let j = -7500; j < 7500; j += 120) {
+        const dh = new THREE.Mesh(new THREE.PlaneGeometry(50, 6), dashMat);
+        dh.rotation.x = -Math.PI/2; dh.position.set(j, 0.25, pos); scene.add(dh);
+        const dv = new THREE.Mesh(new THREE.PlaneGeometry(6, 50), dashMat);
+        dv.rotation.x = -Math.PI/2; dv.position.set(pos, 0.25, j); scene.add(dv);
     }
 }
 
-/* --- 3. ASSET MANAGEMENT --- */
-const loader = new GLTFLoader();
+/* --- LOADING ASSETS --- */
 const manager = new THREE.LoadingManager();
-const models = { b: [], tree: null };
+const loader = new GLTFLoader(manager);
+const models = { b: [], tree: null, npc: null };
 const colliders = [];
 const entryPoints = [];
 
 manager.onLoad = () => {
-    document.getElementById('status').innerText = "All Set!";
+    document.getElementById('status').innerText = "Ready!";
     document.getElementById('playBtn').style.display = "block";
-    buildCity();
+    generateCity();
 };
 
-manager.onError = (url) => {
-    alert("Error loading: " + url + "\nCheck your file names!");
-};
+manager.onError = (url) => console.error("Error loading: " + url);
 
-// Load Buildings
-loader.load('models/building.glb', (g) => models.b.push(g.scene), undefined, null, manager);
-loader.load('models/building2.glb', (g) => models.b.push(g.scene), undefined, null, manager);
-
-// Load Single Tree Type
-loader.load('models/tree1.glb', (g) => {
+// Use relative paths for GitHub
+loader.load('models/building.glb', (g) => models.b.push(g.scene));
+loader.load('models/building2.glb', (g) => models.b.push(g.scene));
+loader.load('models/tree1.glb', (g) => { 
     g.scene.traverse(n => { if(n.isMesh) n.material.alphaTest = 0.5; });
-    models.tree = g.scene;
-}, undefined, null, manager);
+    models.tree = g.scene; 
+});
+loader.load('models/npc.glb', (g) => { models.npc = g.scene; });
 
-function buildCity() {
+function generateCity() {
     const markerGeo = new THREE.CircleGeometry(40, 32);
-    const markerMat = new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.6, side: THREE.DoubleSide });
+    const markerMat = new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.5, side: THREE.DoubleSide });
 
-    for (let x = -6; x <= 6; x++) {
-        for (let z = -6; z <= 6; z++) {
-            if (x === 0 && z === 0) continue; // Clear spawn
+    for (let x = -4; x <= 4; x++) {
+        for (let z = -4; z <= 4; z++) {
+            if (x === 0 && z === 0) continue;
+            const bx = x * 900 + 350;
+            const bz = z * 900 + 350;
 
-            const bx = x * 800 + 300;
-            const bz = z * 800 + 300;
-
-            // Random Building
+            // Add Building
             const b = models.b[Math.floor(Math.random() * models.b.length)].clone();
-            b.scale.set(6, 6, 6);
+            b.scale.set(7, 7, 7);
             b.position.set(bx, 0, bz);
             scene.add(b);
             colliders.push({ box: new THREE.Box3().setFromObject(b) });
 
-            // Entry Point
+            // Add Entry Marker
             const entry = new THREE.Mesh(markerGeo, markerMat);
             entry.rotation.x = -Math.PI / 2;
-            entry.position.set(bx - 120, 0.5, bz);
+            entry.position.set(bx - 120, 0.3, bz); 
             scene.add(entry);
             entryPoints.push(entry.position);
 
-            // Scattered Trees
-            for(let k=0; k<3; k++) {
-                if(models.tree) {
-                    const t = models.tree.clone();
-                    t.scale.set(5, 5, 5);
-                    t.position.set(bx + (Math.random()-0.5)*450, 0, bz + (Math.random()-0.5)*450);
-                    scene.add(t);
-                }
+            // Add Tree
+            if(models.tree) {
+                const t = models.tree.clone();
+                t.scale.set(5, 5, 5);
+                t.position.set(bx + 200, 0, bz + 200);
+                scene.add(t);
             }
         }
     }
+    // Place NPC near spawn
+    if(models.npc) {
+        const n = models.npc.clone();
+        n.scale.set(6, 6, 6);
+        n.position.set(50, 0, 450);
+        scene.add(n);
+    }
 }
 
-/* --- 4. PLAYER & CONTROLS --- */
+/* --- PLAYER LOGIC --- */
 const player = new THREE.Object3D();
-player.position.set(0, 8, 400); 
+player.position.set(0, 10, 500); 
 scene.add(player);
 player.add(camera);
 
 let yaw = 0, pitch = 0, targetYaw = 0, targetPitch = 0, velocityY = 0;
-const gravity = -0.015, jumpForce = 0.5;
 const move = { up: false, down: false, left: false, right: false };
 let isGrounded = true;
 
-const moveState = { spd: 220 }; 
-
-function updateMovement(dt) {
-    let nx = player.position.x, nz = player.position.z;
-    const s = moveState.spd * dt;
-
-    if (move.up) { nx -= Math.sin(yaw) * s; nz -= Math.cos(yaw) * s; }
-    if (move.down) { nx += Math.sin(yaw) * s; nz += Math.cos(yaw) * s; }
-    if (move.left) { nx -= Math.cos(yaw) * s; nz += Math.sin(yaw) * s; }
-    if (move.right) { nx += Math.cos(yaw) * s; nz -= Math.sin(yaw) * s; }
-
-    // Collision Check
-    const pBox = new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(nx, 8, nz), new THREE.Vector3(20, 20, 20));
-    let hit = false;
-    for (const c of colliders) if (pBox.intersectsBox(c.box)) hit = true;
-    
-    if (!hit) { player.position.x = nx; player.position.z = nz; }
-
-    // Gravity/Jump
-    velocityY += gravity;
-    player.position.y += velocityY;
-    if (player.position.y <= 8) { player.position.y = 8; velocityY = 0; isGrounded = true; }
-
-    player.rotation.y = yaw;
-    camera.rotation.x = pitch;
-}
-
-/* --- 5. ANIMATION LOOP --- */
 const clock = new THREE.Clock();
 function animate() {
     requestAnimationFrame(animate);
     const dt = clock.getDelta();
 
-    // Smooth camera rotation
-    yaw += (targetYaw - yaw) * 0.15;
-    pitch += (targetPitch - pitch) * 0.15;
+    yaw += (targetYaw - yaw) * 0.1; pitch += (targetPitch - pitch) * 0.1;
+    let nx = player.position.x, nz = player.position.z, spd = 250 * dt;
+    
+    if (move.up) { nx -= Math.sin(yaw) * spd; nz -= Math.cos(yaw) * spd; }
+    if (move.down) { nx += Math.sin(yaw) * spd; nz += Math.cos(yaw) * spd; }
+    if (move.left) { nx -= Math.cos(yaw) * spd; nz += Math.sin(yaw) * spd; }
+    if (move.right) { nx += Math.cos(yaw) * spd; nz -= Math.sin(yaw) * spd; }
 
-    updateMovement(dt);
+    const pBox = new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(nx, 10, nz), new THREE.Vector3(20, 20, 20));
+    let hit = false;
+    for (const c of colliders) if (pBox.intersectsBox(c.box)) hit = true;
+    if (!hit) { player.position.x = nx; player.position.z = nz; }
 
-    // Entry detection
+    velocityY -= 0.02; player.position.y += velocityY;
+    if (player.position.y <= 10) { player.position.y = 10; velocityY = 0; isGrounded = true; }
+
+    player.rotation.y = yaw; camera.rotation.x = pitch;
+
     let near = false;
-    for(const pos of entryPoints) {
-        if(player.position.distanceTo(pos) < 75) { near = true; break; }
-    }
+    for(const pos of entryPoints) if(player.position.distanceTo(pos) < 80) near = true;
     document.getElementById("msg").style.display = near ? "block" : "none";
 
     renderer.render(scene, camera);
 }
 animate();
 
-/* --- 6. EVENT LISTENERS --- */
+/* --- INPUTS --- */
 function bind(id, k) {
     const el = document.getElementById(id);
     el.onpointerdown = (e) => { e.preventDefault(); move[k] = true; };
     el.onpointerup = () => move[k] = false;
-    el.onpointerleave = () => move[k] = false;
 }
 bind("up","up"); bind("down","down"); bind("left","left"); bind("right","right");
+document.getElementById("jumpBtn").onpointerdown = () => { if(isGrounded){ velocityY=0.5; isGrounded=false; }};
+document.getElementById("playBtn").onclick = () => document.getElementById("homeScreen").style.display = "none";
 
-document.getElementById("jumpBtn").onpointerdown = () => { if(isGrounded){ velocityY=jumpForce; isGrounded=false; }};
-document.getElementById("enterBtn").onclick = () => {
-    let near = false;
-    for(const pos of entryPoints) { if(player.position.distanceTo(pos) < 75) near = true; }
-    if(near) alert("Welcome to the Building!");
-};
-
-document.getElementById("playBtn").onclick = () => {
-    document.getElementById("homeScreen").style.display = "none";
-    // Optional: Request Fullscreen for mobile
-    if(document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
-};
-
-// Touch/Mouse Look
 let drag = false, lx, ly;
 renderer.domElement.onpointerdown = e => { drag = true; lx = e.clientX; ly = e.clientY; };
 window.onpointerup = () => drag = false;
-window.onpointermove = e => {
-    if (drag) {
-        targetYaw -= (e.clientX - lx) * 0.008;
-        targetPitch -= (e.clientY - ly) * 0.008;
-        targetPitch = Math.max(-Math.PI/3, Math.min(Math.PI/3, targetPitch)); // Limit tilt
-        lx = e.clientX; ly = e.clientY;
-    }
-};
-
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-});
+window.onpointermove = e => { if (drag) { targetYaw -= (e.clientX - lx) * 0.007; targetPitch -= (e.clientY - ly) * 0.007; lx = e.clientX; ly = e.clientY; } };
 </script>
 </body>
-    </html>
-    
+</html>
