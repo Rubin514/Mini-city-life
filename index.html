@@ -2,49 +2,29 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mini City Life </title>
+    <title>Mini City Life - Fixed</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; overflow: hidden; font-family: sans-serif; background: #111; }
         canvas { display: block; touch-action: none; }
-        
-        /* Loading Screen */
-        #homeScreen {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #111; display: flex; flex-direction: column; 
-            justify-content: center; align-items: center; z-index: 100; color: #fff;
-        }
-        #loaderBar { width: 240px; height: 12px; background: #333; border-radius: 6px; margin-top: 20px; overflow: hidden; border: 1px solid #444; }
-        #loaderProgress { width: 0%; height: 100%; background: linear-gradient(90deg, #00ff00, #00aa00); transition: width 0.3s; }
-        #percentText { margin-top: 12px; font-size: 20px; color: #00ff00; font-weight: bold; }
-        
-        #playBtn { 
-            font-size: 22px; padding: 12px 50px; border: 2px solid #00ff00; 
-            background: rgba(0,255,0,0.1); color: #00ff00; cursor: pointer; 
-            border-radius: 50px; display: none; margin-top: 25px; font-weight: bold;
-        }
-        
-        /* Controls */
+        #homeScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #111; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; color: #fff; }
+        #loaderBar { width: 240px; height: 12px; background: #333; border-radius: 6px; margin-top: 20px; overflow: hidden; }
+        #loaderProgress { width: 0%; height: 100%; background: #00ff00; }
+        #playBtn { font-size: 22px; padding: 12px 50px; border: 2px solid #00ff00; background: none; color: #00ff00; cursor: pointer; border-radius: 50px; display: none; margin-top: 25px; }
         #controls { position: fixed; bottom: 25px; left: 20px; z-index: 10; display: grid; grid-template-areas: ". up ." "left down right"; }
-        .btn { width: 60px; height: 60px; margin: 5px; border-radius: 15px; font-size: 24px; background: rgba(0,0,0,0.6); border: 2px solid rgba(255,255,255,0.3); color: white; display: flex; align-items: center; justify-content: center; user-select: none; }
+        .btn { width: 60px; height: 60px; margin: 5px; border-radius: 15px; font-size: 24px; background: rgba(0,0,0,0.6); border: 1px solid #fff; color: white; display: flex; align-items: center; justify-content: center; user-select: none; }
         #up { grid-area: up; } #left { grid-area: left; } #right { grid-area: right; } #down { grid-area: down; }
-
-        .action-container { position: fixed; bottom: 35px; right: 20px; }
-        .action-btn { width: 100px; height: 100px; border-radius: 50%; font-size: 18px; color: white; border: 3px solid #fff; font-weight: bold; background: #ff9800; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
-        
-        #msg { position: fixed; top: 20%; width: 100%; text-align: center; color: #ffff00; font-size: 24px; font-weight: bold; display: none; text-shadow: 2px 2px #000; pointer-events: none; }
+        #jumpBtn { position: fixed; bottom: 35px; right: 20px; width: 80px; height: 80px; border-radius: 50%; background: #ff9800; color: white; border: 2px solid #fff; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div id="homeScreen">
-    <h1 style="letter-spacing: 5px;">MINI CITY LIFE</h1>
+    <h1>MINI CITY LIFE</h1>
     <div id="loaderBar"><div id="loaderProgress"></div></div>
-    <div id="percentText">0%</div>
+    <div id="percentText" style="color:#00ff00; margin-top:10px;">0%</div>
     <button id="playBtn">START GAME</button>
 </div>
-
-<div id="msg">ENTRY DETECTED</div>
 
 <div id="controls">
     <div class="btn" id="up">▲</div>
@@ -52,10 +32,7 @@
     <div class="btn" id="right">▶</div>
     <div class="btn" id="down">▼</div>
 </div>
-
-<div class="action-container">
-    <button class="action-btn" id="jumpBtn">JUMP</button>
-</div>
+<button id="jumpBtn">JUMP</button>
 
 <script type="importmap">
 {
@@ -71,180 +48,140 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 
-/* --- 1. ENGINE --- */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
-scene.fog = new THREE.Fog(0x87ceeb, 300, 2800);
+scene.fog = new THREE.Fog(0x87ceeb, 100, 2000);
 
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.5, 4000);
-const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 5000);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.2)); // Lower pixel ratio = smoother FPS on APK
+renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
-scene.add(new THREE.AmbientLight(0xffffff, 1.8));
+scene.add(new THREE.AmbientLight(0xffffff, 1.5));
 const sun = new THREE.DirectionalLight(0xffffff, 1.0);
-sun.position.set(200, 600, 200);
+sun.position.set(100, 500, 100);
 scene.add(sun);
 
-/* --- 2. GROUND & ROADS --- */
-const land = new THREE.Mesh(new THREE.PlaneGeometry(10000, 10000), new THREE.MeshLambertMaterial({ color: 0x2e7d32 }));
-land.rotation.x = -Math.PI / 2;
-scene.add(land);
+// Ground
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(5000, 5000), new THREE.MeshLambertMaterial({ color: 0x4CAF50 }));
+ground.rotation.x = -Math.PI / 2;
+scene.add(ground);
 
-const roadMat = new THREE.MeshLambertMaterial({ color: 0x222222 });
-for(let i = -5; i <= 5; i++) {
-    const pos = i * 1000;
-    const rh = new THREE.Mesh(new THREE.PlaneGeometry(10000, 180), roadMat);
-    rh.rotation.x = -Math.PI/2; rh.position.set(0, 0.2, pos); scene.add(rh);
-    const rv = new THREE.Mesh(new THREE.PlaneGeometry(180, 10000), roadMat);
-    rv.rotation.x = -Math.PI/2; rv.position.set(pos, 0.2, 0); scene.add(rv);
-}
-
-/* --- 3. COMPRESSED LOADING --- */
+/* --- LOADING LOGIC --- */
 const manager = new THREE.LoadingManager();
 const loader = new GLTFLoader(manager);
-
-// Support for Draco-compressed .glb files
-const dracoLoader = new DRACOLoader();
-dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
-loader.setDRACOLoader(dracoLoader);
+const draco = new DRACOLoader();
+draco.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+loader.setDRACOLoader(draco);
 
 const models = { b: [], tree: null };
 const colliders = [];
-const entryPoints = [];
 
 manager.onProgress = (url, loaded, total) => {
-    const progress = (loaded / total) * 100;
-    document.getElementById('loaderProgress').style.width = progress + '%';
-    document.getElementById('percentText').innerText = Math.round(progress) + '%';
+    let p = (loaded / total) * 100;
+    document.getElementById('loaderProgress').style.width = p + '%';
+    document.getElementById('percentText').innerText = Math.round(p) + '%';
 };
 
 manager.onLoad = () => {
-    document.getElementById('percentText').innerText = "CITY READY";
     document.getElementById('playBtn').style.display = "block";
     generateCity();
 };
 
-// Use "./" for APK compatibility
-loader.load('./models/building.glb', (g) => { 
-    g.scene.traverse(c => { if(c.isMesh) { c.matrixAutoUpdate = false; c.frustumCulled = true; }});
-    models.b.push(g.scene); 
-});
-loader.load('./models/building2.glb', (g) => { 
-    g.scene.traverse(c => { if(c.isMesh) { c.matrixAutoUpdate = false; c.frustumCulled = true; }});
-    models.b.push(g.scene); 
-});
-loader.load('./models/tree1.glb', (g) => { 
-    g.scene.traverse(n => { if(n.isMesh) { n.material.alphaTest = 0.5; n.matrixAutoUpdate = false; }});
-    models.tree = g.scene; 
-});
+// Load both building types
+loader.load('./models/building.glb', (g) => models.b.push(g.scene));
+loader.load('./models/building2.glb', (g) => models.b.push(g.scene));
+loader.load('./models/tree1.glb', (g) => { models.tree = g.scene; });
 
 function generateCity() {
-    const markerGeo = new THREE.CircleGeometry(40, 12);
-    const markerMat = new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.4 });
-
-    for (let x = -3; x <= 3; x++) {
-        for (let z = -3; z <= 3; z++) {
-            if (x === 0 && z === 0) continue;
-            const bx = x * 1000 + 400;
-            const bz = z * 1000 + 400;
+    // 5x5 Grid for better performance
+    for (let x = -2; x <= 2; x++) {
+        for (let z = -2; z <= 2; z++) {
+            if (x === 0 && z === 0) continue; 
+            
+            const px = x * 600;
+            const pz = z * 600;
 
             if (models.b.length > 0) {
-                const b = models.b[Math.floor(Math.random() * models.b.length)].clone();
-                b.scale.set(6, 6, 6);
-                b.position.set(bx, 0, bz);
-                b.updateMatrix(); 
+                // Randomly pick building 1 or 2
+                const bIndex = Math.floor(Math.random() * models.b.length);
+                const b = models.b[bIndex].clone();
+                
+                // FIXED SCALE: Set to 1 because your models are already huge
+                b.scale.set(1, 1, 1); 
+                b.position.set(px, 0, pz);
                 scene.add(b);
-                colliders.push({ x: bx, z: bz, r: 140 });
+                
+                // Collision radius (how close you can get)
+                colliders.push({ x: px, z: pz, r: 80 });
             }
 
-            const entry = new THREE.Mesh(markerGeo, markerMat);
-            entry.rotation.x = -Math.PI / 2;
-            entry.position.set(bx - 120, 0.4, bz); 
-            scene.add(entry);
-            entryPoints.push(entry.position);
-
-            if(models.tree) {
+            if (models.tree) {
                 const t = models.tree.clone();
-                t.scale.set(4, 4, 4);
-                t.position.set(bx + 250, 0, bz + 250);
-                t.updateMatrix();
+                t.scale.set(0.5, 0.5, 0.5); // Trees were also too big
+                t.position.set(px + 150, 0, pz + 150);
                 scene.add(t);
             }
         }
     }
 }
 
-/* --- 4. CONTROLS & PHYSICS --- */
+/* --- MOVEMENT --- */
 const player = new THREE.Object3D();
-player.position.set(0, 10, 500); 
+player.position.set(0, 5, 100); 
 scene.add(player);
 player.add(camera);
 
-let yaw = 0, pitch = 0, targetYaw = 0, targetPitch = 0, velocityY = 0;
+let yaw = 0, pitch = 0, velocityY = 0;
 const move = { up: false, down: false, left: false, right: false };
-let isGrounded = true;
 
-function animate() {
-    requestAnimationFrame(animate);
-    
-    yaw += (targetYaw - yaw) * 0.15;
-    pitch += (targetPitch - pitch) * 0.15;
-    player.rotation.y = yaw; 
-    camera.rotation.x = pitch;
-
-    let nx = player.position.x, nz = player.position.z, spd = 6.0;
+function update() {
+    let nx = player.position.x, nz = player.position.z, spd = 3.5;
     if (move.up) { nx -= Math.sin(yaw) * spd; nz -= Math.cos(yaw) * spd; }
     if (move.down) { nx += Math.sin(yaw) * spd; nz += Math.cos(yaw) * spd; }
     if (move.left) { nx -= Math.cos(yaw) * spd; nz += Math.sin(yaw) * spd; }
     if (move.right) { nx += Math.cos(yaw) * spd; nz -= Math.sin(yaw) * spd; }
 
     let hit = false;
-    for (const c of colliders) {
-        if (((nx-c.x)**2 + (nz-c.z)**2) < c.r*c.r) { hit = true; break; }
+    for (let c of colliders) {
+        if (Math.hypot(nx - c.x, nz - c.z) < c.r) { hit = true; break; }
     }
     if (!hit) { player.position.x = nx; player.position.z = nz; }
 
     velocityY -= 0.02; player.position.y += velocityY;
-    if (player.position.y <= 12) { player.position.y = 12; velocityY = 0; isGrounded = true; }
+    if (player.position.y < 5) { player.position.y = 5; velocityY = 0; }
+}
 
-    let near = false;
-    for(const pos of entryPoints) if(player.position.distanceTo(pos) < 100) near = true;
-    document.getElementById("msg").style.display = near ? "block" : "none";
-
+function animate() {
+    requestAnimationFrame(animate);
+    update();
+    player.rotation.y = yaw;
+    camera.rotation.x = pitch;
     renderer.render(scene, camera);
 }
 animate();
 
-/* --- 5. BINDINGS --- */
-function bind(id, k) {
-    const el = document.getElementById(id);
-    el.onpointerdown = (e) => { e.preventDefault(); move[k] = true; };
-    el.onpointerup = () => move[k] = false;
-    el.onpointerleave = () => move[k] = false;
-}
+// Inputs
+const bind = (id, k) => {
+    document.getElementById(id).onpointerdown = (e) => { e.preventDefault(); move[k] = true; };
+    document.getElementById(id).onpointerup = () => move[k] = false;
+};
 bind("up","up"); bind("down","down"); bind("left","left"); bind("right","right");
-
-document.getElementById("jumpBtn").onpointerdown = () => { if(isGrounded){ velocityY=0.6; isGrounded=false; }};
+document.getElementById("jumpBtn").onclick = () => { if(player.position.y <= 5.1) velocityY = 0.5; };
 document.getElementById("playBtn").onclick = () => document.getElementById("homeScreen").style.display = "none";
 
+// Touch look
 let drag = false, lx, ly;
-renderer.domElement.onpointerdown = e => { drag = true; lx = e.clientX; ly = e.clientY; };
+window.onpointerdown = e => { drag = true; lx = e.clientX; ly = e.clientY; };
 window.onpointerup = () => drag = false;
-window.onpointermove = e => { 
-    if (drag) { 
-        targetYaw -= (e.clientX - lx) * 0.008; 
-        targetPitch = Math.max(-Math.PI/3, Math.min(Math.PI/3, targetPitch - (e.clientY - ly) * 0.008)); 
-        lx = e.clientX; ly = e.clientY; 
-    } 
+window.onpointermove = e => {
+    if (drag) {
+        yaw -= (e.clientX - lx) * 0.005;
+        pitch = Math.max(-1, Math.min(1, pitch - (e.clientY - ly) * 0.005));
+        lx = e.clientX; ly = e.clientY;
+    }
 };
-
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-});
 </script>
 </body>
 </html>
