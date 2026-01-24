@@ -2,18 +2,23 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mini City Life - Full Fix</title>
+    <title>Mini City Life - 20 Missions Fixed</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        body { margin: 0; overflow: hidden; font-family: sans-serif; background: #000; touch-action: none; }
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #000; touch-action: none; }
+        canvas { display: block; }
+
+        /* Loader */
         #loader { position: fixed; inset: 0; background: #111; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; color: #00ff00; }
-        .bar-bg { width: 200px; height: 10px; background: #333; border-radius: 5px; margin-top: 10px; overflow: hidden; }
-        #bar { width: 0%; height: 100%; background: #00ff00; transition: width 0.2s; }
-        #controls { position: fixed; bottom: 20px; left: 20px; z-index: 10; display: grid; grid-template-areas: ". u ." "l d r"; gap: 5px; }
-        .btn { width: 60px; height: 60px; background: rgba(0,0,0,0.5); border: 2px solid #fff; color: white; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+        .bar-bg { width: 220px; height: 12px; background: #222; border-radius: 6px; margin-top: 15px; border: 1px solid #444; overflow: hidden; }
+        #bar { width: 0%; height: 100%; background: #00ff00; transition: width 0.2s; box-shadow: 0 0 15px #00ff00; }
+
+        /* HUD */
+        #mHUD { position: fixed; top: 15px; left: 15px; background: rgba(0,0,0,0.8); padding: 12px; border-radius: 8px; border-left: 5px solid #00ff00; color: white; display: none; z-index: 10; }
+        #controls { position: fixed; bottom: 20px; left: 20px; z-index: 10; display: grid; grid-template-areas: ". u ." "l d r"; gap: 8px; }
+        .btn { width: 60px; height: 60px; border-radius: 12px; background: rgba(0,0,0,0.6); border: 2px solid #fff; color: white; display: flex; align-items: center; justify-content: center; font-size: 22px; user-select: none; }
         #jump { position: fixed; bottom: 30px; right: 20px; width: 80px; height: 80px; border-radius: 50%; background: #ff9800; border: 2px solid #fff; color: white; font-weight: bold; }
-        #mBtn { position: fixed; top: 15px; right: 15px; padding: 10px 20px; background: #00ff00; border: none; border-radius: 5px; font-weight: bold; }
-        #mHUD { position: fixed; top: 15px; left: 15px; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 5px; color: white; display: none; }
+        #mBtn { position: fixed; top: 15px; right: 15px; padding: 12px 20px; background: #00ff00; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; z-index: 20; color: #000; }
     </style>
 </head>
 <body>
@@ -21,16 +26,17 @@
 <div id="loader">
     <div id="perc">0%</div>
     <div class="bar-bg"><div id="bar"></div></div>
+    <div style="font-size: 10px; margin-top: 10px; letter-spacing: 2px;">LOADING CITY MODELS...</div>
 </div>
 
 <div id="mHUD"><b id="mTitle"></b><br><span id="mDist"></span></div>
-<button id="mBtn">MISSIONS</button>
+<button id="mBtn">START MISSION</button>
 
 <div id="controls">
-    <div class="btn" style="grid-area:u" id="up">▲</div>
-    <div class="btn" style="grid-area:l" id="left">◀</div>
-    <div class="btn" style="grid-area:d" id="down">▼</div>
-    <div class="btn" style="grid-area:r" id="right">▶</div>
+    <div class="btn" style="grid-area: u" id="up">▲</div>
+    <div class="btn" style="grid-area: l" id="left">◀</div>
+    <div class="btn" style="grid-area: d" id="down">▼</div>
+    <div class="btn" style="grid-area: r" id="right">▶</div>
 </div>
 <button id="jump">JUMP</button>
 
@@ -44,20 +50,24 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
+scene.fog = new THREE.Fog(0x87ceeb, 500, 10000);
+
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 20000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
-scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+scene.add(new THREE.AmbientLight(0xffffff, 1.3));
 const sun = new THREE.DirectionalLight(0xffffff, 1.0);
 sun.position.set(500, 1000, 500);
 scene.add(sun);
 
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(20000, 20000), new THREE.MeshLambertMaterial({ color: 0x44aa44 }));
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(30000, 30000), new THREE.MeshLambertMaterial({ color: 0x3d8c3d }));
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 
+/* --- ASSET LOADING --- */
 const manager = new THREE.LoadingManager();
 const loader = new GLTFLoader(manager);
 const assets = { b1: null, b2: null, tree: null };
@@ -70,64 +80,67 @@ manager.onProgress = (url, loaded, total) => {
 };
 
 manager.onLoad = () => {
-    createCity();
+    buildCity();
     document.getElementById('loader').style.display = 'none';
 };
 
-// Paths are exactly as shown in your GitHub screenshot
+// DIRECT FOLDER PATHS
 loader.load('models/building.glb', (g) => assets.b1 = g.scene);
 loader.load('models/building2.glb', (g) => assets.b2 = g.scene);
-loader.load('tree1.glb', (g) => assets.tree = g.scene, undefined, () => {
-    // Fallback if tree1.glb is NOT in models folder
-    loader.load('models/tree1.glb', (g) => assets.tree = g.scene);
-});
+loader.load('models/tree1.glb', (g) => assets.tree = g.scene);
 
-function createCity() {
-    for (let x = -6; x <= 6; x++) {
-        for (let z = -6; z <= 6; z++) {
+function buildCity() {
+    for (let x = -8; x <= 8; x++) {
+        for (let z = -8; z <= 8; z++) {
             if (x === 0 && z === 0) continue;
-            const px = x * 1200, pz = z * 1200;
+            const px = x * 1500, pz = z * 1500;
             
+            // Choose Building
             const bSource = (x + z) % 2 === 0 ? assets.b1 : assets.b2;
+            
             if (bSource) {
                 const b = bSource.clone();
-                // We set a massive scale because exported GLBs are often tiny
-                b.scale.set(50, 50, 50); 
+                // MASSIVE SCALE FIX: Ensures they aren't invisible
+                b.scale.set(80, 80, 80); 
                 b.position.set(px, 0, pz);
                 scene.add(b);
-                colliders.push({ x: px, z: pz, r: 150 });
+                colliders.push({ x: px, z: pz, r: 250 });
             }
 
             if (assets.tree) {
                 const t = assets.tree.clone();
-                t.scale.set(20, 20, 20);
-                t.position.set(px + 400, 0, pz + 400);
+                t.scale.set(40, 40, 40);
+                t.position.set(px + 600, 0, pz + 600);
                 scene.add(t);
             }
         }
     }
 }
 
-// 20 Missions Logic
+/* --- 20 MISSION SYSTEM --- */
 const missions = Array.from({length: 20}, (_, i) => ({
-    title: `Contract #${i+1}`,
-    pos: { x: (Math.random()-0.5)*15000, z: (Math.random()-0.5)*15000 }
+    id: i + 1,
+    title: `Zone Objective #${i + 1}`,
+    pos: { x: (Math.random()-0.5)*18000, z: (Math.random()-0.5)*18000 }
 }));
 
-let activeM = null, targetPoint = null;
+let activeM = null, targetMesh = null;
 document.getElementById('mBtn').onclick = () => {
-    const m = missions[Math.floor(Math.random()*20)];
-    activeM = m;
-    if(targetPoint) scene.remove(targetPoint);
-    targetPoint = new THREE.Mesh(new THREE.SphereGeometry(50), new THREE.MeshBasicMaterial({color: 0xff00ff}));
-    targetPoint.position.set(m.pos.x, 50, m.pos.z);
-    scene.add(targetPoint);
-    document.getElementById('mTitle').innerText = m.title;
+    activeM = missions[Math.floor(Math.random()*20)];
+    if(targetMesh) scene.remove(targetMesh);
+    
+    // Large Mission Sphere
+    targetMesh = new THREE.Mesh(new THREE.SphereGeometry(100, 32, 32), new THREE.MeshBasicMaterial({color: 0xff00ff}));
+    targetMesh.position.set(activeM.pos.x, 100, activeM.pos.z);
+    scene.add(targetMesh);
+    
+    document.getElementById('mTitle').innerText = activeM.title;
     document.getElementById('mHUD').style.display = 'block';
 };
 
+/* --- PLAYER --- */
 const player = new THREE.Object3D();
-player.position.set(0, 15, 600);
+player.position.set(0, 30, 1000);
 scene.add(player);
 player.add(camera);
 
@@ -135,23 +148,29 @@ let yaw = 0, vY = 0, move = {f:0, b:0, l:0, r:0};
 
 function animate() {
     requestAnimationFrame(animate);
-    let nx = player.position.x, nz = player.position.z, s = 8;
-    if(move.f){ nx -= Math.sin(yaw)*s; nz -= Math.cos(yaw)*s; }
-    if(move.b){ nx += Math.sin(yaw)*s; nz += Math.cos(yaw)*s; }
-    if(move.l){ nx -= Math.cos(yaw)*s; nz += Math.sin(yaw)*s; }
-    if(move.r){ nx += Math.cos(yaw)*s; nz -= Math.sin(yaw)*s; }
+    let nx = player.position.x, nz = player.position.z, spd = 12;
+    
+    if(move.f) { nx -= Math.sin(yaw)*spd; nz -= Math.cos(yaw)*spd; }
+    if(move.b) { nx += Math.sin(yaw)*spd; nz += Math.cos(yaw)*spd; }
+    if(move.l) { nx -= Math.cos(yaw)*spd; nz += Math.sin(yaw)*spd; }
+    if(move.r) { nx += Math.cos(yaw)*spd; nz -= Math.sin(yaw)*spd; }
 
     let hit = false;
     for(let c of colliders) if(Math.hypot(nx-c.x, nz-c.z) < c.r) hit = true;
-    if(!hit){ player.position.x = nx; player.position.z = nz; }
+    if(!hit) { player.position.x = nx; player.position.z = nz; }
 
-    vY -= 0.02; player.position.y += vY;
-    if(player.position.y < 15) { player.position.y = 15; vY = 0; }
+    vY -= 0.04; player.position.y += vY;
+    if(player.position.y < 30) { player.position.y = 30; vY = 0; }
 
-    if(activeM) {
-        const d = player.position.distanceTo(targetPoint.position);
-        document.getElementById('mDist').innerText = Math.round(d) + "m to target";
-        if(d < 100) { alert("Mission Clear!"); activeM = null; scene.remove(targetPoint); document.getElementById('mHUD').style.display='none'; }
+    if(activeM && targetMesh) {
+        const d = player.position.distanceTo(targetMesh.position);
+        document.getElementById('mDist').innerText = `${Math.round(d)}m to destination`;
+        if(d < 150) { 
+            alert("OBJECTIVE REACHED!"); 
+            activeM = null; 
+            scene.remove(targetMesh); 
+            document.getElementById('mHUD').style.display = 'none'; 
+        }
     }
 
     player.rotation.y = yaw;
@@ -159,19 +178,27 @@ function animate() {
 }
 animate();
 
-// Controls
+/* --- UI CONTROLS --- */
 const b = (id, k) => {
     const e = document.getElementById(id);
-    e.onpointerdown = () => move[k] = 1;
+    e.onpointerdown = (ev) => { ev.preventDefault(); move[k] = 1; };
     e.onpointerup = () => move[k] = 0;
 };
 b("up","f"); b("down","b"); b("left","l"); b("right","r");
-document.getElementById("jump").onpointerdown = () => { if(player.position.y <= 16) vY = 0.6; };
+
+document.getElementById("jump").onpointerdown = () => { if(player.position.y <= 31) vY = 0.8; };
 
 let drag = false, lx;
 renderer.domElement.onpointerdown = e => { drag = true; lx = e.clientX; };
 window.onpointerup = () => drag = false;
-window.onpointermove = e => { if(drag){ yaw -= (e.clientX - lx) * 0.005; lx = e.clientX; } };
+window.onpointermove = e => { if(drag){ yaw -= (e.clientX - lx) * 0.007; lx = e.clientX; } };
+
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
 </script>
 </body>
 </html>
+
