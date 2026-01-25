@@ -1,25 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mini City Life – FIXED</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Mini City Life</title>
+
 <style>
-    body { margin: 0; overflow: hidden; background: #222; }
+    body {
+        margin: 0;
+        overflow: hidden;
+        background: #87ceeb;
+        touch-action: none;
+        font-family: Arial, sans-serif;
+    }
     #info {
         position: absolute;
         top: 10px;
         left: 10px;
-        color: #fff;
         background: rgba(0,0,0,0.6);
+        color: #fff;
         padding: 10px;
-        font-family: monospace;
+        border-radius: 6px;
+        font-size: 14px;
     }
 </style>
 </head>
+
 <body>
 <div id="info">Loading models…</div>
 
+<!-- IMPORT MAP -->
 <script type="importmap">
 {
   "imports": {
@@ -31,93 +41,103 @@
 
 <script type="module">
 import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
+/* ------------------ BASE PATH FIX ------------------ */
+/* Works on localhost + GitHub Pages automatically */
+const BASE_PATH = location.hostname.includes('github.io')
+  ? '/Mini-city-life/'
+  : './';
+
+/* ------------------ SCENE ------------------ */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 
+/* ------------------ CAMERA ------------------ */
 const camera = new THREE.PerspectiveCamera(
-    60,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    2000
+  60,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  2000
 );
-camera.position.set(0, 40, 80);
-camera.lookAt(0, 0, 0);
+camera.position.set(0, 30, 60);
 
+/* ------------------ RENDERER ------------------ */
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
-/* LIGHTS */
-scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+/* ------------------ CONTROLS ------------------ */
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.target.set(0, 0, 0);
+
+/* ------------------ LIGHTING ------------------ */
+scene.add(new THREE.AmbientLight(0xffffff, 1.5));
 
 const sun = new THREE.DirectionalLight(0xffffff, 1);
-sun.position.set(50, 100, 50);
+sun.position.set(30, 50, 20);
 scene.add(sun);
 
-/* GROUND */
+/* ------------------ GROUND ------------------ */
 const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(300, 300),
-    new THREE.MeshStandardMaterial({ color: 0x55aa55 })
+  new THREE.PlaneGeometry(200, 200),
+  new THREE.MeshStandardMaterial({ color: 0x4caf50 })
 );
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 
-/* MODEL LOADER */
+/* ------------------ MODEL LOADER ------------------ */
 const loader = new GLTFLoader();
 const info = document.getElementById('info');
 
-function smartLoad(path, x) {
-    loader.load(
-        path,
-        (gltf) => {
-            const model = gltf.scene;
+function loadModel(path, x, z) {
+  loader.load(
+    BASE_PATH + path,
+    (gltf) => {
+      const model = gltf.scene;
 
-            // 🔑 CRITICAL FIX
-            model.updateMatrixWorld(true);
+      // auto scale
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3());
+      const max = Math.max(size.x, size.y, size.z);
+      const scale = 12 / max;
+      model.scale.setScalar(scale);
 
-            const box = new THREE.Box3().setFromObject(model);
-            const size = box.getSize(new THREE.Vector3());
-            const maxDim = Math.max(size.x, size.y, size.z);
+      model.position.set(x, 0, z);
+      scene.add(model);
 
-            const scale = 20 / maxDim;
-            model.scale.setScalar(scale);
-
-            // Center model properly
-            model.position.set(x, 0, 0);
-
-            // Lift above ground
-            model.position.y = -box.min.y * scale;
-
-            scene.add(model);
-            info.innerHTML += `<br>✔ Loaded ${path}`;
-        },
-        undefined,
-        () => {
-            info.innerHTML += `<br>❌ Failed ${path}`;
-        }
-    );
+      info.innerHTML += `<br>✅ Loaded ${path}`;
+    },
+    undefined,
+    () => {
+      info.innerHTML += `<br>❌ Failed ${path}`;
+    }
+  );
 }
 
-/* LOAD ALL MODELS */
-smartLoad('models/building.glb', -30);
-smartLoad('models/building1.glb', 30);
-smartLoad('models/tree1.glb', 0);
+/* ------------------ LOAD YOUR MODELS ------------------ */
+loadModel('models/building.glb', -25, 0);
+loadModel('models/building1.glb', 25, 0);
+loadModel('models/tree1.glb', 0, 25);
 
-/* ANIMATE */
+/* ------------------ RESIZE ------------------ */
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+/* ------------------ LOOP ------------------ */
 function animate() {
-    requestAnimationFrame(animate);
-    renderer.render(scene, camera);
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
 }
 animate();
 
-/* RESIZE */
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-});
 </script>
 </body>
 </html>
