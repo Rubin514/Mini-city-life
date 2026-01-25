@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mini City Life</title>
+    <title>Mini City Life - Fixed</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; overflow: hidden; background: #87ceeb; font-family: sans-serif; touch-action: none; }
@@ -13,11 +13,13 @@
         #pDot { width: 8px; height: 8px; background: #fff; border-radius: 50%; position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); }
         #missionBox { background: rgba(0,0,0,0.85); color: #0f0; padding: 10px; margin-top: 10px; border-radius: 5px; font-size: 14px; max-width: 200px; border-left: 4px solid #fbc02d; }
 
-        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 500; display: none; flex-direction: column; align-items: center; justify-content: center; color: white; padding: 20px; }
-        .menu-btn { padding: 12px 25px; margin: 6px; background: #333; border: 1px solid #777; color: #fff; border-radius: 5px; width: 220px; cursor: pointer; font-weight: bold; }
-        
         #controls { position: fixed; bottom: 30px; left: 30px; z-index: 100; display: grid; grid-template-areas: ". u ." "l d r"; gap: 10px; }
-        .btn { width: 60px; height: 60px; background: rgba(255,255,255,0.2); border: 2px solid #fff; border-radius: 15px; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; }
+        .btn { 
+            width: 60px; height: 60px; background: rgba(255,255,255,0.2); 
+            border: 2px solid #fff; border-radius: 15px; display: flex; 
+            align-items: center; justify-content: center; color: white; 
+            font-size: 24px; user-select: none; -webkit-user-select: none;
+        }
         #jump { position: fixed; bottom: 40px; right: 30px; width: 80px; height: 80px; border-radius: 50%; background: #ff9800; border: 3px solid #fff; }
         
         #loading-screen { position: fixed; inset: 0; background: #111; color: #0f0; display: flex; align-items: center; justify-content: center; z-index: 1000; font-family: monospace; }
@@ -56,24 +58,31 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
+/* --- SCENE SETUP --- */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 5000);
+
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
+// Lighting
 scene.add(new THREE.AmbientLight(0xffffff, 0.8));
 const sun = new THREE.DirectionalLight(0xffffff, 1.0);
 sun.position.set(50, 100, 50);
 scene.add(sun);
 
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(10000, 10000), new THREE.MeshLambertMaterial({ color: 0x44aa44 }));
+// Ground
+const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(10000, 10000), 
+    new THREE.MeshLambertMaterial({ color: 0x44aa44 })
+);
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 
-/* --- FIXED ASSET LOADING --- */
+/* --- ASSET LOADING --- */
 const models = { b1: null, b2: null, tree: null };
 const colliders = [];
 const loader = new GLTFLoader();
@@ -96,100 +105,138 @@ const loadAsset = (url, key) => {
         }, 
         undefined, 
         (err) => { 
-            console.error("Missing:", url);
-            // Create a temporary box if file is actually missing
-            const box = new THREE.Group();
-            box.add(new THREE.Mesh(new THREE.BoxGeometry(40, 100, 40), new THREE.MeshLambertMaterial({color: 0x555555})));
-            models[key] = box;
+            console.warn(`Asset ${url} not found. Using fallback.`);
+            const group = new THREE.Group();
+            const mesh = new THREE.Mesh(
+                new THREE.BoxGeometry(60, 120, 60), 
+                new THREE.MeshLambertMaterial({color: key === 'tree' ? 0x228B22 : 0x555555})
+            );
+            group.add(mesh);
+            models[key] = group;
             checkReady(); 
         }
     );
 };
 
-// These now match your Screenshot_20260124_213112.jpg exactly
 loadAsset('models/building.glb', 'b1');
 loadAsset('models/building1.glb', 'b2');
 loadAsset('models/tree1.glb', 'tree');
 
+/* --- CITY GENERATION --- */
 const initCity = () => {
     const spacing = 450;
-    for(let x=-5; x<=5; x++){
-        for(let z=-5; z<=5; z++){
+    for(let x = -5; x <= 5; x++){
+        for(let z = -5; z <= 5; z++){
             if(x === 0 && z === 0) continue;
+            
             const px = x * spacing;
             const pz = z * spacing;
             
-            const modelToUse = (x+z) % 2 === 0 ? models.b1 : models.b2;
+            const modelToUse = (x + z) % 2 === 0 ? models.b1 : models.b2;
             const b = modelToUse.clone();
             b.position.set(px, 0, pz);
             scene.add(b);
-            colliders.push({x: px, z: pz, r: 80});
+            
+            // Register collider
+            colliders.push({ x: px, z: pz, r: 100 });
 
             if(models.tree && Math.random() > 0.5) {
                 const t = models.tree.clone();
-                t.position.set(px + 100, 0, pz + 100);
+                t.position.set(px + 120, 0, pz + 120);
                 scene.add(t);
             }
         }
     }
 };
 
+/* --- PLAYER LOGIC --- */
 const player = new THREE.Object3D();
 player.position.set(0, 10, 400);
 scene.add(player);
-player.add(camera);
+player.add(camera); // FPS Camera setup
 
-let yaw=0, pitch=0, vY=0, input={f:0,b:0,l:0,r:0}, config={sens: 0.004};
+let yaw = 0, pitch = 0, vY = 0;
+let input = { f: 0, b: 0, l: 0, r: 0 };
+const config = { sens: 0.004, speed: 7 };
 
 function animate() {
     requestAnimationFrame(animate);
-    let nx = player.position.x, nz = player.position.z, spd = 7;
     
-    if(input.f){ nx -= Math.sin(yaw)*spd; nz -= Math.cos(yaw)*spd; }
-    if(input.b){ nx += Math.sin(yaw)*spd; nz += Math.cos(yaw)*spd; }
-    if(input.l){ nx -= Math.cos(yaw)*spd; nz += Math.sin(yaw)*spd; }
-    if(input.r){ nx += Math.cos(yaw)*spd; nz -= Math.sin(yaw)*spd; }
+    let nx = player.position.x;
+    let nz = player.position.z;
+    
+    // Movement calculation based on camera yaw
+    if(input.f){ nx -= Math.sin(yaw) * config.speed; nz -= Math.cos(yaw) * config.speed; }
+    if(input.b){ nx += Math.sin(yaw) * config.speed; nz += Math.cos(yaw) * config.speed; }
+    if(input.l){ nx -= Math.cos(yaw) * config.speed; nz += Math.sin(yaw) * config.speed; }
+    if(input.r){ nx += Math.cos(yaw) * config.speed; nz -= Math.sin(yaw) * config.speed; }
 
+    // Collision Detection
     let hit = false;
-    for(let c of colliders) if(Math.hypot(nx-c.x, nz-c.z) < c.r) hit=true;
-    if(!hit){ player.position.x=nx; player.position.z=nz; }
+    for(let c of colliders) {
+        if(Math.hypot(nx - c.x, nz - c.z) < c.r) {
+            hit = true;
+            break;
+        }
+    }
+    
+    if(!hit){ 
+        player.position.x = nx; 
+        player.position.z = nz; 
+    }
 
-    vY -= 0.02; player.position.y += vY;
-    if(player.position.y < 10){ player.position.y=10; vY=0; }
+    // Physics (Gravity/Jump)
+    vY -= 0.02; 
+    player.position.y += vY;
+    if(player.position.y < 10){ 
+        player.position.y = 10; 
+        vY = 0; 
+    }
 
+    // Apply Rotation
     player.rotation.y = yaw;
     camera.rotation.x = pitch;
+
     renderer.render(scene, camera);
 }
 
+/* --- CONTROLS --- */
 const bind = (id, k) => {
     const e = document.getElementById(id);
-    e.onpointerdown = (ev) => { ev.preventDefault(); input[k]=1; };
-    e.onpointerup = () => input[k]=0;
-    e.onpointerleave = () => input[k]=0;
+    e.addEventListener('pointerdown', (ev) => { ev.preventDefault(); input[k] = 1; });
+    e.addEventListener('pointerup', (ev) => { ev.preventDefault(); input[k] = 0; });
+    e.addEventListener('pointerleave', (ev) => { ev.preventDefault(); input[k] = 0; });
 };
 bind("u","f"); bind("d","b"); bind("l","l"); bind("r","r");
 
-document.getElementById("jump").onpointerdown = () => { if(player.position.y <= 11) vY = 0.5; };
+document.getElementById("jump").addEventListener('pointerdown', (e) => { 
+    e.preventDefault();
+    if(player.position.y <= 10.1) vY = 0.5; 
+});
 
-let drag=false, lx, ly;
-renderer.domElement.onpointerdown = e => { drag=true; lx=e.clientX; ly=e.clientY; };
-window.onpointerup = () => drag=false;
-window.onpointermove = e => { 
+// Touch/Mouse look
+let drag = false, lx, ly;
+renderer.domElement.addEventListener('pointerdown', e => { 
+    drag = true; lx = e.clientX; ly = e.clientY; 
+});
+window.addEventListener('pointerup', () => drag = false);
+window.addEventListener('pointermove', e => { 
     if(drag){ 
         yaw -= (e.clientX - lx) * config.sens; 
-        pitch = Math.max(-1, Math.min(1, pitch - (e.clientY - ly) * config.sens));
+        // Clamping pitch to prevent flipping (approx 80 degrees)
+        pitch = Math.max(-1.4, Math.min(1.4, pitch - (e.clientY - ly) * config.sens));
         lx = e.clientX; ly = e.clientY; 
     }
-};
+});
 
-animate();
-
+// Resizing
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
+animate();
 </script>
 </body>
 </html>
