@@ -2,241 +2,262 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mini City Life - Fixed</title>
+    <title>Mini City Life - Master Build</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        body { margin: 0; overflow: hidden; background: #87ceeb; font-family: sans-serif; touch-action: none; }
-        canvas { display: block; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; touch-action: none; user-select: none; }
         
-        #hud { position: fixed; top: 15px; left: 15px; z-index: 100; pointer-events: none; }
-        #minimap { width: 120px; height: 120px; background: rgba(0,0,0,0.7); border: 2px solid #fff; position: relative; border-radius: 5px; }
-        #pDot { width: 8px; height: 8px; background: #fff; border-radius: 50%; position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); }
-        #missionBox { background: rgba(0,0,0,0.85); color: #0f0; padding: 10px; margin-top: 10px; border-radius: 5px; font-size: 14px; max-width: 200px; border-left: 4px solid #fbc02d; }
-
-        #controls { position: fixed; bottom: 30px; left: 30px; z-index: 100; display: grid; grid-template-areas: ". u ." "l d r"; gap: 10px; }
-        .btn { 
-            width: 60px; height: 60px; background: rgba(255,255,255,0.2); 
-            border: 2px solid #fff; border-radius: 15px; display: flex; 
-            align-items: center; justify-content: center; color: white; 
-            font-size: 24px; user-select: none; -webkit-user-select: none;
+        /* LOADING SCREEN */
+        #loader {
+            position: fixed; inset: 0; background: #111; z-index: 2000;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            color: #00ff00; transition: opacity 0.5s;
         }
-        #jump { position: fixed; bottom: 40px; right: 30px; width: 80px; height: 80px; border-radius: 50%; background: #ff9800; border: 3px solid #fff; }
+        .bar-container { width: 250px; height: 15px; background: #333; border-radius: 8px; margin-top: 15px; overflow: hidden; border: 2px solid #555; }
+        #bar { width: 0%; height: 100%; background: #00ff00; box-shadow: 0 0 15px #00ff00; transition: width 0.2s; }
         
-        #loading-screen { position: fixed; inset: 0; background: #111; color: #0f0; display: flex; align-items: center; justify-content: center; z-index: 1000; font-family: monospace; }
+        /* HUD */
+        #hud { position: fixed; top: 15px; left: 15px; pointer-events: none; z-index: 100; }
+        .mission-box { background: rgba(0,0,0,0.8); color: #fff; padding: 15px; border-radius: 10px; border-left: 5px solid #00ff00; display: none; }
+        
+        /* CONTROLS */
+        #controls { position: fixed; bottom: 20px; left: 20px; z-index: 100; display: grid; grid-template-areas: ". u ." "l d r"; gap: 10px; }
+        .btn { width: 65px; height: 65px; background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.5); border-radius: 15px; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; backdrop-filter: blur(5px); }
+        .btn:active { background: rgba(0,255,0,0.5); border-color: #00ff00; }
+        
+        #jump { position: fixed; bottom: 40px; right: 30px; width: 85px; height: 85px; background: #ff9800; border-radius: 50%; border: 3px solid #fff; color: white; font-weight: bold; font-size: 18px; z-index: 100; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+        #jump:active { transform: scale(0.95); }
+
+        #missionBtn { position: fixed; top: 15px; right: 15px; padding: 12px 25px; background: #00ff00; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; z-index: 100; box-shadow: 0 4px 0 #00aa00; }
+        #missionBtn:active { transform: translateY(4px); box-shadow: none; }
     </style>
 </head>
 <body>
 
-<div id="loading-screen">LOADING CITY MODELS...</div>
+<div id="loader">
+    <h2 id="status">CONNECTING...</h2>
+    <div class="bar-container"><div id="bar"></div></div>
+    <p id="perc">0%</p>
+</div>
 
 <div id="hud">
-    <div id="minimap"><div id="pDot"></div></div>
-    <div id="missionBox">
-        <div id="mTitle" style="font-weight:bold;">MINI CITY</div>
-        <div id="mGoal">Explore the city!</div>
+    <div id="missionBox" class="mission-box">
+        <b id="mTitle" style="color:#00ff00; font-size: 18px;">TARGET ACQUIRED</b><br>
+        <span id="mDist" style="font-size: 24px;">0m</span>
     </div>
 </div>
 
+<button id="missionBtn">NEW MISSION</button>
+
 <div id="controls">
-    <div class="btn" style="grid-area:u" id="u">▲</div>
-    <div class="btn" style="grid-area:l" id="l">◀</div>
-    <div class="btn" style="grid-area:d" id="d">▼</div>
-    <div class="btn" style="grid-area:r" id="r">▶</div>
+    <div class="btn" style="grid-area:u" id="btnU">▲</div>
+    <div class="btn" style="grid-area:l" id="btnL">◀</div>
+    <div class="btn" style="grid-area:d" id="btnD">▼</div>
+    <div class="btn" style="grid-area:r" id="btnR">▶</div>
 </div>
-<button id="jump" class="btn">JUMP</button>
+<button id="jump">JUMP</button>
 
 <script type="importmap">
-{
-    "imports": { 
-        "three": "https://unpkg.com/three@0.152.2/build/three.module.js", 
-        "three/addons/": "https://unpkg.com/three@0.152.2/examples/jsm/" 
-    }
-}
+{ "imports": { "three": "https://unpkg.com/three@0.152.2/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.152.2/examples/jsm/" } }
 </script>
 
 <script type="module">
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-/* --- SCENE SETUP --- */
+/* 1. SETUP */
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb);
-const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 5000);
+scene.background = new THREE.Color(0x87ceeb); // Sky Blue
+scene.fog = new THREE.Fog(0x87ceeb, 200, 2000); // Distance Fog
 
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 5000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 document.body.appendChild(renderer.domElement);
 
 // Lighting
-scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-const sun = new THREE.DirectionalLight(0xffffff, 1.0);
-sun.position.set(50, 100, 50);
+scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+const sun = new THREE.DirectionalLight(0xffffff, 1.5);
+sun.position.set(100, 500, 100);
 scene.add(sun);
 
 // Ground
-const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(10000, 10000), 
-    new THREE.MeshLambertMaterial({ color: 0x44aa44 })
-);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(10000, 10000), new THREE.MeshLambertMaterial({ color: 0x33aa33 }));
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 
-/* --- ASSET LOADING --- */
-const models = { b1: null, b2: null, tree: null };
+/* 2. LOADING ASSETS (Models Folder) */
+const manager = new THREE.LoadingManager();
+const loader = new GLTFLoader(manager);
+const assets = { b1: null, b2: null, tree: null };
 const colliders = [];
-const loader = new GLTFLoader();
-let assetsToLoad = 3;
-let assetsLoaded = 0;
 
-const checkReady = () => {
-    assetsLoaded++;
-    if (assetsLoaded >= assetsToLoad) {
-        document.getElementById('loading-screen').style.display = 'none';
-        initCity();
-    }
+manager.onProgress = (url, loaded, total) => {
+    const p = Math.floor((loaded / total) * 100);
+    document.getElementById('bar').style.width = p + "%";
+    document.getElementById('perc').innerText = p + "%";
+    document.getElementById('status').innerText = "LOADING CITY...";
 };
 
-const loadAsset = (url, key) => {
-    loader.load(url, 
-        (gltf) => { 
-            models[key] = gltf.scene; 
-            checkReady(); 
-        }, 
-        undefined, 
-        (err) => { 
-            console.warn(`Asset ${url} not found. Using fallback.`);
-            const group = new THREE.Group();
-            const mesh = new THREE.Mesh(
-                new THREE.BoxGeometry(60, 120, 60), 
-                new THREE.MeshLambertMaterial({color: key === 'tree' ? 0x228B22 : 0x555555})
-            );
-            group.add(mesh);
-            models[key] = group;
-            checkReady(); 
-        }
-    );
+manager.onLoad = () => {
+    generateCity();
+    document.getElementById('loader').style.opacity = 0;
+    setTimeout(() => { document.getElementById('loader').style.display = 'none'; }, 500);
 };
 
-loadAsset('models/building.glb', 'b1');
-loadAsset('models/building1.glb', 'b2');
-loadAsset('models/tree1.glb', 'tree');
+// CRITICAL: PATHS TO YOUR MODELS FOLDER
+loader.load('models/building.glb', (g) => { assets.b1 = g.scene; });
+loader.load('models/building2.glb', (g) => { assets.b2 = g.scene; });
+loader.load('models/tree1.glb', (g) => { assets.tree = g.scene; });
 
-/* --- CITY GENERATION --- */
-const initCity = () => {
-    const spacing = 450;
-    for(let x = -5; x <= 5; x++){
-        for(let z = -5; z <= 5; z++){
-            if(x === 0 && z === 0) continue;
+function generateCity() {
+    // We increase grid size to 1500 to prevent overlap
+    for(let x = -6; x <= 6; x++) {
+        for(let z = -6; z <= 6; z++) {
+            if(x === 0 && z === 0) continue; // Save spawn area
             
-            const px = x * spacing;
-            const pz = z * spacing;
+            const px = x * 1500;
+            const pz = z * 1500;
             
-            const modelToUse = (x + z) % 2 === 0 ? models.b1 : models.b2;
-            const b = modelToUse.clone();
-            b.position.set(px, 0, pz);
-            scene.add(b);
+            // 50% chance for Building 1 or Building 2
+            const buildType = (x + z) % 2 === 0 ? assets.b1 : assets.b2;
             
-            // Register collider
-            colliders.push({ x: px, z: pz, r: 100 });
-
-            if(models.tree && Math.random() > 0.5) {
-                const t = models.tree.clone();
-                t.position.set(px + 120, 0, pz + 120);
+            if(buildType) {
+                const b = buildType.clone();
+                // SCALE FIX: Make them huge so you can definitely see them
+                b.scale.set(60, 60, 60); 
+                b.position.set(px, 0, pz);
+                scene.add(b);
+                // Invisible wall around building
+                colliders.push({x: px, z: pz, r: 250});
+            }
+            
+            if(assets.tree) {
+                const t = assets.tree.clone();
+                t.scale.set(30, 30, 30);
+                t.position.set(px + 500, 0, pz + 500);
                 scene.add(t);
             }
         }
     }
+}
+
+/* 3. GAMEPLAY & MISSIONS */
+const missions = Array.from({length: 20}, (_, i) => ({
+    id: i,
+    title: `CONTRACT #${i+101}`,
+    pos: { x: (Math.random()-0.5)*9000, z: (Math.random()-0.5)*9000 }
+}));
+
+let activeM = null, targetMark = null;
+
+document.getElementById('missionBtn').onclick = () => {
+    activeM = missions[Math.floor(Math.random() * missions.length)];
+    
+    if(targetMark) scene.remove(targetMark);
+    targetMark = new THREE.Mesh(new THREE.SphereGeometry(80), new THREE.MeshBasicMaterial({color: 0xff00ff, wireframe: true}));
+    targetMark.position.set(activeM.pos.x, 100, activeM.pos.z);
+    scene.add(targetMark);
+    
+    document.getElementById('missionBox').style.display = 'block';
+    document.getElementById('mTitle').innerText = activeM.title;
 };
 
-/* --- PLAYER LOGIC --- */
+/* 4. PLAYER MOVEMENT */
 const player = new THREE.Object3D();
-player.position.set(0, 10, 400);
+player.position.set(0, 10, 600);
 scene.add(player);
-player.add(camera); // FPS Camera setup
+player.add(camera);
 
 let yaw = 0, pitch = 0, vY = 0;
-let input = { f: 0, b: 0, l: 0, r: 0 };
-const config = { sens: 0.004, speed: 7 };
+const input = { f:0, b:0, l:0, r:0 };
 
 function animate() {
     requestAnimationFrame(animate);
     
+    // Move
+    const speed = 15;
     let nx = player.position.x;
     let nz = player.position.z;
-    
-    // Movement calculation based on camera yaw
-    if(input.f){ nx -= Math.sin(yaw) * config.speed; nz -= Math.cos(yaw) * config.speed; }
-    if(input.b){ nx += Math.sin(yaw) * config.speed; nz += Math.cos(yaw) * config.speed; }
-    if(input.l){ nx -= Math.cos(yaw) * config.speed; nz += Math.sin(yaw) * config.speed; }
-    if(input.r){ nx += Math.cos(yaw) * config.speed; nz -= Math.sin(yaw) * config.speed; }
 
-    // Collision Detection
+    if(input.f) { nx -= Math.sin(yaw) * speed; nz -= Math.cos(yaw) * speed; }
+    if(input.b) { nx += Math.sin(yaw) * speed; nz += Math.cos(yaw) * speed; }
+    if(input.l) { nx -= Math.cos(yaw) * speed; nz += Math.sin(yaw) * speed; }
+    if(input.r) { nx += Math.cos(yaw) * speed; nz -= Math.sin(yaw) * speed; }
+
+    // Collision Check
     let hit = false;
     for(let c of colliders) {
-        if(Math.hypot(nx - c.x, nz - c.z) < c.r) {
-            hit = true;
-            break;
+        if(Math.hypot(nx - c.x, nz - c.z) < c.r) hit = true;
+    }
+    if(!hit) {
+        player.position.x = nx;
+        player.position.z = nz;
+    }
+
+    // Gravity
+    vY -= 0.05;
+    player.position.y += vY;
+    if(player.position.y < 20) { player.position.y = 20; vY = 0; }
+
+    // Mission Logic
+    if(activeM) {
+        targetMark.rotation.y += 0.05;
+        const dist = Math.round(player.position.distanceTo(targetMark.position));
+        document.getElementById('mDist').innerText = dist + "m";
+        
+        if(dist < 200) {
+            alert("MISSION COMPLETE! +$500");
+            activeM = null;
+            scene.remove(targetMark);
+            document.getElementById('missionBox').style.display = 'none';
         }
     }
-    
-    if(!hit){ 
-        player.position.x = nx; 
-        player.position.z = nz; 
-    }
 
-    // Physics (Gravity/Jump)
-    vY -= 0.02; 
-    player.position.y += vY;
-    if(player.position.y < 10){ 
-        player.position.y = 10; 
-        vY = 0; 
-    }
-
-    // Apply Rotation
     player.rotation.y = yaw;
-    camera.rotation.x = pitch;
-
     renderer.render(scene, camera);
 }
+animate();
 
-/* --- CONTROLS --- */
-const bind = (id, k) => {
-    const e = document.getElementById(id);
-    e.addEventListener('pointerdown', (ev) => { ev.preventDefault(); input[k] = 1; });
-    e.addEventListener('pointerup', (ev) => { ev.preventDefault(); input[k] = 0; });
-    e.addEventListener('pointerleave', (ev) => { ev.preventDefault(); input[k] = 0; });
+/* 5. INPUT HANDLING */
+const bindBtn = (id, key) => {
+    const el = document.getElementById(id);
+    el.addEventListener('pointerdown', (e) => { e.preventDefault(); input[key] = 1; });
+    el.addEventListener('pointerup', (e) => { e.preventDefault(); input[key] = 0; });
+    el.addEventListener('pointerleave', (e) => { e.preventDefault(); input[key] = 0; });
 };
-bind("u","f"); bind("d","b"); bind("l","l"); bind("r","r");
 
-document.getElementById("jump").addEventListener('pointerdown', (e) => { 
+bindBtn('btnU', 'f');
+bindBtn('btnD', 'b');
+bindBtn('btnL', 'l');
+bindBtn('btnR', 'r');
+
+document.getElementById('jump').addEventListener('pointerdown', (e) => {
     e.preventDefault();
-    if(player.position.y <= 10.1) vY = 0.5; 
+    if(player.position.y <= 21) vY = 1.2;
 });
 
-// Touch/Mouse look
-let drag = false, lx, ly;
-renderer.domElement.addEventListener('pointerdown', e => { 
-    drag = true; lx = e.clientX; ly = e.clientY; 
+// Touch to look around
+let isDragging = false, lastX = 0;
+renderer.domElement.addEventListener('pointerdown', (e) => {
+    isDragging = true;
+    lastX = e.clientX;
 });
-window.addEventListener('pointerup', () => drag = false);
-window.addEventListener('pointermove', e => { 
-    if(drag){ 
-        yaw -= (e.clientX - lx) * config.sens; 
-        // Clamping pitch to prevent flipping (approx 80 degrees)
-        pitch = Math.max(-1.4, Math.min(1.4, pitch - (e.clientY - ly) * config.sens));
-        lx = e.clientX; ly = e.clientY; 
+window.addEventListener('pointermove', (e) => {
+    if(isDragging) {
+        const delta = e.clientX - lastX;
+        yaw -= delta * 0.005;
+        lastX = e.clientX;
     }
 });
+window.addEventListener('pointerup', () => isDragging = false);
 
-// Resizing
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
-
-animate();
 </script>
 </body>
 </html>
