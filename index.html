@@ -3,21 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mini City Life - Fully Fixed</title>
+    <title>Mini City Life - Debugging</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #87ceeb; touch-action: none; font-family: sans-serif; }
-        /* Mobile UI Joystick */
+        body { margin: 0; overflow: hidden; background: #000; font-family: monospace; }
+        #debug-log { 
+            position: absolute; top: 10px; left: 10px; padding: 10px;
+            background: rgba(0,0,0,0.8); color: #0f0; font-size: 12px;
+            z-index: 100; pointer-events: none; max-width: 80%;
+        }
         #joystick-base { 
-            position: absolute; bottom: 50px; left: 50px; width: 100px; height: 100px; 
-            background: rgba(255,255,255,0.3); border-radius: 50%; z-index: 10;
+            position: absolute; bottom: 40px; left: 40px; width: 80px; height: 80px; 
+            background: rgba(255,255,255,0.2); border-radius: 50%; z-index: 10;
         }
         #joystick-knob { 
-            position: absolute; top: 25px; left: 25px; width: 50px; height: 50px; 
-            background: #fff; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            position: absolute; top: 20px; left: 20px; width: 40px; height: 40px; 
+            background: #fff; border-radius: 50%; 
         }
     </style>
 </head>
 <body>
+    <div id="debug-log">System Initializing...</div>
     <div id="joystick-base"><div id="joystick-knob"></div></div>
 
     <script type="importmap">
@@ -33,91 +38,94 @@
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-        // 1. Scene Setup
+        const logger = document.getElementById('debug-log');
+        function log(msg) { logger.innerHTML += "<br>" + msg; console.log(msg); }
+
+        // 1. SETUP SCENE
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x87ceeb);
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 15, 30);
+
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // 2. Lighting (Essential for GLB models to be visible)
-        scene.add(new THREE.AmbientLight(0xffffff, 1.0));
-        const sun = new THREE.DirectionalLight(0xffffff, 1.5);
-        sun.position.set(10, 20, 10);
+        // 2. LIGHTING (CRITICAL: Without this, models are black/invisible)
+        const ambient = new THREE.AmbientLight(0xffffff, 2.0); // Very bright
+        scene.add(ambient);
+        const sun = new THREE.DirectionalLight(0xffffff, 2.0);
+        sun.position.set(5, 20, 10);
         scene.add(sun);
 
-        // 3. Ground
-        const ground = new THREE.Mesh(
-            new THREE.PlaneGeometry(200, 200),
-            new THREE.MeshStandardMaterial({ color: 0x4caf50 })
-        );
-        ground.rotation.x = -Math.PI / 2;
-        scene.add(ground);
-
-        // 4. Loading Manager & Models
+        // 3. THE LOADER
         const loader = new GLTFLoader();
-        const playerGroup = new THREE.Group();
-        scene.add(playerGroup);
+        const player = new THREE.Group();
+        scene.add(player);
 
-        // Load Building 1 (Left)
-        loader.load('models/building.glb', (gltf) => {
-            const b = gltf.scene;
-            b.position.set(-20, 0, -10);
-            scene.add(b);
-        });
+        function loadModel(fileName, x, z, isPlayer = false) {
+            const path = `models/${fileName}`;
+            log(`Attempting to load: ${path}...`);
 
-        // Load Building 2 (Right - Path Fixed)
-        loader.load('models/building1.glb', (gltf) => {
-            const b = gltf.scene;
-            b.position.set(20, 0, -10);
-            scene.add(b);
-        });
+            loader.load(path, 
+                (gltf) => {
+                    log(`SUCCESS: ${fileName} loaded.`);
+                    const model = gltf.scene;
+                    
+                    // AUTO-SCALE: If model is too small or huge, this fixes it
+                    const box = new THREE.Box3().setFromObject(model);
+                    const size = box.getSize(new THREE.Vector3());
+                    const maxDim = Math.max(size.x, size.y, size.z);
+                    const scale = 10 / maxDim; // Make every model roughly 10 units tall
+                    model.scale.set(scale, scale, scale);
 
-        // Load Tree (The Player)
-        loader.load('models/tree1.glb', (gltf) => {
-            const t = gltf.scene;
-            // Scale adjustment in case tree is too small/large
-            t.scale.set(1.5, 1.5, 1.5); 
-            playerGroup.add(t);
-        });
+                    if (isPlayer) {
+                        player.add(model);
+                    } else {
+                        model.position.set(x, 0, z);
+                        scene.add(model);
+                    }
+                },
+                undefined,
+                (error) => {
+                    log(`FAILED: ${fileName}. Check folder name and spelling!`);
+                }
+            );
+        }
 
-        // 5. Joystick Logic
+        // 4. CALLING THE FILES
+        loadModel('building.glb', -20, -10);
+        loadModel('building1.glb', 20, -10);
+        loadModel('tree1.glb', 0, 0, true);
+
+        // 5. JOYSTICK & MOVEMENT
+        let moveX = 0, moveZ = 0, dragging = false;
         const knob = document.getElementById('joystick-knob');
         const base = document.getElementById('joystick-base');
-        let moveX = 0, moveZ = 0, dragging = false;
 
         base.addEventListener('pointerdown', () => dragging = true);
         window.addEventListener('pointermove', (e) => {
             if (!dragging) return;
-            const rect = base.getBoundingClientRect();
-            let dx = e.clientX - (rect.left + 50);
-            let dy = e.clientY - (rect.top + 50);
-            const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 40);
+            const b = base.getBoundingClientRect();
+            let dx = e.clientX - (b.left + 40);
+            let dy = e.clientY - (b.top + 40);
+            const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 30);
             const angle = Math.atan2(dy, dx);
             knob.style.transform = `translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist}px)`;
-            moveX = (Math.cos(angle) * dist) / 40;
-            moveZ = (Math.sin(angle) * dist) / 40;
+            moveX = (Math.cos(angle) * dist) / 30;
+            moveZ = (Math.sin(angle) * dist) / 30;
         });
         window.addEventListener('pointerup', () => {
-            dragging = false;
-            knob.style.transform = `translate(0,0)`;
+            dragging = false; knob.style.transform = `translate(0,0)`;
             moveX = 0; moveZ = 0;
         });
 
-        // 6. Animation Loop & Camera Follow
+        // 6. RENDER LOOP
         function animate() {
             requestAnimationFrame(animate);
-            
-            // Movement speed
-            playerGroup.position.x += moveX * 0.3;
-            playerGroup.position.z += moveZ * 0.3;
-            
-            // Third-Person Camera Position
-            const offset = new THREE.Vector3(0, 10, 25);
-            camera.position.lerp(playerGroup.position.clone().add(offset), 0.1);
-            camera.lookAt(playerGroup.position);
-            
+            player.position.x += moveX * 0.3;
+            player.position.z += moveZ * 0.3;
+            camera.lookAt(player.position);
             renderer.render(scene, camera);
         }
         animate();
