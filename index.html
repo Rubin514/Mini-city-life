@@ -3,26 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mini City Life - Debugging</title>
+    <title>Mini City Life - GitHub Fix</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: monospace; }
-        #debug-log { 
-            position: absolute; top: 10px; left: 10px; padding: 10px;
-            background: rgba(0,0,0,0.8); color: #0f0; font-size: 12px;
-            z-index: 100; pointer-events: none; max-width: 80%;
-        }
-        #joystick-base { 
-            position: absolute; bottom: 40px; left: 40px; width: 80px; height: 80px; 
-            background: rgba(255,255,255,0.2); border-radius: 50%; z-index: 10;
-        }
-        #joystick-knob { 
-            position: absolute; top: 20px; left: 20px; width: 40px; height: 40px; 
-            background: #fff; border-radius: 50%; 
-        }
+        body { margin: 0; overflow: hidden; background: #87ceeb; touch-action: none; font-family: monospace; }
+        #debug { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: #0f0; padding: 10px; z-index: 100; font-size: 11px; pointer-events: none; }
+        #joystick-base { position: absolute; bottom: 40px; left: 40px; width: 80px; height: 80px; background: rgba(255,255,255,0.3); border-radius: 50%; }
+        #joystick-knob { position: absolute; top: 20px; left: 20px; width: 40px; height: 40px; background: #fff; border-radius: 50%; }
     </style>
 </head>
 <body>
-    <div id="debug-log">System Initializing...</div>
+    <div id="debug">System: Checking GitHub Paths...</div>
     <div id="joystick-base"><div id="joystick-knob"></div></div>
 
     <script type="importmap">
@@ -38,73 +28,65 @@
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-        const logger = document.getElementById('debug-log');
-        function log(msg) { logger.innerHTML += "<br>" + msg; console.log(msg); }
+        const debug = document.getElementById('debug');
+        const log = (msg) => { debug.innerHTML += "<br>" + msg; };
 
-        // 1. SETUP SCENE
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x87ceeb);
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 15, 30);
-
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // 2. LIGHTING (CRITICAL: Without this, models are black/invisible)
-        const ambient = new THREE.AmbientLight(0xffffff, 2.0); // Very bright
-        scene.add(ambient);
-        const sun = new THREE.DirectionalLight(0xffffff, 2.0);
-        sun.position.set(5, 20, 10);
+        // Bright lighting for GitHub models
+        scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+        const sun = new THREE.DirectionalLight(0xffffff, 1);
+        sun.position.set(10, 20, 10);
         scene.add(sun);
 
-        // 3. THE LOADER
         const loader = new GLTFLoader();
         const player = new THREE.Group();
         scene.add(player);
 
-        function loadModel(fileName, x, z, isPlayer = false) {
-            const path = `models/${fileName}`;
-            log(`Attempting to load: ${path}...`);
+        // LOAD FUNCTION
+        const loadAsset = (fileName, x, z, isPlayer = false) => {
+            // Use './' to ensure it looks inside the current repository folder
+            const path = './models/' + fileName;
+            
+            loader.load(path, (gltf) => {
+                const m = gltf.scene;
+                
+                // Auto-scale logic
+                const box = new THREE.Box3().setFromObject(m);
+                const size = box.getSize(new THREE.Vector3());
+                const scale = 12 / Math.max(size.x, size.y, size.z);
+                m.scale.set(scale, scale, scale);
 
-            loader.load(path, 
-                (gltf) => {
-                    log(`SUCCESS: ${fileName} loaded.`);
-                    const model = gltf.scene;
-                    
-                    // AUTO-SCALE: If model is too small or huge, this fixes it
-                    const box = new THREE.Box3().setFromObject(model);
-                    const size = box.getSize(new THREE.Vector3());
-                    const maxDim = Math.max(size.x, size.y, size.z);
-                    const scale = 10 / maxDim; // Make every model roughly 10 units tall
-                    model.scale.set(scale, scale, scale);
-
-                    if (isPlayer) {
-                        player.add(model);
-                    } else {
-                        model.position.set(x, 0, z);
-                        scene.add(model);
-                    }
-                },
-                undefined,
-                (error) => {
-                    log(`FAILED: ${fileName}. Check folder name and spelling!`);
+                if (isPlayer) {
+                    player.add(m);
+                    log("✅ Loaded Player: " + fileName);
+                } else {
+                    m.position.set(x, 0, z);
+                    scene.add(m);
+                    log("✅ Loaded Building: " + fileName);
                 }
-            );
-        }
+            }, undefined, (err) => {
+                log("❌ FAILED: " + fileName + " (Path error)");
+            });
+        };
 
-        // 4. CALLING THE FILES
-        loadModel('building.glb', -20, -10);
-        loadModel('building1.glb', 20, -10);
-        loadModel('tree1.glb', 0, 0, true);
+        // These MUST match your GitHub filenames exactly (all lowercase)
+        loadAsset('building.glb', -20, -15);
+        loadAsset('building1.glb', 20, -15);
+        loadAsset('tree1.glb', 0, 0, true);
 
-        // 5. JOYSTICK & MOVEMENT
+        // JOYSTICK
         let moveX = 0, moveZ = 0, dragging = false;
         const knob = document.getElementById('joystick-knob');
         const base = document.getElementById('joystick-base');
 
-        base.addEventListener('pointerdown', () => dragging = true);
-        window.addEventListener('pointermove', (e) => {
+        base.onpointerdown = () => dragging = true;
+        window.onpointermove = (e) => {
             if (!dragging) return;
             const b = base.getBoundingClientRect();
             let dx = e.clientX - (b.left + 40);
@@ -114,27 +96,18 @@
             knob.style.transform = `translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist}px)`;
             moveX = (Math.cos(angle) * dist) / 30;
             moveZ = (Math.sin(angle) * dist) / 30;
-        });
-        window.addEventListener('pointerup', () => {
-            dragging = false; knob.style.transform = `translate(0,0)`;
-            moveX = 0; moveZ = 0;
-        });
+        };
+        window.onpointerup = () => { dragging = false; knob.style.transform = ''; moveX = 0; moveZ = 0; };
 
-        // 6. RENDER LOOP
         function animate() {
             requestAnimationFrame(animate);
             player.position.x += moveX * 0.3;
             player.position.z += moveZ * 0.3;
+            camera.position.set(player.position.x, player.position.y + 15, player.position.z + 30);
             camera.lookAt(player.position);
             renderer.render(scene, camera);
         }
         animate();
-
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
     </script>
 </body>
 </html>
