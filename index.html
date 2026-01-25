@@ -1,35 +1,33 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Mini City Life</title>
 
 <style>
-    body {
-        margin: 0;
-        overflow: hidden;
-        background: #87ceeb;
-        touch-action: none;
-        font-family: Arial, sans-serif;
-    }
-    #info {
-        position: absolute;
-        top: 10px;
-        left: 10px;
-        background: rgba(0,0,0,0.6);
-        color: #fff;
-        padding: 10px;
-        border-radius: 6px;
-        font-size: 14px;
-    }
+body {
+  margin: 0;
+  overflow: hidden;
+  background: #87ceeb;
+  font-family: Arial, sans-serif;
+}
+#info {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 14px;
+}
 </style>
 </head>
 
 <body>
-<div id="info">Loading models…</div>
+<div id="info">Loading models...</div>
 
-<!-- IMPORT MAP -->
 <script type="importmap">
 {
   "imports": {
@@ -44,44 +42,31 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-/* ------------------ BASE PATH FIX ------------------ */
-/* Works on localhost + GitHub Pages automatically */
-const BASE_PATH = location.hostname.includes('github.io')
-  ? '/Mini-city-life/'
-  : './';
-
-/* ------------------ SCENE ------------------ */
+/* ---------------- SCENE ---------------- */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 
-/* ------------------ CAMERA ------------------ */
-const camera = new THREE.PerspectiveCamera(
-  60,
-  window.innerWidth / window.innerHeight,
-  0.1,
-  2000
-);
+/* ---------------- CAMERA ---------------- */
+const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 2000);
 camera.position.set(0, 30, 60);
 
-/* ------------------ RENDERER ------------------ */
+/* ---------------- RENDERER ---------------- */
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
-/* ------------------ CONTROLS ------------------ */
+/* ---------------- CONTROLS ---------------- */
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
-controls.target.set(0, 0, 0);
 
-/* ------------------ LIGHTING ------------------ */
+/* ---------------- LIGHTS ---------------- */
 scene.add(new THREE.AmbientLight(0xffffff, 1.5));
-
 const sun = new THREE.DirectionalLight(0xffffff, 1);
 sun.position.set(30, 50, 20);
 scene.add(sun);
 
-/* ------------------ GROUND ------------------ */
+/* ---------------- GROUND ---------------- */
 const ground = new THREE.Mesh(
   new THREE.PlaneGeometry(200, 200),
   new THREE.MeshStandardMaterial({ color: 0x4caf50 })
@@ -89,55 +74,63 @@ const ground = new THREE.Mesh(
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 
-/* ------------------ MODEL LOADER ------------------ */
+/* ---------------- LOADER ---------------- */
 const loader = new GLTFLoader();
 const info = document.getElementById('info');
 
-function loadModel(path, x, z) {
+function loadModel(url, x, z) {
   loader.load(
-    BASE_PATH + path,
+    url,
     (gltf) => {
       const model = gltf.scene;
 
-      // auto scale
       const box = new THREE.Box3().setFromObject(model);
       const size = box.getSize(new THREE.Vector3());
-      const max = Math.max(size.x, size.y, size.z);
-      const scale = 12 / max;
+      const scale = 12 / Math.max(size.x, size.y, size.z);
       model.scale.setScalar(scale);
 
       model.position.set(x, 0, z);
       scene.add(model);
 
-      info.innerHTML += `<br>✅ Loaded ${path}`;
+      info.innerHTML += `<br>✅ Loaded ${url.split('/').pop()}`;
     },
     undefined,
     () => {
-      info.innerHTML += `<br>❌ Failed ${path}`;
+      info.innerHTML += `<br>❌ Failed ${url.split('/').pop()}`;
     }
   );
 }
 
-/* ------------------ LOAD YOUR MODELS ------------------ */
-loadModel('models/building.glb', -25, 0);
-loadModel('models/building1.glb', 25, 0);
-loadModel('models/tree1.glb', 0, 25);
+/* ---------------- ABSOLUTE URLs (FINAL FIX) ---------------- */
+loadModel(
+  'https://rubin514.github.io/Mini-city-life/models/building.glb',
+  -25, 0
+);
 
-/* ------------------ RESIZE ------------------ */
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
+loadModel(
+  'https://rubin514.github.io/Mini-city-life/models/building1.glb',
+  25, 0
+);
+
+loadModel(
+  'https://rubin514.github.io/Mini-city-life/models/tree1.glb',
+  0, 25
+);
+
+/* ---------------- RESIZE ---------------- */
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(innerWidth, innerHeight);
 });
 
-/* ------------------ LOOP ------------------ */
+/* ---------------- LOOP ---------------- */
 function animate() {
   requestAnimationFrame(animate);
   controls.update();
   renderer.render(scene, camera);
 }
 animate();
-
 </script>
 </body>
 </html>
