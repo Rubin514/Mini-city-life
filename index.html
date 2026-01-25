@@ -1,15 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mini City Life – FIXED</title>
-<style>
-    body { margin: 0; overflow: hidden; background: #87ceeb; }
-    canvas { display: block; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini City Life – Fixed & Robust</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #87ceeb; font-family: sans-serif; }
+        canvas { display: block; }
+        #ui { position: absolute; top: 10px; left: 10px; color: white; text-shadow: 1px 1px 2px black; pointer-events: none; }
+    </style>
 </head>
 <body>
+
+<div id="ui">Use Mouse to Orbit / Scroll to Zoom</div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
@@ -17,152 +20,147 @@
 
 <script>
 /* =========================
-   SCENE
+   SCENE & CAMERA
 ========================= */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 
-/* =========================
-   CAMERA
-========================= */
-const camera = new THREE.PerspectiveCamera(
-    70,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    5000
-);
-camera.position.set(80, 60, 120);
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 5000);
+camera.position.set(100, 100, 150);
 
-/* =========================
-   RENDERER
-========================= */
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 document.body.appendChild(renderer.domElement);
 
-/* =========================
-   CONTROLS
-========================= */
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
-controls.target.set(0, 0, 0);
-controls.update();
 
 /* =========================
    LIGHTING
 ========================= */
-scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-
+scene.add(new THREE.AmbientLight(0xffffff, 0.7));
 const sun = new THREE.DirectionalLight(0xffffff, 1.2);
-sun.position.set(100, 200, 100);
+sun.position.set(50, 100, 50);
 scene.add(sun);
 
 /* =========================
    GROUND
 ========================= */
 const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(500, 500),
+    new THREE.PlaneGeometry(1000, 1000),
     new THREE.MeshStandardMaterial({ color: 0x4caf50 })
 );
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 
 /* =========================
-   DEBUG CUBE (PROVES RENDERING)
-========================= */
-const debugCube = new THREE.Mesh(
-    new THREE.BoxGeometry(10, 10, 10),
-    new THREE.MeshStandardMaterial({ color: 0xff0000 })
-);
-debugCube.position.y = 5;
-scene.add(debugCube);
-
-/* =========================
-   LOAD MODELS
+   LOADER LOGIC
 ========================= */
 const loader = new THREE.GLTFLoader();
-const models = {
-    buildings: [],
-    tree: null
-};
+const models = { buildings: [], tree: null };
+let loadAttempts = 0;
+const TOTAL_MODELS = 3;
 
-let loaded = 0;
-const TOTAL = 3;
-
-function ready() {
-    loaded++;
-    if (loaded === TOTAL) generateCity();
+function checkReady() {
+    loadAttempts++;
+    if (loadAttempts === TOTAL_MODELS) {
+        generateCity();
+    }
 }
 
-loader.load("models/building.glb", g => {
-    models.buildings.push(g.scene);
-    ready();
-});
+// Wrapper to handle errors gracefully
+function safeLoad(path, isTree = false) {
+    loader.load(
+        path,
+        (gltf) => {
+            if (isTree) models.tree = gltf.scene;
+            else models.buildings.push(gltf.scene);
+            checkReady();
+        },
+        undefined,
+        (err) => {
+            console.warn(`Failed to load ${path}. Using fallback boxes.`);
+            checkReady();
+        }
+    );
+}
 
-loader.load("models/building1.glb", g => {
-    models.buildings.push(g.scene);
-    ready();
-});
-
-loader.load("models/tree1.glb", g => {
-    models.tree = g.scene;
-    ready();
-});
+// Start loading
+safeLoad("models/building.glb");
+safeLoad("models/building1.glb");
+safeLoad("models/tree1.glb", true);
 
 /* =========================
    CITY GENERATION
 ========================= */
 function generateCity() {
     const spacing = 40;
-    const size = 3;
+    const gridLimit = 4; // 9x9 grid
 
-    for (let x = -size; x <= size; x++) {
-        for (let z = -size; z <= size; z++) {
-
-            if (x === 0 && z === 0) continue;
+    for (let x = -gridLimit; x <= gridLimit; x++) {
+        for (let z = -gridLimit; z <= gridLimit; z++) {
+            
+            // Leave center clear
+            if (Math.abs(x) < 1 && Math.abs(z) < 1) continue;
 
             let obj;
+            const chance = Math.random();
 
-            if (Math.random() < 0.3 && models.tree) {
+            if (chance < 0.2 && models.tree) {
+                // Spawn Tree
                 obj = models.tree.clone();
-                obj.scale.set(0.5, 0.5, 0.5);
-            } else {
-                const b =
-                    models.buildings[
-                        Math.floor(Math.random() * models.buildings.length)
-                    ];
+                obj.scale.set(5, 5, 5);
+            } else if (models.buildings.length > 0) {
+                // Spawn Random Loaded Building
+                const b = models.buildings[Math.floor(Math.random() * models.buildings.length)];
                 obj = b.clone();
                 obj.scale.set(0.3, 0.3, 0.3);
+            } else {
+                // FALLBACK: Box Buildings
+                const h = 20 + Math.random() * 40;
+                const geometry = new THREE.BoxGeometry(15, h, 15);
+                const material = new THREE.MeshStandardMaterial({ 
+                    color: new THREE.Color().setHSL(Math.random(), 0.2, 0.5) 
+                });
+                obj = new THREE.Mesh(geometry, material);
+                obj.position.y = h / 2; // Sit on ground
             }
 
-            obj.position.set(x * spacing, 0, z * spacing);
+            // Set Position
+            const posX = x * spacing + (Math.random() * 5 - 2.5);
+            const posZ = z * spacing + (Math.random() * 5 - 2.5);
+            
+            if (obj instanceof THREE.Group || !obj.geometry) {
+                obj.position.set(posX, 0, posZ);
+            } else {
+                obj.position.set(posX, obj.position.y, posZ);
+            }
+
             obj.rotation.y = Math.random() * Math.PI * 2;
             scene.add(obj);
         }
     }
-
-    console.log("City generated ✔");
+    console.log("City generation complete.");
 }
 
 /* =========================
-   RESIZE
-========================= */
-window.addEventListener("resize", () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-});
-
-/* =========================
-   ANIMATE
+   ANIMATION LOOP
 ========================= */
 function animate() {
     requestAnimationFrame(animate);
     controls.update();
     renderer.render(scene, camera);
 }
+
+window.addEventListener("resize", () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
 animate();
 </script>
 </body>
 </html>
+
