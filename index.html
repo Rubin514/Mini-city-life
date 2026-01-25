@@ -1,49 +1,128 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Mini City Life - Master Build</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; touch-action: none; user-select: none; }
-        
-        /* LOADING SCREEN */
-        #loader {
-            position: fixed; inset: 0; background: #111; z-index: 2000;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            color: #00ff00; transition: opacity 0.5s;
-        }
-        .bar-container { width: 250px; height: 15px; background: #333; border-radius: 8px; margin-top: 15px; overflow: hidden; border: 2px solid #555; }
-        #bar { width: 0%; height: 100%; background: #00ff00; box-shadow: 0 0 15px #00ff00; transition: width 0.2s; }
-        
-        /* HUD */
-        #hud { position: fixed; top: 15px; left: 15px; pointer-events: none; z-index: 100; }
-        .mission-box { background: rgba(0,0,0,0.8); color: #fff; padding: 15px; border-radius: 10px; border-left: 5px solid #00ff00; display: none; }
-        
-        /* CONTROLS */
-        #controls { position: fixed; bottom: 20px; left: 20px; z-index: 100; display: grid; grid-template-areas: ". u ." "l d r"; gap: 10px; }
-        .btn { width: 65px; height: 65px; background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.5); border-radius: 15px; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; backdrop-filter: blur(5px); }
-        .btn:active { background: rgba(0,255,0,0.5); border-color: #00ff00; }
-        
-        #jump { position: fixed; bottom: 40px; right: 30px; width: 85px; height: 85px; background: #ff9800; border-radius: 50%; border: 3px solid #fff; color: white; font-weight: bold; font-size: 18px; z-index: 100; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
-        #jump:active { transform: scale(0.95); }
+<meta charset="UTF-8">
+<title>Mini City Life – Master Build</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-        #missionBtn { position: fixed; top: 15px; right: 15px; padding: 12px 25px; background: #00ff00; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; z-index: 100; box-shadow: 0 4px 0 #00aa00; }
-        #missionBtn:active { transform: translateY(4px); box-shadow: none; }
-    </style>
+<style>
+body {
+    margin: 0;
+    overflow: hidden;
+    background: #000;
+    font-family: Arial, sans-serif;
+    touch-action: none;
+}
+
+/* LOADER */
+#loader {
+    position: fixed;
+    inset: 0;
+    background: #111;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: #00ff00;
+}
+.bar-container {
+    width: 250px;
+    height: 15px;
+    background: #333;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 15px;
+}
+#bar {
+    width: 0%;
+    height: 100%;
+    background: #00ff00;
+}
+
+/* HUD */
+#hud {
+    position: fixed;
+    top: 15px;
+    left: 15px;
+    z-index: 100;
+}
+.mission-box {
+    background: rgba(0,0,0,0.75);
+    color: white;
+    padding: 12px;
+    border-radius: 10px;
+    border-left: 5px solid #00ff00;
+    display: none;
+}
+
+/* CONTROLS */
+#controls {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    display: grid;
+    grid-template-areas:
+        ". u ."
+        "l d r";
+    gap: 10px;
+    z-index: 100;
+}
+.btn {
+    width: 60px;
+    height: 60px;
+    background: rgba(255,255,255,0.2);
+    border: 2px solid rgba(255,255,255,0.4);
+    border-radius: 12px;
+    color: white;
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.btn:active { background: rgba(0,255,0,0.5); }
+
+#jump {
+    position: fixed;
+    bottom: 35px;
+    right: 30px;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: orange;
+    color: white;
+    font-weight: bold;
+    border: none;
+    font-size: 16px;
+    z-index: 100;
+}
+
+#missionBtn {
+    position: fixed;
+    top: 15px;
+    right: 15px;
+    background: #00ff00;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    z-index: 100;
+}
+</style>
 </head>
+
 <body>
 
 <div id="loader">
-    <h2 id="status">CONNECTING...</h2>
+    <h2 id="status">LOADING...</h2>
     <div class="bar-container"><div id="bar"></div></div>
     <p id="perc">0%</p>
 </div>
 
 <div id="hud">
     <div id="missionBox" class="mission-box">
-        <b id="mTitle" style="color:#00ff00; font-size: 18px;">TARGET ACQUIRED</b><br>
-        <span id="mDist" style="font-size: 24px;">0m</span>
+        <b id="mTitle">MISSION</b><br>
+        <span id="mDist">0m</span>
     </div>
 </div>
 
@@ -55,209 +134,192 @@
     <div class="btn" style="grid-area:d" id="btnD">▼</div>
     <div class="btn" style="grid-area:r" id="btnR">▶</div>
 </div>
+
 <button id="jump">JUMP</button>
 
 <script type="importmap">
-{ "imports": { "three": "https://unpkg.com/three@0.152.2/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.152.2/examples/jsm/" } }
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.152.2/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.152.2/examples/jsm/"
+  }
+}
 </script>
 
 <script type="module">
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-/* 1. SETUP */
+/* SCENE */
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb); // Sky Blue
-scene.fog = new THREE.Fog(0x87ceeb, 200, 2000); // Distance Fog
+scene.background = new THREE.Color(0x87ceeb);
+scene.fog = new THREE.Fog(0x87ceeb, 1500, 9000);
 
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 5000);
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 10000);
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement);
 
-// Lighting
-scene.add(new THREE.AmbientLight(0xffffff, 1.2));
-const sun = new THREE.DirectionalLight(0xffffff, 1.5);
-sun.position.set(100, 500, 100);
+/* LIGHT */
+scene.add(new THREE.AmbientLight(0xffffff, 1.1));
+const sun = new THREE.DirectionalLight(0xffffff, 1.3);
+sun.position.set(300,600,300);
+sun.castShadow = true;
 scene.add(sun);
 
-// Ground
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(10000, 10000), new THREE.MeshLambertMaterial({ color: 0x33aa33 }));
-ground.rotation.x = -Math.PI / 2;
+/* GROUND */
+const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(15000,15000),
+    new THREE.MeshLambertMaterial({color:0x3ca43c})
+);
+ground.rotation.x = -Math.PI/2;
+ground.receiveShadow = true;
 scene.add(ground);
 
-/* 2. LOADING ASSETS (Models Folder) */
+/* LOADER */
 const manager = new THREE.LoadingManager();
 const loader = new GLTFLoader(manager);
-const assets = { b1: null, b2: null, tree: null };
+
+const assets = { b1:null, b2:null, tree:null };
 const colliders = [];
 
-manager.onProgress = (url, loaded, total) => {
-    const p = Math.floor((loaded / total) * 100);
-    document.getElementById('bar').style.width = p + "%";
-    document.getElementById('perc').innerText = p + "%";
-    document.getElementById('status').innerText = "LOADING CITY...";
+manager.onProgress = (u,l,t)=>{
+    if(!t) return;
+    const p = Math.floor((l/t)*100);
+    bar.style.width = p+"%";
+    perc.innerText = p+"%";
 };
-
-manager.onLoad = () => {
+manager.onLoad = ()=>{
     generateCity();
-    document.getElementById('loader').style.opacity = 0;
-    setTimeout(() => { document.getElementById('loader').style.display = 'none'; }, 500);
+    loaderDiv.style.display="none";
 };
 
-// CRITICAL: PATHS TO YOUR MODELS FOLDER
-loader.load('models/building.glb', (g) => { assets.b1 = g.scene; });
-loader.load('models/building2.glb', (g) => { assets.b2 = g.scene; });
-loader.load('models/tree1.glb', (g) => { assets.tree = g.scene; });
+const loaderDiv = document.getElementById("loader");
 
-function generateCity() {
-    // We increase grid size to 1500 to prevent overlap
-    for(let x = -6; x <= 6; x++) {
-        for(let z = -6; z <= 6; z++) {
-            if(x === 0 && z === 0) continue; // Save spawn area
-            
-            const px = x * 1500;
-            const pz = z * 1500;
-            
-            // 50% chance for Building 1 or Building 2
-            const buildType = (x + z) % 2 === 0 ? assets.b1 : assets.b2;
-            
-            if(buildType) {
-                const b = buildType.clone();
-                // SCALE FIX: Make them huge so you can definitely see them
-                b.scale.set(60, 60, 60); 
-                b.position.set(px, 0, pz);
+/* ✅ FIXED PATHS */
+loader.load("models/building.glb", g=>assets.b1=g.scene);
+loader.load("models/building1.glb", g=>assets.b2=g.scene);
+loader.load("models/tree1.glb", g=>assets.tree=g.scene);
+
+/* CITY */
+function generateCity(){
+    for(let x=-6;x<=6;x++){
+        for(let z=-6;z<=6;z++){
+            if(x===0 && z===0) continue;
+            const px=x*1200, pz=z*1200;
+            const model=(x+z)%2===0?assets.b1:assets.b2;
+            if(model){
+                const b=model.clone();
+                b.scale.set(25,25,25);
+                b.position.set(px,0,pz);
+                b.traverse(o=>o.isMesh&&(o.castShadow=true));
                 scene.add(b);
-                // Invisible wall around building
-                colliders.push({x: px, z: pz, r: 250});
+                colliders.push({x:px,z:pz,r:120});
             }
-            
-            if(assets.tree) {
-                const t = assets.tree.clone();
-                t.scale.set(30, 30, 30);
-                t.position.set(px + 500, 0, pz + 500);
+            if(assets.tree){
+                const t=assets.tree.clone();
+                t.scale.set(20,20,20);
+                t.position.set(px+400,0,pz+400);
                 scene.add(t);
             }
         }
     }
 }
 
-/* 3. GAMEPLAY & MISSIONS */
-const missions = Array.from({length: 20}, (_, i) => ({
-    id: i,
-    title: `CONTRACT #${i+101}`,
-    pos: { x: (Math.random()-0.5)*9000, z: (Math.random()-0.5)*9000 }
-}));
-
-let activeM = null, targetMark = null;
-
-document.getElementById('missionBtn').onclick = () => {
-    activeM = missions[Math.floor(Math.random() * missions.length)];
-    
-    if(targetMark) scene.remove(targetMark);
-    targetMark = new THREE.Mesh(new THREE.SphereGeometry(80), new THREE.MeshBasicMaterial({color: 0xff00ff, wireframe: true}));
-    targetMark.position.set(activeM.pos.x, 100, activeM.pos.z);
-    scene.add(targetMark);
-    
-    document.getElementById('missionBox').style.display = 'block';
-    document.getElementById('mTitle').innerText = activeM.title;
-};
-
-/* 4. PLAYER MOVEMENT */
+/* PLAYER */
 const player = new THREE.Object3D();
-player.position.set(0, 10, 600);
+player.position.set(0,20,600);
 scene.add(player);
 player.add(camera);
+camera.position.set(0,60,0);
 
-let yaw = 0, pitch = 0, vY = 0;
-const input = { f:0, b:0, l:0, r:0 };
+let yaw=0, vY=0;
+const input={f:0,b:0,l:0,r:0};
 
-function animate() {
+/* MISSIONS */
+const missions=[...Array(20)].map((_,i)=>({
+    title:"MISSION #"+(i+1),
+    x:(Math.random()-0.5)*8000,
+    z:(Math.random()-0.5)*8000
+}));
+let active=null, marker=null;
+
+missionBtn.onclick=()=>{
+    active=missions[Math.floor(Math.random()*missions.length)];
+    if(marker) scene.remove(marker);
+    marker=new THREE.Mesh(
+        new THREE.SphereGeometry(80,12,12),
+        new THREE.MeshBasicMaterial({color:0xff00ff,wireframe:true})
+    );
+    marker.position.set(active.x,80,active.z);
+    scene.add(marker);
+    missionBox.style.display="block";
+    mTitle.innerText=active.title;
+};
+
+/* LOOP */
+function animate(){
     requestAnimationFrame(animate);
-    
-    // Move
-    const speed = 15;
-    let nx = player.position.x;
-    let nz = player.position.z;
+    const speed=15;
+    let nx=player.position.x, nz=player.position.z;
 
-    if(input.f) { nx -= Math.sin(yaw) * speed; nz -= Math.cos(yaw) * speed; }
-    if(input.b) { nx += Math.sin(yaw) * speed; nz += Math.cos(yaw) * speed; }
-    if(input.l) { nx -= Math.cos(yaw) * speed; nz += Math.sin(yaw) * speed; }
-    if(input.r) { nx += Math.cos(yaw) * speed; nz -= Math.sin(yaw) * speed; }
+    if(input.f){nx-=Math.sin(yaw)*speed; nz-=Math.cos(yaw)*speed;}
+    if(input.b){nx+=Math.sin(yaw)*speed; nz+=Math.cos(yaw)*speed;}
+    if(input.l){nx-=Math.cos(yaw)*speed; nz+=Math.sin(yaw)*speed;}
+    if(input.r){nx+=Math.cos(yaw)*speed; nz-=Math.sin(yaw)*speed;}
 
-    // Collision Check
-    let hit = false;
-    for(let c of colliders) {
-        if(Math.hypot(nx - c.x, nz - c.z) < c.r) hit = true;
+    let hit=false;
+    for(const c of colliders){
+        if(Math.hypot(nx-c.x,nz-c.z)<c.r) hit=true;
     }
-    if(!hit) {
-        player.position.x = nx;
-        player.position.z = nz;
-    }
+    if(!hit){player.position.x=nx; player.position.z=nz;}
 
-    // Gravity
-    vY -= 0.05;
-    player.position.y += vY;
-    if(player.position.y < 20) { player.position.y = 20; vY = 0; }
+    vY-=0.05;
+    player.position.y+=vY;
+    if(player.position.y<20){player.position.y=20; vY=0;}
 
-    // Mission Logic
-    if(activeM) {
-        targetMark.rotation.y += 0.05;
-        const dist = Math.round(player.position.distanceTo(targetMark.position));
-        document.getElementById('mDist').innerText = dist + "m";
-        
-        if(dist < 200) {
-            alert("MISSION COMPLETE! +$500");
-            activeM = null;
-            scene.remove(targetMark);
-            document.getElementById('missionBox').style.display = 'none';
+    if(active){
+        marker.rotation.y+=0.05;
+        const d=Math.round(Math.hypot(
+            player.position.x-active.x,
+            player.position.z-active.z
+        ));
+        mDist.innerText=d+"m";
+        if(d<200){
+            alert("MISSION COMPLETE!");
+            scene.remove(marker);
+            missionBox.style.display="none";
+            active=null;
         }
     }
 
-    player.rotation.y = yaw;
-    renderer.render(scene, camera);
+    player.rotation.y=yaw;
+    renderer.render(scene,camera);
 }
 animate();
 
-/* 5. INPUT HANDLING */
-const bindBtn = (id, key) => {
-    const el = document.getElementById(id);
-    el.addEventListener('pointerdown', (e) => { e.preventDefault(); input[key] = 1; });
-    el.addEventListener('pointerup', (e) => { e.preventDefault(); input[key] = 0; });
-    el.addEventListener('pointerleave', (e) => { e.preventDefault(); input[key] = 0; });
+/* INPUT */
+const bind=(id,k)=>{
+    const e=document.getElementById(id);
+    e.onpointerdown=()=>input[k]=1;
+    e.onpointerup=e.onpointerleave=()=>input[k]=0;
 };
+bind("btnU","f"); bind("btnD","b"); bind("btnL","l"); bind("btnR","r");
 
-bindBtn('btnU', 'f');
-bindBtn('btnD', 'b');
-bindBtn('btnL', 'l');
-bindBtn('btnR', 'r');
+jump.onpointerdown=()=>{ if(player.position.y<=21) vY=1.2; };
 
-document.getElementById('jump').addEventListener('pointerdown', (e) => {
-    e.preventDefault();
-    if(player.position.y <= 21) vY = 1.2;
-});
+let drag=false, lx=0;
+renderer.domElement.onpointerdown=e=>{drag=true; lx=e.clientX;};
+window.onpointermove=e=>{ if(drag){ yaw-=(e.clientX-lx)*0.005; lx=e.clientX; }};
+window.onpointerup=()=>drag=false;
 
-// Touch to look around
-let isDragging = false, lastX = 0;
-renderer.domElement.addEventListener('pointerdown', (e) => {
-    isDragging = true;
-    lastX = e.clientX;
-});
-window.addEventListener('pointermove', (e) => {
-    if(isDragging) {
-        const delta = e.clientX - lastX;
-        yaw -= delta * 0.005;
-        lastX = e.clientX;
-    }
-});
-window.addEventListener('pointerup', () => isDragging = false);
-
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
+window.onresize=()=>{
+    camera.aspect=innerWidth/innerHeight;
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-});
+    renderer.setSize(innerWidth,innerHeight);
+};
 </script>
 </body>
 </html>
