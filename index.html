@@ -1,108 +1,123 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mini City Life</title>
-    <style>
-        body { margin: 0; overflow: hidden; background: #87ceeb; touch-action: none; }
-        #joystick-base { 
-            position: absolute; bottom: 50px; left: 50px; width: 100px; height: 100px; 
-            background: rgba(255,255,255,0.3); border-radius: 50%; z-index: 10;
-        }
-        #joystick-knob { 
-            position: absolute; top: 25px; left: 25px; width: 50px; height: 50px; 
-            background: #fff; border-radius: 50%; 
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mini City Life – FIXED</title>
+<style>
+    body { margin: 0; overflow: hidden; background: #222; }
+    #info {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        color: #fff;
+        background: rgba(0,0,0,0.6);
+        padding: 10px;
+        font-family: monospace;
+    }
+</style>
 </head>
 <body>
-    <div id="joystick-base"><div id="joystick-knob"></div></div>
+<div id="info">Loading models…</div>
 
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-            }
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb);
+
+const camera = new THREE.PerspectiveCamera(
+    60,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    2000
+);
+camera.position.set(0, 40, 80);
+camera.lookAt(0, 0, 0);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+/* LIGHTS */
+scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+
+const sun = new THREE.DirectionalLight(0xffffff, 1);
+sun.position.set(50, 100, 50);
+scene.add(sun);
+
+/* GROUND */
+const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(300, 300),
+    new THREE.MeshStandardMaterial({ color: 0x55aa55 })
+);
+ground.rotation.x = -Math.PI / 2;
+scene.add(ground);
+
+/* MODEL LOADER */
+const loader = new GLTFLoader();
+const info = document.getElementById('info');
+
+function smartLoad(path, x) {
+    loader.load(
+        path,
+        (gltf) => {
+            const model = gltf.scene;
+
+            // 🔑 CRITICAL FIX
+            model.updateMatrixWorld(true);
+
+            const box = new THREE.Box3().setFromObject(model);
+            const size = box.getSize(new THREE.Vector3());
+            const maxDim = Math.max(size.x, size.y, size.z);
+
+            const scale = 20 / maxDim;
+            model.scale.setScalar(scale);
+
+            // Center model properly
+            model.position.set(x, 0, 0);
+
+            // Lift above ground
+            model.position.y = -box.min.y * scale;
+
+            scene.add(model);
+            info.innerHTML += `<br>✔ Loaded ${path}`;
+        },
+        undefined,
+        () => {
+            info.innerHTML += `<br>❌ Failed ${path}`;
         }
-    </script>
+    );
+}
 
-    <script type="module">
-        import * as THREE from 'three';
-        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+/* LOAD ALL MODELS */
+smartLoad('models/building.glb', -30);
+smartLoad('models/building1.glb', 30);
+smartLoad('models/tree1.glb', 0);
 
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x87ceeb);
-        
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        // Position camera HIGH and FAR to see the whole city at once
-        camera.position.set(0, 20, 40); 
+/* ANIMATE */
+function animate() {
+    requestAnimationFrame(animate);
+    renderer.render(scene, camera);
+}
+animate();
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
-
-        scene.add(new THREE.AmbientLight(0xffffff, 1.5));
-
-        const loader = new GLTFLoader();
-
-        // 1. Load Building (Left Side)
-        loader.load('models/building.glb', (gltf) => {
-            const m = gltf.scene;
-            m.position.set(-15, 0, 0); 
-            scene.add(m);
-        });
-
-        // 2. Load Building 1 (Right Side)
-        loader.load('models/building1.glb', (gltf) => {
-            const m = gltf.scene;
-            m.position.set(15, 0, 0); 
-            scene.add(m);
-        });
-
-        // 3. Load Tree (Middle/Player)
-        const playerGroup = new THREE.Group();
-        scene.add(playerGroup);
-        loader.load('models/tree1.glb', (gltf) => {
-            const m = gltf.scene;
-            m.position.set(0, 0, 0);
-            playerGroup.add(m);
-        });
-
-        // Joystick Logic
-        const knob = document.getElementById('joystick-knob');
-        const base = document.getElementById('joystick-base');
-        let moveX = 0, moveZ = 0, dragging = false;
-
-        base.addEventListener('pointerdown', () => dragging = true);
-        window.addEventListener('pointermove', (e) => {
-            if (!dragging) return;
-            const rect = base.getBoundingClientRect();
-            let dx = e.clientX - (rect.left + 50);
-            let dy = e.clientY - (rect.top + 50);
-            const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 40);
-            const angle = Math.atan2(dy, dx);
-            knob.style.transform = `translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist}px)`;
-            moveX = (Math.cos(angle) * dist) / 40;
-            moveZ = (Math.sin(angle) * dist) / 40;
-        });
-        window.addEventListener('pointerup', () => {
-            dragging = false;
-            knob.style.transform = `translate(0,0)`;
-            moveX = 0; moveZ = 0;
-        });
-
-        function animate() {
-            requestAnimationFrame(animate);
-            playerGroup.position.x += moveX * 0.3;
-            playerGroup.position.z += moveZ * 0.3;
-            
-            // Dynamic Camera Follow
-            camera.lookAt(playerGroup.position);
-            renderer.render(scene, camera);
-        }
-        animate();
-    </script>
+/* RESIZE */
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
 </body>
 </html>
