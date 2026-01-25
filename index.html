@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mini City Life – Multi Model</title>
+<title>Mini City Life – FIXED</title>
 <style>
     body { margin: 0; overflow: hidden; background: #87ceeb; }
     canvas { display: block; }
@@ -11,128 +11,129 @@
 </head>
 <body>
 
-<!-- THREE JS (NON MODULE – STABLE) -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
 
 <script>
-/* ===============================
-   1. SCENE SETUP
-================================ */
+/* =========================
+   SCENE
+========================= */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
-scene.fog = new THREE.Fog(0x87ceeb, 20, 120);
 
-/* ===============================
-   2. CAMERA & RENDERER
-================================ */
+/* =========================
+   CAMERA
+========================= */
 const camera = new THREE.PerspectiveCamera(
-    75,
+    70,
     window.innerWidth / window.innerHeight,
     0.1,
-    1000
+    5000
 );
-camera.position.set(20, 20, 30);
+camera.position.set(80, 60, 120);
 
+/* =========================
+   RENDERER
+========================= */
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 document.body.appendChild(renderer.domElement);
 
-/* ===============================
-   3. CONTROLS
-================================ */
+/* =========================
+   CONTROLS
+========================= */
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.target.set(0, 0, 0);
+controls.update();
 
-/* ===============================
-   4. LIGHTING
-================================ */
-scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+/* =========================
+   LIGHTING
+========================= */
+scene.add(new THREE.AmbientLight(0xffffff, 0.8));
 
 const sun = new THREE.DirectionalLight(0xffffff, 1.2);
-sun.position.set(20, 30, 10);
+sun.position.set(100, 200, 100);
 scene.add(sun);
 
-/* ===============================
-   5. GROUND
-================================ */
-const grid = new THREE.GridHelper(200, 50);
-scene.add(grid);
-
+/* =========================
+   GROUND
+========================= */
 const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(200, 200),
-    new THREE.MeshStandardMaterial({ color: 0x3a3a3a })
+    new THREE.PlaneGeometry(500, 500),
+    new THREE.MeshStandardMaterial({ color: 0x4caf50 })
 );
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 
-/* ===============================
-   6. LOAD MODELS
-================================ */
+/* =========================
+   DEBUG CUBE (PROVES RENDERING)
+========================= */
+const debugCube = new THREE.Mesh(
+    new THREE.BoxGeometry(10, 10, 10),
+    new THREE.MeshStandardMaterial({ color: 0xff0000 })
+);
+debugCube.position.y = 5;
+scene.add(debugCube);
+
+/* =========================
+   LOAD MODELS
+========================= */
 const loader = new THREE.GLTFLoader();
 const models = {
     buildings: [],
     tree: null
 };
 
-let loadedCount = 0;
-const TOTAL_MODELS = 3;
+let loaded = 0;
+const TOTAL = 3;
 
-function checkAllLoaded() {
-    loadedCount++;
-    if (loadedCount === TOTAL_MODELS) {
-        createCity();
-    }
+function ready() {
+    loaded++;
+    if (loaded === TOTAL) generateCity();
 }
 
-// Building 1
-loader.load("models/building.glb", gltf => {
-    models.buildings.push(gltf.scene);
-    checkAllLoaded();
+loader.load("models/building.glb", g => {
+    models.buildings.push(g.scene);
+    ready();
 });
 
-// Building 2
-loader.load("models/building1.glb", gltf => {
-    models.buildings.push(gltf.scene);
-    checkAllLoaded();
+loader.load("models/building1.glb", g => {
+    models.buildings.push(g.scene);
+    ready();
 });
 
-// Tree
-loader.load("models/tree1.glb", gltf => {
-    models.tree = gltf.scene;
-    checkAllLoaded();
+loader.load("models/tree1.glb", g => {
+    models.tree = g.scene;
+    ready();
 });
 
-/* ===============================
-   7. CITY GENERATION
-================================ */
-function createCity() {
-    const spacing = 15;
-    const size = 4;
+/* =========================
+   CITY GENERATION
+========================= */
+function generateCity() {
+    const spacing = 40;
+    const size = 3;
 
     for (let x = -size; x <= size; x++) {
         for (let z = -size; z <= size; z++) {
 
-            // Skip center
             if (x === 0 && z === 0) continue;
 
-            // 70% buildings, 30% trees
-            const isTree = Math.random() < 0.3;
-
             let obj;
-            if (isTree && models.tree) {
+
+            if (Math.random() < 0.3 && models.tree) {
                 obj = models.tree.clone();
-                obj.scale.set(2, 2, 2);
+                obj.scale.set(0.5, 0.5, 0.5);
             } else {
                 const b =
                     models.buildings[
                         Math.floor(Math.random() * models.buildings.length)
                     ];
                 obj = b.clone();
-                obj.scale.set(2, 2, 2);
+                obj.scale.set(0.3, 0.3, 0.3);
             }
 
             obj.position.set(x * spacing, 0, z * spacing);
@@ -144,18 +145,18 @@ function createCity() {
     console.log("City generated ✔");
 }
 
-/* ===============================
-   8. RESIZE
-================================ */
+/* =========================
+   RESIZE
+========================= */
 window.addEventListener("resize", () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-/* ===============================
-   9. ANIMATE
-================================ */
+/* =========================
+   ANIMATE
+========================= */
 function animate() {
     requestAnimationFrame(animate);
     controls.update();
