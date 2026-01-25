@@ -1,136 +1,131 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Mini City Life</title>
-
-<style>
-body {
-  margin: 0;
-  overflow: hidden;
-  background: #87ceeb;
-  font-family: Arial, sans-serif;
-}
-#info {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  background: rgba(0,0,0,0.6);
-  color: #fff;
-  padding: 10px;
-  border-radius: 6px;
-  font-size: 14px;
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mini City Life - Success</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #87ceeb; touch-action: none; }
+        /* Mobile Joystick */
+        #joystick-base { 
+            position: absolute; bottom: 50px; left: 50px; width: 100px; height: 100px; 
+            background: rgba(255,255,255,0.3); border-radius: 50%; z-index: 10;
+        }
+        #joystick-knob { 
+            position: absolute; top: 25px; left: 25px; width: 50px; height: 50px; 
+            background: #fff; border-radius: 50%; box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+    </style>
 </head>
-
 <body>
-<div id="info">Loading models...</div>
+    <div id="joystick-base"><div id="joystick-knob"></div></div>
 
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-  }
-}
-</script>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
 
-<script type="module">
-import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-/* ---------------- SCENE ---------------- */
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb);
+        // --- 1. SETUP ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87ceeb);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
 
-/* ---------------- CAMERA ---------------- */
-const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 2000);
-camera.position.set(0, 30, 60);
+        scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+        const sun = new THREE.DirectionalLight(0xffffff, 1);
+        sun.position.set(10, 20, 10);
+        scene.add(sun);
 
-/* ---------------- RENDERER ---------------- */
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(innerWidth, innerHeight);
-renderer.setPixelRatio(devicePixelRatio);
-document.body.appendChild(renderer.domElement);
+        // Ground (Grass)
+        const ground = new THREE.Mesh(
+            new THREE.PlaneGeometry(200, 200),
+            new THREE.MeshStandardMaterial({ color: 0x4caf50 })
+        );
+        ground.rotation.x = -Math.PI / 2;
+        scene.add(ground);
 
-/* ---------------- CONTROLS ---------------- */
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
+        // --- 2. LOADING MODELS ---
+        const loader = new GLTFLoader();
 
-/* ---------------- LIGHTS ---------------- */
-scene.add(new THREE.AmbientLight(0xffffff, 1.5));
-const sun = new THREE.DirectionalLight(0xffffff, 1);
-sun.position.set(30, 50, 20);
-scene.add(sun);
+        // Building 1 (Left)
+        loader.load('models/building.glb', (gltf) => {
+            const m = gltf.scene;
+            m.position.set(-15, 0, -10);
+            scene.add(m);
+        });
 
-/* ---------------- GROUND ---------------- */
-const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(200, 200),
-  new THREE.MeshStandardMaterial({ color: 0x4caf50 })
-);
-ground.rotation.x = -Math.PI / 2;
-scene.add(ground);
+        // Building 2 (Right - Corrected Path)
+        loader.load('models/building1.glb', (gltf) => {
+            const m = gltf.scene;
+            m.position.set(15, 0, -10);
+            scene.add(m);
+        });
 
-/* ---------------- LOADER ---------------- */
-const loader = new GLTFLoader();
-const info = document.getElementById('info');
+        // Tree (Player - Corrected Path)
+        const player = new THREE.Group();
+        scene.add(player);
+        loader.load('models/tree1.glb', (gltf) => {
+            const m = gltf.scene;
+            m.scale.set(1.5, 1.5, 1.5);
+            player.add(m);
+        });
 
-function loadModel(url, x, z) {
-  loader.load(
-    url,
-    (gltf) => {
-      const model = gltf.scene;
+        // --- 3. JOYSTICK ---
+        const knob = document.getElementById('joystick-knob');
+        const base = document.getElementById('joystick-base');
+        let moveX = 0, moveZ = 0, dragging = false;
 
-      const box = new THREE.Box3().setFromObject(model);
-      const size = box.getSize(new THREE.Vector3());
-      const scale = 12 / Math.max(size.x, size.y, size.z);
-      model.scale.setScalar(scale);
+        base.addEventListener('pointerdown', () => dragging = true);
+        window.addEventListener('pointermove', (e) => {
+            if (!dragging) return;
+            const rect = base.getBoundingClientRect();
+            let dx = e.clientX - (rect.left + 50);
+            let dy = e.clientY - (rect.top + 50);
+            const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 40);
+            const angle = Math.atan2(dy, dx);
+            knob.style.transform = `translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist}px)`;
+            moveX = (Math.cos(angle) * dist) / 40;
+            moveZ = (Math.sin(angle) * dist) / 40;
+        });
+        window.addEventListener('pointerup', () => {
+            dragging = false;
+            knob.style.transform = `translate(0,0)`;
+            moveX = 0; moveZ = 0;
+        });
 
-      model.position.set(x, 0, z);
-      scene.add(model);
+        // --- 4. ANIMATION & FOLLOW CAMERA ---
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Move Player
+            player.position.x += moveX * 0.25;
+            player.position.z += moveZ * 0.25;
 
-      info.innerHTML += `<br>✅ Loaded ${url.split('/').pop()}`;
-    },
-    undefined,
-    () => {
-      info.innerHTML += `<br>❌ Failed ${url.split('/').pop()}`;
-    }
-  );
-}
+            // Camera Follow Logic (GTA-style follow)
+            const camOffset = new THREE.Vector3(0, 8, 18);
+            camera.position.lerp(player.position.clone().add(camOffset), 0.1);
+            camera.lookAt(player.position);
 
-/* ---------------- ABSOLUTE URLs (FINAL FIX) ---------------- */
-loadModel(
-  'https://rubin514.github.io/Mini-city-life/models/building.glb',
-  -25, 0
-);
+            renderer.render(scene, camera);
+        }
+        animate();
 
-loadModel(
-  'https://rubin514.github.io/Mini-city-life/models/building1.glb',
-  25, 0
-);
-
-loadModel(
-  'https://rubin514.github.io/Mini-city-life/models/tree1.glb',
-  0, 25
-);
-
-/* ---------------- RESIZE ---------------- */
-addEventListener('resize', () => {
-  camera.aspect = innerWidth / innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
-});
-
-/* ---------------- LOOP ---------------- */
-function animate() {
-  requestAnimationFrame(animate);
-  controls.update();
-  renderer.render(scene, camera);
-}
-animate();
-</script>
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
 </body>
 </html>
+
