@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mini City Life - Success</title>
+    <title>Mini City Life - Fully Fixed</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #87ceeb; touch-action: none; }
-        /* Mobile Joystick */
+        body { margin: 0; overflow: hidden; background: #87ceeb; touch-action: none; font-family: sans-serif; }
+        /* Mobile UI Joystick */
         #joystick-base { 
             position: absolute; bottom: 50px; left: 50px; width: 100px; height: 100px; 
             background: rgba(255,255,255,0.3); border-radius: 50%; z-index: 10;
         }
         #joystick-knob { 
             position: absolute; top: 25px; left: 25px; width: 50px; height: 50px; 
-            background: #fff; border-radius: 50%; box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            background: #fff; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
     </style>
 </head>
@@ -33,7 +33,7 @@
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-        // --- 1. SETUP ---
+        // 1. Scene Setup
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x87ceeb);
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -41,12 +41,13 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        scene.add(new THREE.AmbientLight(0xffffff, 1.2));
-        const sun = new THREE.DirectionalLight(0xffffff, 1);
+        // 2. Lighting (Essential for GLB models to be visible)
+        scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+        const sun = new THREE.DirectionalLight(0xffffff, 1.5);
         sun.position.set(10, 20, 10);
         scene.add(sun);
 
-        // Ground (Grass)
+        // 3. Ground
         const ground = new THREE.Mesh(
             new THREE.PlaneGeometry(200, 200),
             new THREE.MeshStandardMaterial({ color: 0x4caf50 })
@@ -54,33 +55,34 @@
         ground.rotation.x = -Math.PI / 2;
         scene.add(ground);
 
-        // --- 2. LOADING MODELS ---
+        // 4. Loading Manager & Models
         const loader = new GLTFLoader();
+        const playerGroup = new THREE.Group();
+        scene.add(playerGroup);
 
-        // Building 1 (Left)
+        // Load Building 1 (Left)
         loader.load('models/building.glb', (gltf) => {
-            const m = gltf.scene;
-            m.position.set(-15, 0, -10);
-            scene.add(m);
+            const b = gltf.scene;
+            b.position.set(-20, 0, -10);
+            scene.add(b);
         });
 
-        // Building 2 (Right - Corrected Path)
+        // Load Building 2 (Right - Path Fixed)
         loader.load('models/building1.glb', (gltf) => {
-            const m = gltf.scene;
-            m.position.set(15, 0, -10);
-            scene.add(m);
+            const b = gltf.scene;
+            b.position.set(20, 0, -10);
+            scene.add(b);
         });
 
-        // Tree (Player - Corrected Path)
-        const player = new THREE.Group();
-        scene.add(player);
+        // Load Tree (The Player)
         loader.load('models/tree1.glb', (gltf) => {
-            const m = gltf.scene;
-            m.scale.set(1.5, 1.5, 1.5);
-            player.add(m);
+            const t = gltf.scene;
+            // Scale adjustment in case tree is too small/large
+            t.scale.set(1.5, 1.5, 1.5); 
+            playerGroup.add(t);
         });
 
-        // --- 3. JOYSTICK ---
+        // 5. Joystick Logic
         const knob = document.getElementById('joystick-knob');
         const base = document.getElementById('joystick-base');
         let moveX = 0, moveZ = 0, dragging = false;
@@ -103,19 +105,19 @@
             moveX = 0; moveZ = 0;
         });
 
-        // --- 4. ANIMATION & FOLLOW CAMERA ---
+        // 6. Animation Loop & Camera Follow
         function animate() {
             requestAnimationFrame(animate);
             
-            // Move Player
-            player.position.x += moveX * 0.25;
-            player.position.z += moveZ * 0.25;
-
-            // Camera Follow Logic (GTA-style follow)
-            const camOffset = new THREE.Vector3(0, 8, 18);
-            camera.position.lerp(player.position.clone().add(camOffset), 0.1);
-            camera.lookAt(player.position);
-
+            // Movement speed
+            playerGroup.position.x += moveX * 0.3;
+            playerGroup.position.z += moveZ * 0.3;
+            
+            // Third-Person Camera Position
+            const offset = new THREE.Vector3(0, 10, 25);
+            camera.position.lerp(playerGroup.position.clone().add(offset), 0.1);
+            camera.lookAt(playerGroup.position);
+            
             renderer.render(scene, camera);
         }
         animate();
@@ -128,4 +130,3 @@
     </script>
 </body>
 </html>
-
