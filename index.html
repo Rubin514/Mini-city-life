@@ -2,324 +2,166 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Mini City Life – Master Build</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mini City Life – Multi Model</title>
 <style>
-body {
-    margin: 0;
-    overflow: hidden;
-    background: #000;
-    font-family: Arial, sans-serif;
-    touch-action: none;
-}
-
-/* LOADER */
-#loader {
-    position: fixed;
-    inset: 0;
-    background: #111;
-    z-index: 9999;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    color: #00ff00;
-}
-.bar-container {
-    width: 250px;
-    height: 15px;
-    background: #333;
-    border-radius: 10px;
-    overflow: hidden;
-    margin-top: 15px;
-}
-#bar {
-    width: 0%;
-    height: 100%;
-    background: #00ff00;
-}
-
-/* HUD */
-#hud {
-    position: fixed;
-    top: 15px;
-    left: 15px;
-    z-index: 100;
-}
-.mission-box {
-    background: rgba(0,0,0,0.75);
-    color: white;
-    padding: 12px;
-    border-radius: 10px;
-    border-left: 5px solid #00ff00;
-    display: none;
-}
-
-/* CONTROLS */
-#controls {
-    position: fixed;
-    bottom: 20px;
-    left: 20px;
-    display: grid;
-    grid-template-areas:
-        ". u ."
-        "l d r";
-    gap: 10px;
-    z-index: 100;
-}
-.btn {
-    width: 60px;
-    height: 60px;
-    background: rgba(255,255,255,0.2);
-    border: 2px solid rgba(255,255,255,0.4);
-    border-radius: 12px;
-    color: white;
-    font-size: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-.btn:active { background: rgba(0,255,0,0.5); }
-
-#jump {
-    position: fixed;
-    bottom: 35px;
-    right: 30px;
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    background: orange;
-    color: white;
-    font-weight: bold;
-    border: none;
-    font-size: 16px;
-    z-index: 100;
-}
-
-#missionBtn {
-    position: fixed;
-    top: 15px;
-    right: 15px;
-    background: #00ff00;
-    padding: 10px 20px;
-    border: none;
-    border-radius: 8px;
-    font-weight: bold;
-    z-index: 100;
-}
+    body { margin: 0; overflow: hidden; background: #87ceeb; }
+    canvas { display: block; }
 </style>
 </head>
-
 <body>
 
-<div id="loader">
-    <h2 id="status">LOADING...</h2>
-    <div class="bar-container"><div id="bar"></div></div>
-    <p id="perc">0%</p>
-</div>
+<!-- THREE JS (NON MODULE – STABLE) -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
 
-<div id="hud">
-    <div id="missionBox" class="mission-box">
-        <b id="mTitle">MISSION</b><br>
-        <span id="mDist">0m</span>
-    </div>
-</div>
-
-<button id="missionBtn">NEW MISSION</button>
-
-<div id="controls">
-    <div class="btn" style="grid-area:u" id="btnU">▲</div>
-    <div class="btn" style="grid-area:l" id="btnL">◀</div>
-    <div class="btn" style="grid-area:d" id="btnD">▼</div>
-    <div class="btn" style="grid-area:r" id="btnR">▶</div>
-</div>
-
-<button id="jump">JUMP</button>
-
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://unpkg.com/three@0.152.2/build/three.module.js",
-    "three/addons/": "https://unpkg.com/three@0.152.2/examples/jsm/"
-  }
-}
-</script>
-
-<script type="module">
-import * as THREE from "three";
-import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-
-/* SCENE */
+<script>
+/* ===============================
+   1. SCENE SETUP
+================================ */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
-scene.fog = new THREE.Fog(0x87ceeb, 1500, 9000);
+scene.fog = new THREE.Fog(0x87ceeb, 20, 120);
 
-const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 10000);
-const renderer = new THREE.WebGLRenderer({ antialias:true });
-renderer.setSize(innerWidth, innerHeight);
-renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-renderer.shadowMap.enabled = true;
+/* ===============================
+   2. CAMERA & RENDERER
+================================ */
+const camera = new THREE.PerspectiveCamera(
+    75,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    1000
+);
+camera.position.set(20, 20, 30);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
-/* LIGHT */
-scene.add(new THREE.AmbientLight(0xffffff, 1.1));
-const sun = new THREE.DirectionalLight(0xffffff, 1.3);
-sun.position.set(300,600,300);
-sun.castShadow = true;
+/* ===============================
+   3. CONTROLS
+================================ */
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.target.set(0, 0, 0);
+
+/* ===============================
+   4. LIGHTING
+================================ */
+scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+
+const sun = new THREE.DirectionalLight(0xffffff, 1.2);
+sun.position.set(20, 30, 10);
 scene.add(sun);
 
-/* GROUND */
+/* ===============================
+   5. GROUND
+================================ */
+const grid = new THREE.GridHelper(200, 50);
+scene.add(grid);
+
 const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(15000,15000),
-    new THREE.MeshLambertMaterial({color:0x3ca43c})
+    new THREE.PlaneGeometry(200, 200),
+    new THREE.MeshStandardMaterial({ color: 0x3a3a3a })
 );
-ground.rotation.x = -Math.PI/2;
-ground.receiveShadow = true;
+ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 
-/* LOADER */
-const manager = new THREE.LoadingManager();
-const loader = new GLTFLoader(manager);
-
-const assets = { b1:null, b2:null, tree:null };
-const colliders = [];
-
-manager.onProgress = (u,l,t)=>{
-    if(!t) return;
-    const p = Math.floor((l/t)*100);
-    bar.style.width = p+"%";
-    perc.innerText = p+"%";
-};
-manager.onLoad = ()=>{
-    generateCity();
-    loaderDiv.style.display="none";
+/* ===============================
+   6. LOAD MODELS
+================================ */
+const loader = new THREE.GLTFLoader();
+const models = {
+    buildings: [],
+    tree: null
 };
 
-const loaderDiv = document.getElementById("loader");
+let loadedCount = 0;
+const TOTAL_MODELS = 3;
 
-/* ✅ FIXED PATHS */
-loader.load("models/building.glb", g=>assets.b1=g.scene);
-loader.load("models/building1.glb", g=>assets.b2=g.scene);
-loader.load("models/tree1.glb", g=>assets.tree=g.scene);
-
-/* CITY */
-function generateCity(){
-    for(let x=-6;x<=6;x++){
-        for(let z=-6;z<=6;z++){
-            if(x===0 && z===0) continue;
-            const px=x*1200, pz=z*1200;
-            const model=(x+z)%2===0?assets.b1:assets.b2;
-            if(model){
-                const b=model.clone();
-                b.scale.set(25,25,25);
-                b.position.set(px,0,pz);
-                b.traverse(o=>o.isMesh&&(o.castShadow=true));
-                scene.add(b);
-                colliders.push({x:px,z:pz,r:120});
-            }
-            if(assets.tree){
-                const t=assets.tree.clone();
-                t.scale.set(20,20,20);
-                t.position.set(px+400,0,pz+400);
-                scene.add(t);
-            }
-        }
+function checkAllLoaded() {
+    loadedCount++;
+    if (loadedCount === TOTAL_MODELS) {
+        createCity();
     }
 }
 
-/* PLAYER */
-const player = new THREE.Object3D();
-player.position.set(0,20,600);
-scene.add(player);
-player.add(camera);
-camera.position.set(0,60,0);
+// Building 1
+loader.load("models/building.glb", gltf => {
+    models.buildings.push(gltf.scene);
+    checkAllLoaded();
+});
 
-let yaw=0, vY=0;
-const input={f:0,b:0,l:0,r:0};
+// Building 2
+loader.load("models/building1.glb", gltf => {
+    models.buildings.push(gltf.scene);
+    checkAllLoaded();
+});
 
-/* MISSIONS */
-const missions=[...Array(20)].map((_,i)=>({
-    title:"MISSION #"+(i+1),
-    x:(Math.random()-0.5)*8000,
-    z:(Math.random()-0.5)*8000
-}));
-let active=null, marker=null;
+// Tree
+loader.load("models/tree1.glb", gltf => {
+    models.tree = gltf.scene;
+    checkAllLoaded();
+});
 
-missionBtn.onclick=()=>{
-    active=missions[Math.floor(Math.random()*missions.length)];
-    if(marker) scene.remove(marker);
-    marker=new THREE.Mesh(
-        new THREE.SphereGeometry(80,12,12),
-        new THREE.MeshBasicMaterial({color:0xff00ff,wireframe:true})
-    );
-    marker.position.set(active.x,80,active.z);
-    scene.add(marker);
-    missionBox.style.display="block";
-    mTitle.innerText=active.title;
-};
+/* ===============================
+   7. CITY GENERATION
+================================ */
+function createCity() {
+    const spacing = 15;
+    const size = 4;
 
-/* LOOP */
-function animate(){
-    requestAnimationFrame(animate);
-    const speed=15;
-    let nx=player.position.x, nz=player.position.z;
+    for (let x = -size; x <= size; x++) {
+        for (let z = -size; z <= size; z++) {
 
-    if(input.f){nx-=Math.sin(yaw)*speed; nz-=Math.cos(yaw)*speed;}
-    if(input.b){nx+=Math.sin(yaw)*speed; nz+=Math.cos(yaw)*speed;}
-    if(input.l){nx-=Math.cos(yaw)*speed; nz+=Math.sin(yaw)*speed;}
-    if(input.r){nx+=Math.cos(yaw)*speed; nz-=Math.sin(yaw)*speed;}
+            // Skip center
+            if (x === 0 && z === 0) continue;
 
-    let hit=false;
-    for(const c of colliders){
-        if(Math.hypot(nx-c.x,nz-c.z)<c.r) hit=true;
-    }
-    if(!hit){player.position.x=nx; player.position.z=nz;}
+            // 70% buildings, 30% trees
+            const isTree = Math.random() < 0.3;
 
-    vY-=0.05;
-    player.position.y+=vY;
-    if(player.position.y<20){player.position.y=20; vY=0;}
+            let obj;
+            if (isTree && models.tree) {
+                obj = models.tree.clone();
+                obj.scale.set(2, 2, 2);
+            } else {
+                const b =
+                    models.buildings[
+                        Math.floor(Math.random() * models.buildings.length)
+                    ];
+                obj = b.clone();
+                obj.scale.set(2, 2, 2);
+            }
 
-    if(active){
-        marker.rotation.y+=0.05;
-        const d=Math.round(Math.hypot(
-            player.position.x-active.x,
-            player.position.z-active.z
-        ));
-        mDist.innerText=d+"m";
-        if(d<200){
-            alert("MISSION COMPLETE!");
-            scene.remove(marker);
-            missionBox.style.display="none";
-            active=null;
+            obj.position.set(x * spacing, 0, z * spacing);
+            obj.rotation.y = Math.random() * Math.PI * 2;
+            scene.add(obj);
         }
     }
 
-    player.rotation.y=yaw;
-    renderer.render(scene,camera);
+    console.log("City generated ✔");
+}
+
+/* ===============================
+   8. RESIZE
+================================ */
+window.addEventListener("resize", () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+/* ===============================
+   9. ANIMATE
+================================ */
+function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
 }
 animate();
-
-/* INPUT */
-const bind=(id,k)=>{
-    const e=document.getElementById(id);
-    e.onpointerdown=()=>input[k]=1;
-    e.onpointerup=e.onpointerleave=()=>input[k]=0;
-};
-bind("btnU","f"); bind("btnD","b"); bind("btnL","l"); bind("btnR","r");
-
-jump.onpointerdown=()=>{ if(player.position.y<=21) vY=1.2; };
-
-let drag=false, lx=0;
-renderer.domElement.onpointerdown=e=>{drag=true; lx=e.clientX;};
-window.onpointermove=e=>{ if(drag){ yaw-=(e.clientX-lx)*0.005; lx=e.clientX; }};
-window.onpointerup=()=>drag=false;
-
-window.onresize=()=>{
-    camera.aspect=innerWidth/innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(innerWidth,innerHeight);
-};
 </script>
 </body>
 </html>
