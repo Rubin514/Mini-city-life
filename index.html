@@ -3,17 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mini City Life 3D</title>
+    <title>Mini City Life</title>
     <style>
         body { margin: 0; overflow: hidden; background: #87ceeb; touch-action: none; }
-        /* Joystick UI */
         #joystick-base { 
             position: absolute; bottom: 50px; left: 50px; width: 100px; height: 100px; 
-            background: rgba(255,255,255,0.2); border-radius: 50%; pointer-events: auto; 
+            background: rgba(255,255,255,0.3); border-radius: 50%; z-index: 10;
         }
         #joystick-knob { 
             position: absolute; top: 25px; left: 25px; width: 50px; height: 50px; 
-            background: #fff; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.3); 
+            background: #fff; border-radius: 50%; 
         }
     </style>
 </head>
@@ -33,51 +32,45 @@
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-        // 1. SCENE SETUP
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x87ceeb);
+        
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        // Position camera HIGH and FAR to see the whole city at once
+        camera.position.set(0, 20, 40); 
+
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // Lighting
-        scene.add(new THREE.AmbientLight(0xffffff, 1));
-        const sun = new THREE.DirectionalLight(0xffffff, 1);
-        sun.position.set(10, 20, 10);
-        scene.add(sun);
+        scene.add(new THREE.AmbientLight(0xffffff, 1.5));
 
-        // 2. THE PLAYER CONTAINER (Tree)
-        const playerGroup = new THREE.Group();
-        scene.add(playerGroup);
-
-        // 3. GLB LOADER LOGIC
         const loader = new GLTFLoader();
 
-        // Load Static Building 1
+        // 1. Load Building (Left Side)
         loader.load('models/building.glb', (gltf) => {
-            const b1 = gltf.scene;
-            b1.position.set(-15, 0, -10); // Position to the left
-            b1.scale.set(3, 3, 3);
-            scene.add(b1);
+            const m = gltf.scene;
+            m.position.set(-15, 0, 0); 
+            scene.add(m);
         });
 
-        // Load Static Building 2
+        // 2. Load Building 1 (Right Side)
         loader.load('models/building1.glb', (gltf) => {
-            const b2 = gltf.scene;
-            b2.position.set(15, 0, -10); // Position to the right
-            b2.scale.set(3, 3, 3);
-            scene.add(b2);
+            const m = gltf.scene;
+            m.position.set(15, 0, 0); 
+            scene.add(m);
         });
 
-        // Load Tree1 as the Moving Player
+        // 3. Load Tree (Middle/Player)
+        const playerGroup = new THREE.Group();
+        scene.add(playerGroup);
         loader.load('models/tree1.glb', (gltf) => {
-            const tree = gltf.scene;
-            tree.scale.set(2, 2, 2);
-            playerGroup.add(tree);
+            const m = gltf.scene;
+            m.position.set(0, 0, 0);
+            playerGroup.add(m);
         });
 
-        // 4. JOYSTICK INPUT
+        // Joystick Logic
         const knob = document.getElementById('joystick-knob');
         const base = document.getElementById('joystick-base');
         let moveX = 0, moveZ = 0, dragging = false;
@@ -100,27 +93,16 @@
             moveX = 0; moveZ = 0;
         });
 
-        // 5. ANIMATION LOOP
         function animate() {
             requestAnimationFrame(animate);
-
-            // Move the Tree Player
-            playerGroup.position.x += moveX * 0.2;
-            playerGroup.position.z += moveZ * 0.2;
-
-            // Camera Follow (Offset from player)
-            camera.position.set(playerGroup.position.x, playerGroup.position.y + 10, playerGroup.position.z + 20);
+            playerGroup.position.x += moveX * 0.3;
+            playerGroup.position.z += moveZ * 0.3;
+            
+            // Dynamic Camera Follow
             camera.lookAt(playerGroup.position);
-
             renderer.render(scene, camera);
         }
         animate();
-
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
     </script>
 </body>
 </html>
