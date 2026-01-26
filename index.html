@@ -29,11 +29,13 @@
 <script type="module">
 import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
 import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
+// 1. IMPORT DRACO LOADER
+import { DRACOLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/DRACOLoader.js";
 
 const statusUI = document.getElementById("status");
 const log = (t) => { statusUI.innerHTML += "<br>" + t; };
 
-/* SCENE */
+/* SCENE SETUP */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 
@@ -60,23 +62,29 @@ const ground = new THREE.Mesh(
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 
-/* PLAYER SETUP */
+/* PLAYER GROUP */
 const playerGroup = new THREE.Group();
 scene.add(playerGroup);
 
-// Create a small red box so you can move even if the tree model (t1.glb) fails
 const dummyGeo = new THREE.BoxGeometry(2, 2, 2);
 const dummyMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
 const dummyPlayer = new THREE.Mesh(dummyGeo, dummyMat);
 playerGroup.add(dummyPlayer);
 
+/* --- LOADER CONFIGURATION --- */
+// 2. CONFIGURE DRACO DECODER
+const dracoLoader = new DRACOLoader();
+// Using Google's hosted decoder binaries to avoid local hosting issues
+dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+
+// 3. ATTACH DRACO TO GLTF LOADER
 const loader = new GLTFLoader();
+loader.setDRACOLoader(dracoLoader);
 
 function loadGLB(file, x, z, isPlayer = false) {
-  // Path matches your screenshot: folder 'models' + filename
   const path = `models/${file}`;
   
-  // Create a placeholder visual so we know WHERE it should be
+  // Marker to show where loading is happening
   const marker = new THREE.Mesh(
     new THREE.BoxGeometry(1, 1, 1),
     new THREE.MeshBasicMaterial({ color: 0xffff00, wireframe: true })
@@ -85,17 +93,17 @@ function loadGLB(file, x, z, isPlayer = false) {
   scene.add(marker);
 
   loader.load(path, (gltf) => {
-      scene.remove(marker); // Remove the yellow box when loaded
+      scene.remove(marker); 
       const model = gltf.scene;
 
-      // Auto-scaling to make sure it's visible
+      // Scaling logic to normalize different model sizes
       const box = new THREE.Box3().setFromObject(model);
       const size = box.getSize(new THREE.Vector3());
       const scale = 12 / Math.max(size.x, size.y, size.z);
       model.scale.setScalar(scale);
 
       if (isPlayer) {
-        playerGroup.remove(dummyPlayer); // Remove the red box
+        playerGroup.remove(dummyPlayer); 
         playerGroup.add(model);
         log(`✅ Player Loaded: ${file}`);
       } else {
@@ -104,20 +112,25 @@ function loadGLB(file, x, z, isPlayer = false) {
         log(`✅ Building Loaded: ${file}`);
       }
     },
-    undefined,
+    (xhr) => {
+      // Optional: Log progress percentage
+      const percent = (xhr.loaded / xhr.total * 100).toFixed(0);
+      if (percent < 100) statusUI.innerText = `Loading ${file}: ${percent}%`;
+    },
     (err) => {
-      log(`❌ FAILED: ${file} (Check Console)`);
+      log(`❌ FAILED: ${file}`);
       console.error("Error loading " + path, err);
     }
   );
 }
 
 /* START LOADING */
+// building.glb (Standard) + b1.glb & t1.glb (Draco)
 loadGLB("building.glb", -30, -20);
 loadGLB("b1.glb", 30, -20);
 loadGLB("t1.glb", 0, 0, true);
 
-/* CONTROLS */
+/* CONTROLS & JOYSTICK */
 let moveX = 0, moveZ = 0, dragging = false;
 const knob = document.getElementById('joystick-knob');
 const base = document.getElementById('joystick-base');
@@ -136,14 +149,14 @@ window.onpointermove = (e) => {
 };
 window.onpointerup = () => { dragging = false; knob.style.transform = ''; moveX = 0; moveZ = 0; };
 
-/* RENDER LOOP */
+/* ANIMATION LOOP */
 function animate() {
   requestAnimationFrame(animate);
   
   playerGroup.position.x += moveX * 0.5;
   playerGroup.position.z += moveZ * 0.5;
   
-  // Camera smooth follow
+  // Camera smooth follow logic
   camera.position.lerp(new THREE.Vector3(playerGroup.position.x, 35, playerGroup.position.z + 50), 0.1);
   camera.lookAt(playerGroup.position);
   
@@ -151,6 +164,7 @@ function animate() {
 }
 animate();
 
+/* HANDLE WINDOW RESIZE */
 window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
@@ -159,4 +173,3 @@ window.addEventListener("resize", () => {
 </script>
 </body>
 </html>
-
