@@ -1,147 +1,117 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Mini City Life – FIXED</title>
-
-<style>
-  body { margin: 0; overflow: hidden; background: #87ceeb; font-family: monospace; touch-action: none; }
-  #status {
-    position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8);
-    color: #0f0; padding: 10px; z-index: 100; font-size: 11px; border-radius: 5px;
-  }
-  #joystick-base { 
-    position: absolute; bottom: 40px; left: 40px; width: 80px; height: 80px; 
-    background: rgba(255,255,255,0.3); border-radius: 50%; z-index: 10;
-  }
-  #joystick-knob { 
-    position: absolute; top: 20px; left: 20px; width: 40px; height: 40px; 
-    background: #fff; border-radius: 50%; 
-  }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mini City Life - Fixed</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #87ceeb; touch-action: none; font-family: monospace; }
+        #status { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: #0f0; padding: 10px; z-index: 100; font-size: 11px; border-radius: 5px; pointer-events: none; }
+        #joystick-base { position: absolute; bottom: 40px; left: 40px; width: 80px; height: 80px; background: rgba(255,255,255,0.3); border-radius: 50%; }
+        #joystick-knob { position: absolute; top: 20px; left: 20px; width: 40px; height: 40px; background: #fff; border-radius: 50%; }
+    </style>
 </head>
 <body>
+    <div id="status">System: Loading fresh models...</div>
+    <div id="joystick-base"><div id="joystick-knob"></div></div>
 
-<div id="status">Booting…</div>
-<div id="joystick-base"><div id="joystick-knob"></div></div>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
 
-<script type="module">
-import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
-import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-const statusUI = document.getElementById("status");
-const log = (t) => statusUI.innerHTML += "<br>" + t;
+        const statusUI = document.getElementById('status');
+        const log = (msg) => { statusUI.innerHTML += "<br>" + msg; };
 
-/* SCENE */
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb);
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87ceeb);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
 
-/* CAMERA */
-const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 1000);
+        // Lighting
+        scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+        const sun = new THREE.DirectionalLight(0xffffff, 1);
+        sun.position.set(10, 20, 10);
+        scene.add(sun);
 
-/* RENDERER */
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(innerWidth, innerHeight);
-renderer.setPixelRatio(window.devicePixelRatio);
-document.body.appendChild(renderer.domElement);
+        const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshStandardMaterial({ color: 0x4caf50 }));
+        ground.rotation.x = -Math.PI / 2;
+        scene.add(ground);
 
-/* LIGHT */
-scene.add(new THREE.AmbientLight(0xffffff, 1.5));
-const sun = new THREE.DirectionalLight(0xffffff, 1);
-sun.position.set(10, 20, 10);
-scene.add(sun);
+        const loader = new GLTFLoader();
+        const playerGroup = new THREE.Group();
+        scene.add(playerGroup);
 
-/* GROUND */
-const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(200, 200),
-  new THREE.MeshStandardMaterial({ color: 0x4caf50 })
-);
-ground.rotation.x = -Math.PI / 2;
-scene.add(ground);
+        const loadAsset = (fileName, x, z, isPlayer = false) => {
+            // Adding a timestamp forces GitHub to serve the newest file version
+            const path = `./models/${fileName}?v=${Date.now()}`;
+            
+            loader.load(path, (gltf) => {
+                const model = gltf.scene;
+                
+                // Auto-sizing to make sure they aren't too small to see
+                const box = new THREE.Box3().setFromObject(model);
+                const size = box.getSize(new THREE.Vector3());
+                const scale = 12 / Math.max(size.x, size.y, size.z);
+                model.scale.set(scale, scale, scale);
 
-/* LOADER */
-const loader = new GLTFLoader();
-const playerGroup = new THREE.Group(); // Group for the tree to move
-scene.add(playerGroup);
+                if (isPlayer) {
+                    playerGroup.add(model);
+                    log(`✅ Loaded Player: ${fileName}`);
+                } else {
+                    model.position.set(x, 0, z);
+                    scene.add(model);
+                    log(`✅ Loaded Building: ${fileName}`);
+                }
+            }, undefined, (err) => {
+                log(`❌ FAILED: ${fileName}`);
+            });
+        };
 
-/* FIXED LOAD FUNCTION */
-function loadGLB(file, x, z, isPlayer = false) {
-  // FIX: Added 'models/' folder to the path to match your GitHub structure
-  const path = `./models/${file}?v=${Date.now()}`;
-  
-  loader.load(
-    path,
-    (gltf) => {
-      const model = gltf.scene;
+        // Matches your new GitHub filenames exactly
+        loadAsset('building.glb', -25, -10);
+        loadAsset('b1.glb', 25, -10);
+        loadAsset('t1.glb', 0, 0, true);
 
-      // Auto-scale logic
-      const box = new THREE.Box3().setFromObject(model);
-      const size = box.getSize(new THREE.Vector3());
-      const scale = 12 / Math.max(size.x, size.y, size.z);
-      model.scale.setScalar(scale);
+        // Movement
+        let moveX = 0, moveZ = 0, dragging = false;
+        const knob = document.getElementById('joystick-knob');
+        const base = document.getElementById('joystick-base');
 
-      if (isPlayer) {
-        playerGroup.add(model);
-        log(`✅ Loaded Player: ${file}`);
-      } else {
-        model.position.set(x, 0, z);
-        scene.add(model);
-        log(`✅ Loaded Building: ${file}`);
-      }
-    },
-    undefined,
-    (e) => log(`❌ FAILED ${file} at ${path}`)
-  );
-}
+        base.onpointerdown = () => dragging = true;
+        window.onpointermove = (e) => {
+            if (!dragging) return;
+            const b = base.getBoundingClientRect();
+            let dx = e.clientX - (b.left + 40);
+            let dy = e.clientY - (b.top + 40);
+            const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 30);
+            const angle = Math.atan2(dy, dx);
+            knob.style.transform = `translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist}px)`;
+            moveX = (Math.cos(angle) * dist) / 30;
+            moveZ = (Math.sin(angle) * dist) / 30;
+        };
+        window.onpointerup = () => { dragging = false; knob.style.transform = ''; moveX = 0; moveZ = 0; };
 
-/* LOAD FILES FROM MODELS FOLDER */
-loadGLB("building.glb", -25, -15);
-loadGLB("b1.glb", 25, -15);
-loadGLB("t1.glb", 0, 0, true); // tree is player
-
-/* JOYSTICK LOGIC */
-let moveX = 0, moveZ = 0, dragging = false;
-const knob = document.getElementById('joystick-knob');
-const base = document.getElementById('joystick-base');
-
-base.onpointerdown = () => dragging = true;
-window.onpointermove = (e) => {
-    if (!dragging) return;
-    const b = base.getBoundingClientRect();
-    let dx = e.clientX - (b.left + 40);
-    let dy = e.clientY - (b.top + 40);
-    const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 30);
-    const angle = Math.atan2(dy, dx);
-    knob.style.transform = `translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist}px)`;
-    moveX = (Math.cos(angle) * dist) / 30;
-    moveZ = (Math.sin(angle) * dist) / 30;
-};
-window.onpointerup = () => { dragging = false; knob.style.transform = ''; moveX = 0; moveZ = 0; };
-
-/* RENDER LOOP */
-function animate() {
-  requestAnimationFrame(animate);
-  
-  // Apply Movement
-  playerGroup.position.x += moveX * 0.4;
-  playerGroup.position.z += moveZ * 0.4;
-  
-  // Camera Follow
-  camera.position.set(playerGroup.position.x, 20, playerGroup.position.z + 40);
-  camera.lookAt(playerGroup.position);
-  
-  renderer.render(scene, camera);
-}
-animate();
-
-/* RESIZE */
-addEventListener("resize", () => {
-  camera.aspect = innerWidth / innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
-});
-</script>
-
+        function animate() {
+            requestAnimationFrame(animate);
+            playerGroup.position.x += moveX * 0.3;
+            playerGroup.position.z += moveZ * 0.3;
+            camera.position.set(playerGroup.position.x, 15, playerGroup.position.z + 35);
+            camera.lookAt(playerGroup.position);
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
 </body>
 </html>
+
