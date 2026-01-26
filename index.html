@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mini City Life - Live</title>
+    <title>Mini City - b1 & t1</title>
     <style>
         body { margin: 0; overflow: hidden; background: #87ceeb; touch-action: none; font-family: monospace; }
         #debug { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: #0f0; padding: 10px; z-index: 100; font-size: 11px; pointer-events: none; border-radius: 5px; }
@@ -12,7 +12,7 @@
     </style>
 </head>
 <body>
-    <div id="debug">System: Loading City...</div>
+    <div id="debug">System: Loading b1 and t1...</div>
     <div id="joystick-base"><div id="joystick-knob"></div></div>
 
     <script type="importmap">
@@ -52,7 +52,7 @@
         scene.add(player);
 
         const loadAsset = (fileName, x, z, isPlayer = false) => {
-            // Adding '?v=' + Date.now() forces GitHub to serve the newest version
+            // Using your new short names
             const path = `./models/${fileName}?v=${Date.now()}`;
             
             loader.load(path, (gltf) => {
@@ -64,22 +64,23 @@
 
                 if (isPlayer) {
                     player.add(m);
-                    log("✅ Player Ready: " + fileName);
+                    log("✅ t1 Ready (Player)");
                 } else {
                     m.position.set(x, 0, z);
                     scene.add(m);
-                    log("✅ Building Ready: " + fileName);
+                    log(`✅ ${fileName} Ready`);
                 }
             }, undefined, (err) => {
-                log("❌ NOT FOUND: " + fileName);
+                log(`❌ ${fileName} NOT FOUND`);
             });
         };
 
-        // Exact match to your GitHub lowercase filenames
+        // Loading the new names
         loadAsset('building.glb', -20, -15);
-        loadAsset('building1.glb', 20, -15);
-        loadAsset('tree1.glb', 0, 0, true);
+        loadAsset('b1.glb', 20, -15);
+        loadAsset('t1.glb', 0, 0, true);
 
+        // Joystick
         let moveX = 0, moveZ = 0, dragging = false;
         const knob = document.getElementById('joystick-knob');
         const base = document.getElementById('joystick-base');
@@ -102,8 +103,11 @@
             requestAnimationFrame(animate);
             player.position.x += moveX * 0.3;
             player.position.z += moveZ * 0.3;
+            
+            // 3rd Person View
             camera.position.set(player.position.x, player.position.y + 15, player.position.z + 35);
             camera.lookAt(player.position);
+            
             renderer.render(scene, camera);
         }
         animate();
