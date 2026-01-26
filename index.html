@@ -3,27 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>City Life - Fixed Scale</title>
+    <title>City Legend - Glass Edition</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; touch-action: none; font-family: sans-serif; }
-        #crosshair { position: absolute; top: 50%; left: 50%; width: 10px; height: 10px; border: 2px solid white; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; z-index: 10; }
-        #joy-base { position: absolute; bottom: 50px; left: 50px; width: 100px; height: 100px; background: rgba(255,255,255,0.1); border: 2px solid #fff; border-radius: 50%; z-index: 20; }
-        #joy-knob { position: absolute; top: 30px; left: 30px; width: 40px; height: 40px; background: #fff; border-radius: 50%; }
-        #loading { position: absolute; inset: 0; background: #111; color: #fff; display: flex; justify-content: center; align-items: center; z-index: 100; }
+        :root { --glass: rgba(255, 255, 255, 0.15); --border: rgba(255, 255, 255, 0.3); }
+        body { margin: 0; overflow: hidden; background: #000; touch-action: none; font-family: 'Segoe UI', sans-serif; }
+
+        /* --- Glass HUD Elements --- */
+        .glass { background: var(--glass); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: 12px; position: absolute; color: white; pointer-events: none; }
+
+        #health-bar { top: 20px; left: 20px; width: 180px; height: 25px; padding: 4px; }
+        #health-fill { width: 100%; height: 100%; background: #ff4757; border-radius: 8px; transition: width 0.3s; }
+        
+        #mission-hud { top: 20px; right: 20px; padding: 10px 20px; text-align: right; }
+        #mission-hud b { color: #f1c40f; display: block; }
+
+        #inventory { bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; padding: 10px; pointer-events: auto; }
+        .inv-slot { width: 45px; height: 45px; background: rgba(255,255,255,0.1); border: 1px solid var(--border); border-radius: 8px; }
+
+        /* --- Glassy Square Joystick --- */
+        #joy-base { position: absolute; bottom: 40px; left: 40px; width: 100px; height: 100px; background: var(--glass); backdrop-filter: blur(5px); border: 2px solid var(--border); border-radius: 15px; pointer-events: auto; }
+        #joy-knob { position: absolute; top: 25px; left: 25px; width: 50px; height: 50px; background: rgba(255,255,255,0.4); border-radius: 10px; }
+
+        /* --- Home Screen / Loading --- */
+        #home-screen { position: fixed; inset: 0; background: linear-gradient(135deg, #1e3799, #000); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; color: white; transition: opacity 0.8s; }
+        #loading-bar { width: 250px; height: 10px; background: rgba(255,255,255,0.1); border-radius: 20px; margin-top: 20px; overflow: hidden; border: 1px solid var(--border); }
+        #loading-fill { width: 0%; height: 100%; background: #00d2d3; }
+        #start-btn { margin-top: 20px; padding: 15px 40px; background: white; color: black; border-radius: 30px; font-weight: bold; display: none; pointer-events: auto; cursor: pointer; }
     </style>
 </head>
 <body>
 
-<div id="loading">OPTIMIZING CITY SCALE...</div>
-<div id="crosshair"></div>
+<div id="home-screen">
+    <h1 style="letter-spacing: 5px;">CITY LEGEND</h1>
+    <div id="loading-bar"><div id="loading-fill"></div></div>
+    <div id="loading-text">0%</div>
+    <div id="start-btn">START GAME</div>
+</div>
+
+<div id="health-bar" class="glass"><div id="health-fill"></div></div>
+<div id="mission-hud" class="glass"><b>MISSION 1 / 20</b>Search the City</div>
+<div id="inventory" class="glass">
+    <div class="inv-slot"></div><div class="inv-slot"></div><div class="inv-slot"></div><div class="inv-slot"></div>
+</div>
 <div id="joy-base"><div id="joy-knob"></div></div>
 
 <script type="importmap">
 {
-    "imports": {
-        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-    }
+    "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" }
 }
 </script>
 
@@ -32,107 +58,98 @@
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
-    // 1. SCENE SETUP
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87ceeb);
-    const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 3000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    // 1. ENGINE (Optimized for Lag-Free Mobile)
+    const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
+    renderer.setPixelRatio(1); 
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     document.body.appendChild(renderer.domElement);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 2.0));
-    const sun = new THREE.DirectionalLight(0xffffff, 1.0);
-    sun.position.set(50, 100, 50);
-    scene.add(sun);
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87ceeb);
+    const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, 2500);
+    const player = new THREE.Group();
+    scene.add(player);
+    camera.position.set(0, 15, 0); 
+    player.add(camera);
 
-    // 2. ROAD & SIDEWALK (Widened for comfort)
-    const road = new THREE.Mesh(new THREE.PlaneGeometry(80, 5000), new THREE.MeshStandardMaterial({ color: 0x333333 }));
+    scene.add(new THREE.AmbientLight(0xffffff, 2.0));
+
+    // 2. CITY ASSETS
+    const road = new THREE.Mesh(new THREE.PlaneGeometry(5000, 5000), new THREE.MeshBasicMaterial({ color: 0x222222 }));
     road.rotation.x = -Math.PI / 2;
     scene.add(road);
 
-    const sidewalkL = new THREE.Mesh(new THREE.PlaneGeometry(100, 5000), new THREE.MeshStandardMaterial({ color: 0x777777 }));
-    sidewalkL.rotation.x = -Math.PI / 2;
-    sidewalkL.position.set(-90, 0.1, 0); // Pushed out further
-    scene.add(sidewalkL);
-
-    const sidewalkR = sidewalkL.clone();
-    sidewalkR.position.set(90, 0.1, 0);
-    scene.add(sidewalkR);
-
-    // 3. PLAYER SETUP
-    const player = new THREE.Group();
-    scene.add(player);
-    camera.position.set(0, 15, 0); // Eye Level
-    player.add(camera);
-
-    // 4. LOADING MODELS
     const draco = new DRACOLoader();
     draco.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
     const loader = new GLTFLoader();
     loader.setDRACOLoader(draco);
 
-    function load(file, x, z, s, isP = false) {
-        loader.load(`./models/${file}`, (gltf) => {
-            const m = gltf.scene;
-            m.scale.setScalar(s); 
-            if (isP) {
-                player.add(m);
-                m.position.set(0, -10, -5); // Position tree body slightly forward & down so it's visible but not blocking
-                document.getElementById('loading').style.display = 'none';
-            } else {
-                m.position.set(x, 0, z);
-                scene.add(m);
-            }
-        });
+    let assetsLoaded = 0;
+    const totalAssets = 3;
+    function updateProgress() {
+        assetsLoaded++;
+        const p = Math.floor((assetsLoaded / totalAssets) * 100);
+        document.getElementById('loading-fill').style.width = p + '%';
+        document.getElementById('loading-text').innerText = p + '%';
+        if(p >= 100) document.getElementById('start-btn').style.display = 'block';
     }
 
-    // Fixed Scaling: 40 instead of 100 (Much more natural)
-    for(let i = 0; i < 8; i++) {
-        // Pushing buildings 140 units away from center so they stay on the sidewalk
-        load("building.glb", -140, -400 * i, 40); 
-        load("b1.glb", 140, -400 * i, 40);
+    // Cloning logic for speed
+    function spawnBuildings(model, xPos) {
+        model.scale.setScalar(40);
+        for(let i = 0; i < 6; i++) {
+            const b = model.clone();
+            b.position.set(xPos, 0, -450 * i);
+            scene.add(b);
+        }
     }
-    load("t1.glb", 0, 0, 10, true);
 
-    // 5. CONTROLS (One Joystick + Screen Swipe)
-    let moveInput = { x: 0, z: 0 };
-    let joyActive = false;
-    const base = document.getElementById('joy-base'), knob = document.getElementById('joy-knob');
+    loader.load('./models/building.glb', (gltf) => { spawnBuildings(gltf.scene, -140); updateProgress(); });
+    loader.load('./models/b1.glb', (gltf) => { spawnBuildings(gltf.scene, 140); updateProgress(); });
+    loader.load('./models/t1.glb', (gltf) => { 
+        const m = gltf.scene; m.scale.setScalar(12); m.position.set(0, -10, -5); 
+        player.add(m); updateProgress(); 
+    });
 
-    base.onpointerdown = (e) => { joyActive = true; base.setPointerCapture(e.pointerId); };
-    base.onpointermove = (e) => {
+    // 3. UI LOGIC
+    document.getElementById('start-btn').onclick = () => {
+        document.getElementById('home-screen').style.opacity = '0';
+        setTimeout(() => document.getElementById('home-screen').style.display = 'none', 800);
+    };
+
+    // 4. CONTROLS (Joystick & Hand Look)
+    let moveDir = { x: 0, z: 0 }, joyActive = false;
+    const jBase = document.getElementById('joy-base'), jKnob = document.getElementById('joy-knob');
+
+    jBase.onpointerdown = (e) => { joyActive = true; jBase.setPointerCapture(e.pointerId); };
+    jBase.onpointermove = (e) => {
         if (!joyActive) return;
-        const r = base.getBoundingClientRect();
+        const r = jBase.getBoundingClientRect();
         const dx = (e.clientX - (r.left + 50)) / 50, dy = (e.clientY - (r.top + 50)) / 50;
         const d = Math.min(Math.sqrt(dx*dx + dy*dy), 1);
         const a = Math.atan2(dy, dx);
-        knob.style.transform = `translate(${Math.cos(a)*d*40}px, ${Math.sin(a)*d*40}px)`;
-        moveInput.x = Math.cos(a) * d; moveInput.z = Math.sin(a) * d;
+        jKnob.style.transform = `translate(${Math.cos(a)*d*30}px, ${Math.sin(a)*d*30}px)`;
+        moveDir.x = Math.cos(a) * d; moveDir.z = Math.sin(a) * d;
     };
-    window.onpointerup = () => { joyActive = false; knob.style.transform = ''; moveInput = {x:0, z:0}; };
+    window.onpointerup = () => { joyActive = false; jKnob.style.transform = ''; moveDir = {x:0, z:0}; };
 
     let yaw = 0, pitch = 0;
     window.onpointermove = (e) => {
-        if (joyActive) return; // Only use screen for looking if not using joystick
+        if (joyActive || e.target.closest('.inv-slot')) return;
         if (e.pointerType === 'touch' || e.buttons === 1) {
             yaw -= e.movementX * 0.005;
-            pitch -= e.movementY * 0.005;
-            pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
+            pitch = Math.max(-1.5, Math.min(1.5, pitch - e.movementY * 0.005));
         }
     };
 
-    // 6. GAME LOOP
     function animate() {
         requestAnimationFrame(animate);
         player.rotation.y = yaw;
         camera.rotation.x = pitch;
-
-        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(player.quaternion);
-        const right = new THREE.Vector3(1, 0, 0).applyQuaternion(player.quaternion);
-        player.position.addScaledVector(forward, -moveInput.z * 1.5);
-        player.position.addScaledVector(right, moveInput.x * 1.5);
-
+        const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(player.quaternion);
+        const rgt = new THREE.Vector3(1, 0, 0).applyQuaternion(player.quaternion);
+        player.position.addScaledVector(fwd, -moveDir.z * 2.5);
+        player.position.addScaledVector(rgt, moveDir.x * 2.5);
         renderer.render(scene, camera);
     }
     animate();
