@@ -3,45 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>City Legend - Wide Streets</title>
+    <title>City Legend - Urban Nature</title>
     <style>
-        :root { --glass: rgba(255, 255, 255, 0.12); --border: rgba(255, 255, 255, 0.25); }
-        body { margin: 0; overflow: hidden; background: #000; touch-action: none; font-family: 'Segoe UI', sans-serif; }
+        :root { --glass: rgba(255, 255, 255, 0.12); --border: rgba(255, 255, 255, 0.2); }
+        body { margin: 0; overflow: hidden; background: #000; touch-action: none; font-family: sans-serif; }
 
-        /* --- Glassy UI --- */
-        .glass { background: var(--glass); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 12px; position: absolute; color: white; pointer-events: none; }
+        /* --- Glassy UI Elements --- */
+        .glass { background: var(--glass); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: 15px; position: absolute; color: white; pointer-events: none; }
+        #health-bar { top: 20px; left: 20px; width: 150px; height: 18px; padding: 4px; }
+        #health-fill { width: 100%; height: 100%; background: #27ae60; border-radius: 10px; }
+        #mission-hud { top: 20px; right: 20px; padding: 12px; text-align: right; }
+        #inventory { bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; padding: 10px; pointer-events: auto; }
+        .inv-slot { width: 45px; height: 45px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; }
 
-        #health-bar { top: 20px; left: 20px; width: 160px; height: 20px; padding: 4px; }
-        #health-fill { width: 100%; height: 100%; background: #2ecc71; border-radius: 6px; }
-        
-        #mission-hud { top: 20px; right: 20px; padding: 12px; text-align: right; width: 140px; }
-        #mission-hud b { color: #f1c40f; display: block; font-size: 12px; }
-
-        #inventory { bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; padding: 8px; pointer-events: auto; }
-        .inv-slot { width: 50px; height: 50px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; }
-
-        /* --- Glassy Square Joystick --- */
-        #joy-base { position: absolute; bottom: 40px; left: 40px; width: 110px; height: 110px; background: var(--glass); backdrop-filter: blur(8px); border: 2px solid var(--border); border-radius: 20px; pointer-events: auto; }
-        #joy-knob { position: absolute; top: 30px; left: 30px; width: 50px; height: 50px; background: rgba(255,255,255,0.3); border-radius: 12px; border: 1px solid #fff; }
+        /* --- Glassy Joystick --- */
+        #joy-base { position: absolute; bottom: 40px; left: 40px; width: 100px; height: 100px; background: var(--glass); backdrop-filter: blur(8px); border: 2px solid var(--border); border-radius: 15px; pointer-events: auto; }
+        #joy-knob { position: absolute; top: 25px; left: 25px; width: 50px; height: 50px; background: rgba(255,255,255,0.3); border-radius: 10px; }
 
         /* --- Loading Screen --- */
-        #home-screen { position: fixed; inset: 0; background: #0a0a0a; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; color: white; transition: opacity 0.6s; }
-        #loading-bar { width: 200px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 10px; margin-top: 20px; overflow: hidden; }
-        #loading-fill { width: 0%; height: 100%; background: #fff; transition: width 0.2s; }
-        #start-btn { margin-top: 25px; padding: 12px 35px; background: #fff; color: #000; border-radius: 5px; font-weight: bold; display: none; cursor: pointer; border: none; }
+        #home-screen { position: fixed; inset: 0; background: #050505; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; color: white; }
+        #loading-bar { width: 200px; height: 3px; background: rgba(255,255,255,0.1); margin-top: 20px; overflow: hidden; }
+        #loading-fill { width: 0%; height: 100%; background: #fff; transition: width 0.3s; }
+        #start-btn { margin-top: 25px; padding: 10px 30px; background: #fff; color: #000; border-radius: 4px; font-weight: bold; display: none; cursor: pointer; border: none; }
     </style>
 </head>
 <body>
 
 <div id="home-screen">
-    <h2 style="letter-spacing: 3px;">CITY LEGEND</h2>
+    <h2 style="letter-spacing: 4px;">URBAN EXPLORER</h2>
     <div id="loading-bar"><div id="loading-fill"></div></div>
-    <div id="loading-text" style="margin-top:10px; font-size: 12px;">0%</div>
+    <div id="loading-text" style="margin-top:10px; font-size: 10px;">0%</div>
     <button id="start-btn">START MISSION</button>
 </div>
 
 <div id="health-bar" class="glass"><div id="health-fill"></div></div>
-<div id="mission-hud" class="glass"><b>MISSION 1 / 20</b>Find the HQ</div>
+<div id="mission-hud" class="glass"><small>MISSION 1</small><br><b>Explore the Park</b></div>
 <div id="inventory" class="glass">
     <div class="inv-slot"></div><div class="inv-slot"></div><div class="inv-slot"></div>
 </div>
@@ -58,7 +54,7 @@
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
-    // 1. PERFORMANCE RENDERER
+    // 1. SCENE SETUP
     const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
     renderer.setPixelRatio(1); 
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -68,24 +64,25 @@
     scene.background = new THREE.Color(0x87ceeb);
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 3000);
     
+    // Player is now just a point in space (human height)
     const player = new THREE.Group();
     scene.add(player);
-    camera.position.set(0, 15, 0); 
+    camera.position.set(0, 12, 0); 
     player.add(camera);
 
     scene.add(new THREE.AmbientLight(0xffffff, 2.5));
 
-    // 2. WIDE CITY ENVIRONMENT
-    const road = new THREE.Mesh(new THREE.PlaneGeometry(120, 10000), new THREE.MeshBasicMaterial({ color: 0x1a1a1a }));
+    // 2. WORLD GEOMETRY
+    const road = new THREE.Mesh(new THREE.PlaneGeometry(100, 10000), new THREE.MeshBasicMaterial({ color: 0x111111 }));
     road.rotation.x = -Math.PI / 2;
     scene.add(road);
 
-    const sidewalk = new THREE.Mesh(new THREE.PlaneGeometry(1000, 10000), new THREE.MeshBasicMaterial({ color: 0x444444 }));
+    const sidewalk = new THREE.Mesh(new THREE.PlaneGeometry(1000, 10000), new THREE.MeshBasicMaterial({ color: 0x333333 }));
     sidewalk.rotation.x = -Math.PI / 2;
     sidewalk.position.y = -0.1;
     scene.add(sidewalk);
 
-    // 3. ASSET LOADING & SPACING
+    // 3. ASSET LOADING & PLACEMENT
     const draco = new DRACOLoader();
     draco.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
     const loader = new GLTFLoader();
@@ -100,30 +97,49 @@
         if(p >= 100) document.getElementById('start-btn').style.display = 'block';
     }
 
-    const spawnLine = (model, xSide) => {
-        model.scale.setScalar(35);
+    // Spawn buildings and trees along the road
+    loader.load('./models/building.glb', (gltf) => {
+        const b = gltf.scene; b.scale.setScalar(35);
         for(let i = 0; i < 8; i++) {
-            const b = model.clone();
-            // X Offset: 180 (far from road), Z Spacing: 600 (lots of room between buildings)
-            b.position.set(xSide, 0, -600 * i); 
-            scene.add(b);
+            const clone = b.clone();
+            clone.position.set(-180, 0, -600 * i);
+            scene.add(clone);
         }
-    }
+        updateProgress();
+    });
 
-    loader.load('./models/building.glb', (gltf) => { spawnLine(gltf.scene, -180); updateProgress(); });
-    loader.load('./models/b1.glb', (gltf) => { spawnLine(gltf.scene, 180); updateProgress(); });
-    loader.load('./models/t1.glb', (gltf) => { 
-        const m = gltf.scene; m.scale.setScalar(12); m.position.set(0, -10, -8); 
-        player.add(m); updateProgress(); 
+    loader.load('./models/b1.glb', (gltf) => {
+        const b = gltf.scene; b.scale.setScalar(35);
+        for(let i = 0; i < 8; i++) {
+            const clone = b.clone();
+            clone.position.set(180, 0, -600 * i);
+            scene.add(clone);
+        }
+        updateProgress();
+    });
+
+    // NOW: t1 (The Tree) is part of the city!
+    loader.load('./models/t1.glb', (gltf) => {
+        const tree = gltf.scene;
+        tree.scale.setScalar(10);
+        for(let i = 0; i < 15; i++) {
+            const tLeft = tree.clone();
+            tLeft.position.set(-80, 0, -300 * i); // Line of trees on left sidewalk
+            scene.add(tLeft);
+
+            const tRight = tree.clone();
+            tRight.position.set(80, 0, -300 * i); // Line of trees on right sidewalk
+            scene.add(tRight);
+        }
+        updateProgress();
     });
 
     // 4. UI HANDLER
     document.getElementById('start-btn').onclick = () => {
-        document.getElementById('home-screen').style.opacity = '0';
-        setTimeout(() => document.getElementById('home-screen').style.display = 'none', 600);
+        document.getElementById('home-screen').style.display = 'none';
     };
 
-    // 5. FPS CONTROLS
+    // 5. CONTROLS
     let moveDir = { x: 0, z: 0 }, joyActive = false;
     const jBase = document.getElementById('joy-base'), jKnob = document.getElementById('joy-knob');
 
@@ -131,10 +147,10 @@
     jBase.onpointermove = (e) => {
         if (!joyActive) return;
         const r = jBase.getBoundingClientRect();
-        const dx = (e.clientX - (r.left + 55)) / 55, dy = (e.clientY - (r.top + 55)) / 55;
+        const dx = (e.clientX - (r.left + 50)) / 50, dy = (e.clientY - (r.top + 50)) / 50;
         const d = Math.min(Math.sqrt(dx*dx + dy*dy), 1);
         const a = Math.atan2(dy, dx);
-        jKnob.style.transform = `translate(${Math.cos(a)*d*35}px, ${Math.sin(a)*d*35}px)`;
+        jKnob.style.transform = `translate(${Math.cos(a)*d*30}px, ${Math.sin(a)*d*30}px)`;
         moveDir.x = Math.cos(a) * d; moveDir.z = Math.sin(a) * d;
     };
     window.onpointerup = () => { joyActive = false; jKnob.style.transform = ''; moveDir = {x:0, z:0}; };
@@ -143,8 +159,8 @@
     window.onpointermove = (e) => {
         if (joyActive) return;
         if (e.pointerType === 'touch' || e.buttons === 1) {
-            yaw -= e.movementX * 0.004;
-            pitch = Math.max(-1.4, Math.min(1.4, pitch - e.movementY * 0.004));
+            yaw -= e.movementX * 0.005;
+            pitch = Math.max(-1.4, Math.min(1.4, pitch - e.movementY * 0.005));
         }
     };
 
@@ -154,17 +170,11 @@
         camera.rotation.x = pitch;
         const f = new THREE.Vector3(0, 0, -1).applyQuaternion(player.quaternion);
         const r = new THREE.Vector3(1, 0, 0).applyQuaternion(player.quaternion);
-        player.position.addScaledVector(f, -moveDir.z * 3.0);
-        player.position.addScaledVector(r, moveDir.x * 3.0);
+        player.position.addScaledVector(f, -moveDir.z * 2.5);
+        player.position.addScaledVector(r, moveDir.x * 2.5);
         renderer.render(scene, camera);
     }
     animate();
-
-    window.onresize = () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-    };
 </script>
 </body>
 </html>
