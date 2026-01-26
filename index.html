@@ -3,17 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Mini City - Draco Edition</title>
+<title>Mini City - Draco Debug</title>
 <style>
   body { margin: 0; overflow: hidden; background: #87ceeb; touch-action: none; font-family: monospace; }
-  #status { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: #0f0; padding: 10px; z-index: 100; font-size: 11px; border-radius: 5px; }
+  #status { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.9); color: #0f0; padding: 10px; z-index: 100; font-size: 11px; border-radius: 5px; line-height: 1.4; }
   #joystick-base { position: absolute; bottom: 40px; left: 40px; width: 80px; height: 80px; background: rgba(255,255,255,0.3); border-radius: 50%; }
   #joystick-knob { position: absolute; top: 20px; left: 20px; width: 40px; height: 40px; background: #fff; border-radius: 50%; }
 </style>
 </head>
 <body>
 
-<div id="status">Decoding Draco Models...</div>
+<div id="status">INIT: Starting Engine...</div>
 <div id="joystick-base"><div id="joystick-knob"></div></div>
 
 <script type="module">
@@ -22,60 +22,71 @@ import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders
 import { DRACOLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/DRACOLoader.js";
 
 const statusUI = document.getElementById("status");
-const log = (t) => statusUI.innerHTML += "<br>" + t;
+const log = (t) => { statusUI.innerHTML += "<br>" + t; console.log(t); };
 
+/* 1. SCENE */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(innerWidth, innerHeight);
-renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
 scene.add(new THREE.AmbientLight(0xffffff, 2));
-const sun = new THREE.DirectionalLight(0xffffff, 1.5);
-sun.position.set(10, 20, 10);
-scene.add(sun);
 
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshStandardMaterial({ color: 0x4caf50 }));
-ground.rotation.x = -Math.PI / 2;
-scene.add(ground);
-
-/* DRACO SETUP */
+/* 2. DRACO SETUP */
+log("DRACO: Fetching decoders...");
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/'); 
+
 const loader = new GLTFLoader();
 loader.setDRACOLoader(dracoLoader);
 
 const playerGroup = new THREE.Group();
 scene.add(playerGroup);
 
+/* 3. LOADING WITH PROGRESS */
 function loadModel(file, x, z, isPlayer = false) {
-  const path = `./models/${file}?v=${Date.now()}`;
-  loader.load(path, (gltf) => {
-    const model = gltf.scene;
-    const box = new THREE.Box3().setFromObject(model);
-    const size = box.getSize(new THREE.Vector3());
-    const scale = 12 / Math.max(size.x, size.y, size.z);
-    model.scale.setScalar(scale);
+  const path = `./models/${file}`; // Ensure models are in /models/ folder
+  log(`LOAD: Requesting ${file}...`);
 
-    if (isPlayer) {
-      playerGroup.add(model);
-      log(`✅ Player: ${file}`);
-    } else {
-      model.position.set(x, 0, z);
-      scene.add(model);
-      log(`✅ Building: ${file}`);
+  loader.load(
+    path,
+    (gltf) => {
+      const model = gltf.scene;
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3());
+      const scale = 12 / Math.max(size.x, size.y, size.z);
+      model.scale.setScalar(scale);
+
+      if (isPlayer) {
+        playerGroup.add(model);
+        log(`✅ SUCCESS: ${file} (Player)`);
+      } else {
+        model.position.set(x, 0, z);
+        scene.add(model);
+        log(`✅ SUCCESS: ${file}`);
+      }
+    },
+    (xhr) => {
+      // Show download percentage
+      if (xhr.lengthComputable) {
+        const percent = Math.round((xhr.loaded / xhr.total) * 100);
+        if (percent === 100) log(`DECODE: Unzipping ${file}...`);
+      }
+    },
+    (err) => {
+      log(`❌ FAILED: ${file} (Check if file is in /models/ folder)`);
     }
-  }, undefined, (e) => log(`❌ Error: ${file}`));
+  );
 }
 
-// Loading your new files
+// Start loading
 loadModel("building.glb", -25, -15);
 loadModel("b1.glb", 25, -15);
 loadModel("t1.glb", 0, 0, true);
 
-/* MOVEMENT */
+/* 4. CONTROLS */
 let moveX = 0, moveZ = 0, dragging = false;
 const knob = document.getElementById('joystick-knob');
 const base = document.getElementById('joystick-base');
@@ -94,6 +105,7 @@ window.onpointermove = (e) => {
 };
 window.onpointerup = () => { dragging = false; knob.style.transform = ''; moveX = 0; moveZ = 0; };
 
+/* 5. LOOP */
 function animate() {
   requestAnimationFrame(animate);
   playerGroup.position.x += moveX * 0.4;
@@ -106,4 +118,3 @@ animate();
 </script>
 </body>
 </html>
-
