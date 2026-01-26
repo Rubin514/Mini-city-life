@@ -3,23 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Mini City Life – DEBUGGED</title>
+<title>Mini City Life – FIXED</title>
 
 <style>
-  body { margin: 0; overflow: hidden; background: #87ceeb; font-family: monospace; touch-action: none; }
+  body { margin: 0; overflow: hidden; background: #87ceeb; font-family: 'Courier New', monospace; touch-action: none; }
   #status {
     position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8);
-    color: #0f0; padding: 10px; z-index: 100; font-size: 11px; border-radius: 5px;
+    color: #0f0; padding: 12px; z-index: 100; font-size: 12px; border-radius: 5px;
     max-height: 200px; overflow-y: auto; pointer-events: none;
   }
   #joystick-base { 
     position: absolute; bottom: 40px; left: 40px; width: 80px; height: 80px; 
-    background: rgba(255,255,255,0.3); border-radius: 50%; z-index: 10;
-    touch-action: none;
+    background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.4); 
+    border-radius: 50%; z-index: 10;
   }
   #joystick-knob { 
     position: absolute; top: 20px; left: 20px; width: 40px; height: 40px; 
-    background: #fff; border-radius: 50%; pointer-events: none;
+    background: #fff; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
   }
 </style>
 </head>
@@ -38,7 +38,7 @@ const log = (t) => {
     statusUI.scrollTop = statusUI.scrollHeight;
 };
 
-/* SCENE SETUP */
+/* --- SCENE SETUP --- */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 
@@ -48,13 +48,13 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
-/* LIGHTS */
+/* --- LIGHTING --- */
 scene.add(new THREE.AmbientLight(0xffffff, 1.2));
-const sun = new THREE.DirectionalLight(0xffffff, 1);
-sun.position.set(50, 100, 50);
+const sun = new THREE.DirectionalLight(0xffffff, 1.5);
+sun.position.set(10, 20, 10);
 scene.add(sun);
 
-/* GROUND */
+/* --- GROUND --- */
 const ground = new THREE.Mesh(
   new THREE.PlaneGeometry(500, 500),
   new THREE.MeshStandardMaterial({ color: 0x4caf50 })
@@ -62,60 +62,73 @@ const ground = new THREE.Mesh(
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 
-/* LOADER & PLAYER GROUP */
-const loader = new GLTFLoader();
-const playerGroup = new THREE.Group(); 
+/* --- PLAYER GROUP --- */
+const playerGroup = new THREE.Group();
 scene.add(playerGroup);
 
-function loadGLB(file, x, z, isPlayer = false) {
-  // Using the path you specified
-  const path = `./models/${file}?v=${Date.now()}`;
+/* --- LOADING LOGIC --- */
+const loader = new GLTFLoader();
+
+function loadModel(fileName, x, z, isPlayer = false) {
+  // IMPORTANT: Ensure your folder is lowercase 'models' and names match exactly
+  const path = `models/${fileName}`;
   
   loader.load(
     path,
     (gltf) => {
       const model = gltf.scene;
-
-      // Calculate dimensions for auto-scaling
+      
+      // 1. Center the model and auto-scale
       const box = new THREE.Box3().setFromObject(model);
+      const center = box.getCenter(new THREE.Vector3());
       const size = box.getSize(new THREE.Vector3());
-      const scale = 10 / Math.max(size.x, size.y, size.z);
-      model.scale.setScalar(scale);
+      
+      // Move mesh so its bottom sits at 0,0,0
+      model.position.x -= center.x;
+      model.position.y -= box.min.y; 
+      model.position.z -= center.z;
 
-      // IMPORTANT: Adjust position so the bottom of the model hits Y=0
-      const updatedBox = new THREE.Box3().setFromObject(model);
-      model.position.y = -updatedBox.min.y; 
+      const scale = 10 / Math.max(size.x, size.y, size.z);
+      
+      // Create a wrapper to hold the centered model
+      const wrapper = new THREE.Group();
+      wrapper.add(model);
+      wrapper.scale.setScalar(scale);
+      wrapper.position.set(x, 0, z);
 
       if (isPlayer) {
-        playerGroup.add(model);
-        log(`✅ Player Ready: ${file}`);
+        playerGroup.add(wrapper);
+        log(`✅ PLAYER: ${fileName} loaded.`);
       } else {
-        const buildingWrap = new THREE.Group();
-        buildingWrap.position.set(x, 0, z);
-        buildingWrap.add(model);
-        scene.add(buildingWrap);
-        log(`✅ Building Placed: ${file}`);
+        scene.add(wrapper);
+        log(`✅ OBJECT: ${fileName} loaded.`);
       }
     },
-    undefined,
-    (e) => log(`❌ Load Error: ${file}`)
+    (xhr) => {
+        // Log progress to help debug slow connections
+        if(xhr.total > 0) {
+            const progress = Math.round((xhr.loaded / xhr.total) * 100);
+            if(progress === 100) console.log(`${fileName} Ready`);
+        }
+    },
+    (error) => {
+      log(`❌ FAILED: ${fileName}. Check if file is in /models/ and named correctly.`);
+      console.error(error);
+    }
   );
 }
 
-loadGLB("building.glb", -25, -15);
-loadGLB("b1.glb", 25, -15);
-loadGLB("t1.glb", 0, 0, true);
+// Start loading
+loadModel("building.glb", -25, -15);
+loadModel("b1.glb", 25, -15);
+loadModel("t1.glb", 0, 0, true);
 
-/* JOYSTICK CONTROLS */
+/* --- CONTROLS --- */
 let moveX = 0, moveZ = 0, dragging = false;
 const knob = document.getElementById('joystick-knob');
 const base = document.getElementById('joystick-base');
 
-base.addEventListener('pointerdown', (e) => {
-    dragging = true;
-    base.setPointerCapture(e.pointerId);
-});
-
+base.addEventListener('pointerdown', () => dragging = true);
 window.addEventListener('pointermove', (e) => {
     if (!dragging) return;
     const b = base.getBoundingClientRect();
@@ -124,50 +137,42 @@ window.addEventListener('pointermove', (e) => {
     
     let dx = e.clientX - centerX;
     let dy = e.clientY - centerY;
-    
-    const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 35);
+    const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 30);
     const angle = Math.atan2(dy, dx);
     
     knob.style.transform = `translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist}px)`;
-    
-    // Smooth input values
-    moveX = (Math.cos(angle) * dist) / 35;
-    moveZ = (Math.sin(angle) * dist) / 35;
+    moveX = (Math.cos(angle) * dist) / 30;
+    moveZ = (Math.sin(angle) * dist) / 30;
 });
 
 window.addEventListener('pointerup', () => {
-    dragging = false;
-    knob.style.transform = 'translate(0,0)';
-    moveX = 0;
-    moveZ = 0;
+    dragging = false; 
+    knob.style.transform = 'translate(0,0)'; 
+    moveX = 0; moveZ = 0; 
 });
 
-/* ANIMATION LOOP */
+/* --- GAME LOOP --- */
 function animate() {
   requestAnimationFrame(animate);
   
-  if (dragging) {
-    // Movement speed
-    playerGroup.position.x += moveX * 0.5;
-    playerGroup.position.z += moveZ * 0.5;
-    
-    // Rotate player to face movement direction
-    playerGroup.rotation.y = Math.atan2(-moveX, -moveZ);
-  }
+  // Player movement
+  playerGroup.position.x += moveX * 0.5;
+  playerGroup.position.z += moveZ * 0.5;
   
-  // Camera Follow with Offset
-  camera.position.lerp(new THREE.Vector3(
-    playerGroup.position.x, 
-    playerGroup.position.y + 25, 
-    playerGroup.position.z + 45
-  ), 0.1);
-  
+  // Camera smooth follow
+  const targetCamPos = new THREE.Vector3(
+      playerGroup.position.x, 
+      30, 
+      playerGroup.position.z + 50
+  );
+  camera.position.lerp(targetCamPos, 0.1);
   camera.lookAt(playerGroup.position);
   
   renderer.render(scene, camera);
 }
 animate();
 
+/* --- HANDLE RESIZE --- */
 window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
