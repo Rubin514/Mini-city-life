@@ -3,133 +3,103 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Mini City - Loading...</title>
+<title>City Life - Force Load</title>
 <style>
-  body { margin: 0; overflow: hidden; background: #87ceeb; touch-action: none; font-family: monospace; }
-  
-  /* Loading Overlay Styles */
+  body { margin: 0; overflow: hidden; background: #87ceeb; touch-action: none; font-family: sans-serif; }
   #loading-overlay {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    background: #222; display: flex; flex-direction: column;
-    justify-content: center; align-items: center; z-index: 1000; transition: opacity 0.5s;
+    background: #1a1a1a; display: flex; flex-direction: column;
+    justify-content: center; align-items: center; z-index: 1000;
   }
-  #loading-text { color: #0f0; font-size: 20px; margin-bottom: 20px; }
-  #progress-container { width: 70%; height: 20px; background: #444; border-radius: 10px; overflow: hidden; }
-  #progress-bar { width: 0%; height: 100%; background: #0f0; transition: width 0.2s; }
-  
-  #status-log { position: absolute; top: 10px; left: 10px; color: #0f0; z-index: 100; pointer-events: none; font-size: 12px; }
-  #joystick-base { position: absolute; bottom: 40px; left: 40px; width: 80px; height: 80px; background: rgba(255,255,255,0.3); border-radius: 50%; display: none; }
-  #joystick-knob { position: absolute; top: 20px; left: 20px; width: 40px; height: 40px; background: #fff; border-radius: 50%; }
+  #loading-text { color: #fff; font-size: 18px; margin-bottom: 15px; }
+  #bar-bg { width: 250px; height: 12px; background: #333; border-radius: 6px; overflow: hidden; }
+  #bar-fill { width: 0%; height: 100%; background: #4caf50; transition: width 0.3s; }
+  #status-msg { margin-top: 10px; color: #888; font-size: 11px; }
 </style>
 </head>
 <body>
 
 <div id="loading-overlay">
-  <div id="loading-text">Downloading Assets: 0%</div>
-  <div id="progress-container"><div id="progress-bar"></div></div>
+  <div id="loading-text">Connecting to Server... 0%</div>
+  <div id="bar-bg"><div id="bar-fill"></div></div>
+  <div id="status-msg">Checking models/ folder...</div>
 </div>
 
-<div id="status-log">System: Ready</div>
-<div id="joystick-base"><div id="joystick-knob"></div></div>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
 
 <script type="module">
-import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
-import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
-import { DRACOLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/DRACOLoader.js";
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
-const loadingOverlay = document.getElementById("loading-overlay");
-const loadingText = document.getElementById("loading-text");
-const progressBar = document.getElementById("progress-bar");
-const log = (t) => document.getElementById("status-log").innerHTML += "<br>" + t;
+const text = document.getElementById("loading-text");
+const fill = document.getElementById("bar-fill");
+const msg = document.getElementById("status-msg");
 
-/* 1. THREE.JS SETUP */
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb);
 const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(innerWidth, innerHeight);
 document.body.appendChild(renderer.domElement);
 scene.add(new THREE.AmbientLight(0xffffff, 2));
 
-/* 2. LOADING MANAGER */
-// The LoadingManager tracks ALL files at once
+// 1. Better Loading Manager
 const manager = new THREE.LoadingManager();
-
-manager.onProgress = (url, itemsLoaded, itemsTotal) => {
-  const progress = Math.round((itemsLoaded / itemsTotal) * 100);
-  loadingText.innerText = `Loading Assets: ${progress}%`;
-  progressBar.style.width = progress + "%";
+manager.onProgress = (url, loaded, total) => {
+    const p = Math.round((loaded / total) * 100);
+    text.innerText = `Downloading: ${p}%`;
+    fill.style.width = p + "%";
+    msg.innerText = "Processing: " + url.split('/').pop();
 };
 
 manager.onLoad = () => {
-  log("✅ All assets loaded!");
-  setTimeout(() => {
-    loadingOverlay.style.opacity = "0";
-    setTimeout(() => {
-      loadingOverlay.style.display = "none";
-      document.getElementById("joystick-base").style.display = "block";
-    }, 500);
-  }, 500);
+    text.innerText = "Success!";
+    setTimeout(() => document.getElementById("loading-overlay").style.display = "none", 500);
 };
 
-/* 3. DRACO & GLTF SETUP */
-const dracoLoader = new DRACOLoader();
-dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/'); 
+// 2. Optimized Draco Setup
+const draco = new DRACOLoader();
+draco.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/'); 
+draco.setDecoderConfig({ type: 'js' }); // Use JS decoder for better mobile compatibility
 
 const loader = new GLTFLoader(manager);
-loader.setDRACOLoader(dracoLoader);
+loader.setDRACOLoader(draco);
 
 const playerGroup = new THREE.Group();
 scene.add(playerGroup);
 
-function loadModel(file, x, z, isPlayer = false) {
-  loader.load(`./models/${file}`, (gltf) => {
-    const model = gltf.scene;
-    const box = new THREE.Box3().setFromObject(model);
-    const size = box.getSize(new THREE.Vector3());
-    const scale = 12 / Math.max(size.x, size.y, size.z);
-    model.scale.setScalar(scale);
-
-    if (isPlayer) {
-      playerGroup.add(model);
-    } else {
-      model.position.set(x, 0, z);
-      scene.add(model);
-    }
-  }, undefined, (err) => log(`❌ Error loading ${file}`));
+function load(name, x, z, isP = false) {
+    // Force bypass cache to see if the files even exist
+    loader.load(`./models/${name}?v=${Date.now()}`, (gltf) => {
+        const m = gltf.scene;
+        const box = new THREE.Box3().setFromObject(m);
+        const size = box.getSize(new THREE.Vector3());
+        const s = 12 / Math.max(size.x, size.y, size.z);
+        m.scale.setScalar(s);
+        if(isP) playerGroup.add(m);
+        else { m.position.set(x, 0, z); scene.add(m); }
+    }, undefined, (err) => {
+        msg.innerHTML = `<span style="color:red">ERROR: ${name} not found in /models/</span>`;
+    });
 }
 
-// Load your files
-loadModel("building.glb", -25, -15);
-loadModel("b1.glb", 25, -15);
-loadModel("t1.glb", 0, 0, true);
-
-/* 4. JOYSTICK & ENGINE */
-let moveX = 0, moveZ = 0, dragging = false;
-const knob = document.getElementById('joystick-knob');
-const base = document.getElementById('joystick-base');
-
-base.onpointerdown = () => dragging = true;
-window.onpointermove = (e) => {
-    if (!dragging) return;
-    const b = base.getBoundingClientRect();
-    let dx = e.clientX - (b.left + 40);
-    let dy = e.clientY - (b.top + 40);
-    const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 30);
-    const angle = Math.atan2(dy, dx);
-    knob.style.transform = `translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist}px)`;
-    moveX = (Math.cos(angle) * dist) / 30;
-    moveZ = (Math.sin(angle) * dist) / 30;
-};
-window.onpointerup = () => { dragging = false; knob.style.transform = ''; moveX = 0; moveZ = 0; };
+// Start Loading
+load("building.glb", -25, -15);
+load("b1.glb", 25, -15);
+load("t1.glb", 0, 0, true);
 
 function animate() {
-  requestAnimationFrame(animate);
-  playerGroup.position.x += moveX * 0.4;
-  playerGroup.position.z += moveZ * 0.4;
-  camera.position.set(playerGroup.position.x, 20, playerGroup.position.z + 45);
-  camera.lookAt(playerGroup.position);
-  renderer.render(scene, camera);
+    requestAnimationFrame(animate);
+    camera.position.set(playerGroup.position.x, 20, playerGroup.position.z + 45);
+    camera.lookAt(playerGroup.position);
+    renderer.render(scene, camera);
 }
 animate();
 </script>
