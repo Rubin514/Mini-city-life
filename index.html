@@ -3,72 +3,104 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Three.js GLB Test</title>
+<title>Mini City Life – FIXED</title>
+
 <style>
-  body { margin: 0; overflow: hidden; }
+body { margin: 0; overflow: hidden; background: #87ceeb; font-family: monospace; }
+#status {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(0,0,0,0.8);
+  color: #0f0;
+  padding: 10px;
+  z-index: 100;
+  font-size: 11px;
+  border-radius: 5px;
+}
 </style>
 </head>
 <body>
+
+<div id="status">Booting…</div>
 
 <script type="module">
 import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
 import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
 
-console.log("SCRIPT STARTED");
+const statusUI = document.getElementById("status");
+const log = (t) => statusUI.innerHTML += "<br>" + t;
 
 /* SCENE */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 
 /* CAMERA */
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
-camera.position.set(0, 5, 15);
+const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 1000);
+camera.position.set(0, 15, 35);
 
 /* RENDERER */
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setSize(innerWidth, innerHeight);
 document.body.appendChild(renderer.domElement);
 
 /* LIGHT */
-scene.add(new THREE.AmbientLight(0xffffff, 2));
+scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+const sun = new THREE.DirectionalLight(0xffffff, 1);
+sun.position.set(10, 20, 10);
+scene.add(sun);
 
-/* GROUND (PROOF SCENE WORKS) */
+/* GROUND */
 const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(50, 50),
-  new THREE.MeshStandardMaterial({ color: 0x00ff00 })
+  new THREE.PlaneGeometry(200, 200),
+  new THREE.MeshStandardMaterial({ color: 0x4caf50 })
 );
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 
-/* LOAD ONE MODEL — ABSOLUTE URL */
+/* LOADER */
 const loader = new GLTFLoader();
 
-loader.load(
-  "https://rubin514.github.io/Mini-city-life/b1.glb",
-  (gltf) => {
-    console.log("MODEL LOADED");
-    const model = gltf.scene;
+/* AUTO LOAD FUNCTION */
+function loadGLB(file, x, z) {
+  loader.load(
+    `./${file}?v=${Date.now()}`,
+    (gltf) => {
+      const model = gltf.scene;
 
-    // FORCE VISIBILITY
-    model.scale.set(10, 10, 10);
-    model.position.set(0, 0, 0);
+      // Force visible size
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3());
+      const scale = 12 / Math.max(size.x, size.y, size.z);
+      model.scale.setScalar(scale);
 
-    scene.add(model);
-  },
-  (xhr) => {
-    console.log("Loading:", (xhr.loaded / xhr.total * 100).toFixed(0) + "%");
-  },
-  (error) => {
-    console.error("GLB ERROR", error);
-  }
-);
+      model.position.set(x, 0, z);
+      scene.add(model);
+      log(`✅ Loaded ${file}`);
+    },
+    undefined,
+    (e) => log(`❌ FAILED ${file}`)
+  );
+}
 
-/* ANIMATE */
+/* LOAD FILES (ROOT LEVEL) */
+loadGLB("building.glb", -25, -10);
+loadGLB("b1.glb", 25, -10);
+loadGLB("t1.glb", 0, 0);
+
+/* RENDER LOOP */
 function animate() {
   requestAnimationFrame(animate);
   renderer.render(scene, camera);
 }
 animate();
+
+/* RESIZE */
+addEventListener("resize", () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
 </script>
 
 </body>
