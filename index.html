@@ -3,29 +3,27 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Mini City Life – FIXED</title>
-
+<title>Mini City Life - FIXED</title>
 <style>
-  body { margin: 0; overflow: hidden; background: #87ceeb; font-family: 'Courier New', monospace; touch-action: none; }
+  body { margin: 0; overflow: hidden; background: #87ceeb; font-family: sans-serif; touch-action: none; }
   #status {
-    position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8);
-    color: #0f0; padding: 12px; z-index: 100; font-size: 12px; border-radius: 5px;
-    max-height: 200px; overflow-y: auto; pointer-events: none;
+    position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7);
+    color: #0f0; padding: 10px; z-index: 100; font-size: 12px; border-radius: 5px;
+    pointer-events: none; max-width: 80%;
   }
   #joystick-base { 
-    position: absolute; bottom: 40px; left: 40px; width: 80px; height: 80px; 
-    background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.4); 
-    border-radius: 50%; z-index: 10;
+    position: absolute; bottom: 50px; left: 50px; width: 80px; height: 80px; 
+    background: rgba(255,255,255,0.2); border-radius: 50%; z-index: 10; border: 2px solid white;
   }
   #joystick-knob { 
     position: absolute; top: 20px; left: 20px; width: 40px; height: 40px; 
-    background: #fff; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    background: #fff; border-radius: 50%; 
   }
 </style>
 </head>
 <body>
 
-<div id="status">System Initializing...</div>
+<div id="status">Checking models...</div>
 <div id="joystick-base"><div id="joystick-knob"></div></div>
 
 <script type="module">
@@ -33,146 +31,126 @@ import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
 import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
 
 const statusUI = document.getElementById("status");
-const log = (t) => {
-    statusUI.innerHTML += "<br>" + t;
-    statusUI.scrollTop = statusUI.scrollHeight;
-};
+const log = (t) => { statusUI.innerHTML += "<br>" + t; };
 
-/* --- SCENE SETUP --- */
+/* SCENE */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 
+/* CAMERA */
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+/* RENDERER */
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 document.body.appendChild(renderer.domElement);
 
-/* --- LIGHTING --- */
+/* LIGHTS */
 scene.add(new THREE.AmbientLight(0xffffff, 1.2));
 const sun = new THREE.DirectionalLight(0xffffff, 1.5);
-sun.position.set(10, 20, 10);
+sun.position.set(50, 100, 50);
 scene.add(sun);
 
-/* --- GROUND --- */
+/* GROUND */
 const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(500, 500),
+  new THREE.PlaneGeometry(1000, 1000),
   new THREE.MeshStandardMaterial({ color: 0x4caf50 })
 );
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 
-/* --- PLAYER GROUP --- */
+/* PLAYER SETUP */
 const playerGroup = new THREE.Group();
 scene.add(playerGroup);
 
-/* --- LOADING LOGIC --- */
+// Create a small red box so you can move even if the tree model (t1.glb) fails
+const dummyGeo = new THREE.BoxGeometry(2, 2, 2);
+const dummyMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+const dummyPlayer = new THREE.Mesh(dummyGeo, dummyMat);
+playerGroup.add(dummyPlayer);
+
 const loader = new GLTFLoader();
 
-function loadModel(fileName, x, z, isPlayer = false) {
-  // IMPORTANT: Ensure your folder is lowercase 'models' and names match exactly
-  const path = `models/${fileName}`;
+function loadGLB(file, x, z, isPlayer = false) {
+  // Path matches your screenshot: folder 'models' + filename
+  const path = `models/${file}`;
   
-  loader.load(
-    path,
-    (gltf) => {
-      const model = gltf.scene;
-      
-      // 1. Center the model and auto-scale
-      const box = new THREE.Box3().setFromObject(model);
-      const center = box.getCenter(new THREE.Vector3());
-      const size = box.getSize(new THREE.Vector3());
-      
-      // Move mesh so its bottom sits at 0,0,0
-      model.position.x -= center.x;
-      model.position.y -= box.min.y; 
-      model.position.z -= center.z;
+  // Create a placeholder visual so we know WHERE it should be
+  const marker = new THREE.Mesh(
+    new THREE.BoxGeometry(1, 1, 1),
+    new THREE.MeshBasicMaterial({ color: 0xffff00, wireframe: true })
+  );
+  marker.position.set(x, 0.5, z);
+  scene.add(marker);
 
-      const scale = 10 / Math.max(size.x, size.y, size.z);
-      
-      // Create a wrapper to hold the centered model
-      const wrapper = new THREE.Group();
-      wrapper.add(model);
-      wrapper.scale.setScalar(scale);
-      wrapper.position.set(x, 0, z);
+  loader.load(path, (gltf) => {
+      scene.remove(marker); // Remove the yellow box when loaded
+      const model = gltf.scene;
+
+      // Auto-scaling to make sure it's visible
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3());
+      const scale = 12 / Math.max(size.x, size.y, size.z);
+      model.scale.setScalar(scale);
 
       if (isPlayer) {
-        playerGroup.add(wrapper);
-        log(`✅ PLAYER: ${fileName} loaded.`);
+        playerGroup.remove(dummyPlayer); // Remove the red box
+        playerGroup.add(model);
+        log(`✅ Player Loaded: ${file}`);
       } else {
-        scene.add(wrapper);
-        log(`✅ OBJECT: ${fileName} loaded.`);
+        model.position.set(x, 0, z);
+        scene.add(model);
+        log(`✅ Building Loaded: ${file}`);
       }
     },
-    (xhr) => {
-        // Log progress to help debug slow connections
-        if(xhr.total > 0) {
-            const progress = Math.round((xhr.loaded / xhr.total) * 100);
-            if(progress === 100) console.log(`${fileName} Ready`);
-        }
-    },
-    (error) => {
-      log(`❌ FAILED: ${fileName}. Check if file is in /models/ and named correctly.`);
-      console.error(error);
+    undefined,
+    (err) => {
+      log(`❌ FAILED: ${file} (Check Console)`);
+      console.error("Error loading " + path, err);
     }
   );
 }
 
-// Start loading
-loadModel("building.glb", -25, -15);
-loadModel("b1.glb", 25, -15);
-loadModel("t1.glb", 0, 0, true);
+/* START LOADING */
+loadGLB("building.glb", -30, -20);
+loadGLB("b1.glb", 30, -20);
+loadGLB("t1.glb", 0, 0, true);
 
-/* --- CONTROLS --- */
+/* CONTROLS */
 let moveX = 0, moveZ = 0, dragging = false;
 const knob = document.getElementById('joystick-knob');
 const base = document.getElementById('joystick-base');
 
-base.addEventListener('pointerdown', () => dragging = true);
-window.addEventListener('pointermove', (e) => {
+base.onpointerdown = (e) => { dragging = true; base.setPointerCapture(e.pointerId); };
+window.onpointermove = (e) => {
     if (!dragging) return;
     const b = base.getBoundingClientRect();
-    const centerX = b.left + b.width / 2;
-    const centerY = b.top + b.height / 2;
-    
-    let dx = e.clientX - centerX;
-    let dy = e.clientY - centerY;
+    let dx = e.clientX - (b.left + 40);
+    let dy = e.clientY - (b.top + 40);
     const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 30);
     const angle = Math.atan2(dy, dx);
-    
     knob.style.transform = `translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist}px)`;
     moveX = (Math.cos(angle) * dist) / 30;
     moveZ = (Math.sin(angle) * dist) / 30;
-});
+};
+window.onpointerup = () => { dragging = false; knob.style.transform = ''; moveX = 0; moveZ = 0; };
 
-window.addEventListener('pointerup', () => {
-    dragging = false; 
-    knob.style.transform = 'translate(0,0)'; 
-    moveX = 0; moveZ = 0; 
-});
-
-/* --- GAME LOOP --- */
+/* RENDER LOOP */
 function animate() {
   requestAnimationFrame(animate);
   
-  // Player movement
   playerGroup.position.x += moveX * 0.5;
   playerGroup.position.z += moveZ * 0.5;
   
   // Camera smooth follow
-  const targetCamPos = new THREE.Vector3(
-      playerGroup.position.x, 
-      30, 
-      playerGroup.position.z + 50
-  );
-  camera.position.lerp(targetCamPos, 0.1);
+  camera.position.lerp(new THREE.Vector3(playerGroup.position.x, 35, playerGroup.position.z + 50), 0.1);
   camera.lookAt(playerGroup.position);
   
   renderer.render(scene, camera);
 }
 animate();
 
-/* --- HANDLE RESIZE --- */
 window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
@@ -181,3 +159,4 @@ window.addEventListener("resize", () => {
 </script>
 </body>
 </html>
+
