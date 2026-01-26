@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mini City Life - GitHub Fix</title>
+    <title>Mini City Life - Live</title>
     <style>
         body { margin: 0; overflow: hidden; background: #87ceeb; touch-action: none; font-family: monospace; }
-        #debug { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: #0f0; padding: 10px; z-index: 100; font-size: 11px; pointer-events: none; }
+        #debug { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: #0f0; padding: 10px; z-index: 100; font-size: 11px; pointer-events: none; border-radius: 5px; }
         #joystick-base { position: absolute; bottom: 40px; left: 40px; width: 80px; height: 80px; background: rgba(255,255,255,0.3); border-radius: 50%; }
         #joystick-knob { position: absolute; top: 20px; left: 20px; width: 40px; height: 40px; background: #fff; border-radius: 50%; }
     </style>
 </head>
 <body>
-    <div id="debug">System: Checking GitHub Paths...</div>
+    <div id="debug">System: Loading City...</div>
     <div id="joystick-base"><div id="joystick-knob"></div></div>
 
     <script type="importmap">
@@ -38,25 +38,25 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // Bright lighting for GitHub models
         scene.add(new THREE.AmbientLight(0xffffff, 1.5));
         const sun = new THREE.DirectionalLight(0xffffff, 1);
         sun.position.set(10, 20, 10);
         scene.add(sun);
 
+        const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshStandardMaterial({ color: 0x4caf50 }));
+        ground.rotation.x = -Math.PI / 2;
+        scene.add(ground);
+
         const loader = new GLTFLoader();
         const player = new THREE.Group();
         scene.add(player);
 
-        // LOAD FUNCTION
         const loadAsset = (fileName, x, z, isPlayer = false) => {
-            // Use './' to ensure it looks inside the current repository folder
-            const path = './models/' + fileName;
+            // Adding '?v=' + Date.now() forces GitHub to serve the newest version
+            const path = `./models/${fileName}?v=${Date.now()}`;
             
             loader.load(path, (gltf) => {
                 const m = gltf.scene;
-                
-                // Auto-scale logic
                 const box = new THREE.Box3().setFromObject(m);
                 const size = box.getSize(new THREE.Vector3());
                 const scale = 12 / Math.max(size.x, size.y, size.z);
@@ -64,23 +64,22 @@
 
                 if (isPlayer) {
                     player.add(m);
-                    log("✅ Loaded Player: " + fileName);
+                    log("✅ Player Ready: " + fileName);
                 } else {
                     m.position.set(x, 0, z);
                     scene.add(m);
-                    log("✅ Loaded Building: " + fileName);
+                    log("✅ Building Ready: " + fileName);
                 }
             }, undefined, (err) => {
-                log("❌ FAILED: " + fileName + " (Path error)");
+                log("❌ NOT FOUND: " + fileName);
             });
         };
 
-        // These MUST match your GitHub filenames exactly (all lowercase)
+        // Exact match to your GitHub lowercase filenames
         loadAsset('building.glb', -20, -15);
         loadAsset('building1.glb', 20, -15);
         loadAsset('tree1.glb', 0, 0, true);
 
-        // JOYSTICK
         let moveX = 0, moveZ = 0, dragging = false;
         const knob = document.getElementById('joystick-knob');
         const base = document.getElementById('joystick-base');
@@ -103,7 +102,7 @@
             requestAnimationFrame(animate);
             player.position.x += moveX * 0.3;
             player.position.z += moveZ * 0.3;
-            camera.position.set(player.position.x, player.position.y + 15, player.position.z + 30);
+            camera.position.set(player.position.x, player.position.y + 15, player.position.z + 35);
             camera.lookAt(player.position);
             renderer.render(scene, camera);
         }
