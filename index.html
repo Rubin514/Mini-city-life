@@ -3,23 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>City FPS - Road Edition</title>
+    <title>City FPS - Large Scale</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; touch-action: none; font-family: sans-serif; }
-        #crosshair { position: absolute; top: 50%; left: 50%; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.8); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+        #crosshair { position: absolute; top: 50%; left: 50%; width: 14px; height: 14px; border: 2px solid white; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; z-index: 10; }
         
-        /* Single Joystick for Movement */
-        #joy-base { position: absolute; bottom: 50px; left: 50px; width: 100px; height: 100px; background: rgba(255,255,255,0.1); border: 2px solid #fff; border-radius: 50%; }
-        #joy-knob { position: absolute; top: 30px; left: 30px; width: 40px; height: 40px; background: #fff; border-radius: 50%; }
+        /* One Joystick for Movement */
+        #joy-base { position: absolute; bottom: 50px; left: 50px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border: 2px solid #fff; border-radius: 50%; z-index: 20; }
+        #joy-knob { position: absolute; top: 40px; left: 40px; width: 40px; height: 40px; background: #fff; border-radius: 50%; }
 
-        #loading { position: absolute; inset: 0; background: #111; color: #0f0; display: flex; justify-content: center; align-items: center; z-index: 100; font-family: monospace; }
+        #loading { position: absolute; inset: 0; background: #111; color: #fff; display: flex; justify-content: center; align-items: center; z-index: 100; font-family: monospace; }
     </style>
 </head>
 <body>
 
-<div id="loading">BUILDING CITY STREETS...</div>
+<div id="loading">GENERATING LARGE CITY...</div>
 <div id="crosshair"></div>
-
 <div id="joy-base"><div id="joy-knob"></div></div>
 
 <script type="importmap">
@@ -36,120 +35,114 @@
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
-    // 1. SCENE & FPS RIG
+    // 1. SCENE SETUP
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87ceeb);
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 5000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     document.body.appendChild(renderer.domElement);
 
-    const player = new THREE.Group();
-    scene.add(player);
-    camera.position.set(0, 12, 0); // Eye level
-    player.add(camera);
-
-    // 2. LIGHTS
-    scene.add(new THREE.AmbientLight(0xffffff, 2));
-    const sun = new THREE.DirectionalLight(0xffffff, 1);
-    sun.position.set(50, 100, 50);
+    // Light for larger scale
+    scene.add(new THREE.AmbientLight(0xffffff, 2.0));
+    const sun = new THREE.DirectionalLight(0xffffff, 1.5);
+    sun.position.set(100, 200, 100);
     scene.add(sun);
 
-    // 3. CITY ROADS & SIDEWALKS
-    // Dark Asphalt Road
-    const road = new THREE.Mesh(new THREE.PlaneGeometry(60, 2000), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+    // 2. CITY STREET ENVIRONMENT
+    const roadWidth = 100;
+    const road = new THREE.Mesh(new THREE.PlaneGeometry(roadWidth, 5000), new THREE.MeshStandardMaterial({ color: 0x222222 }));
     road.rotation.x = -Math.PI / 2;
     scene.add(road);
 
-    // Road Lines
-    const lines = new THREE.GridHelper(2000, 40, 0xffffff, 0x333333);
-    lines.rotation.y = Math.PI / 2;
-    scene.add(lines);
-
-    // Concrete Sidewalks
-    const sidewalkL = new THREE.Mesh(new THREE.PlaneGeometry(40, 2000), new THREE.MeshStandardMaterial({ color: 0x888888 }));
+    // Sidewalks
+    const sidewalkL = new THREE.Mesh(new THREE.PlaneGeometry(60, 5000), new THREE.MeshStandardMaterial({ color: 0x777777 }));
     sidewalkL.rotation.x = -Math.PI / 2;
-    sidewalkL.position.set(-50, 0.1, 0);
+    sidewalkL.position.set(-80, 0.1, 0);
     scene.add(sidewalkL);
 
     const sidewalkR = sidewalkL.clone();
-    sidewalkR.position.set(50, 0.1, 0);
+    sidewalkR.position.set(80, 0.1, 0);
     scene.add(sidewalkR);
 
-    // 4. LOAD MODELS
+    // 3. PLAYER RIG (First Person)
+    const player = new THREE.Group();
+    scene.add(player);
+    // Move camera to "eye level"
+    camera.position.set(0, 18, 0); 
+    player.add(camera);
+
+    // 4. LOAD MODELS WITH CUSTOM SCALING
     const draco = new DRACOLoader();
     draco.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
     const loader = new GLTFLoader();
     loader.setDRACOLoader(draco);
 
-    const load = (file, x, z, isP = false) => {
+    function load(file, x, z, scaleFactor, isP = false) {
         loader.load(`./models/${file}`, (gltf) => {
             const m = gltf.scene;
-            const box = new THREE.Box3().setFromObject(m);
-            const size = box.getSize(new THREE.Vector3());
-            const s = 25 / Math.max(size.x, size.y, size.z);
-            m.scale.setScalar(s);
+            m.scale.setScalar(scaleFactor); // Manual scale for BIG buildings
 
             if (isP) {
-                m.visible = false; // Hide player model in FPS
+                player.add(m);
+                // Move the tree slightly behind the camera so you can see your "body" when looking down
+                m.position.set(0, 0, 5); 
                 document.getElementById('loading').style.display = 'none';
             } else {
-                // Place buildings along the sidewalk
                 m.position.set(x, 0, z);
                 scene.add(m);
             }
         });
-    };
-
-    // Create a row of buildings along the road
-    for(let i = 0; i < 5; i++) {
-        load("building.glb", -55, -200 * i);
-        load("b1.glb", 55, -200 * i);
     }
-    load("t1.glb", 0, 0, true);
 
-    // 5. MOVEMENT (One Joystick)
+    // Buildings are much larger now (Scale 80-100)
+    for(let i = 0; i < 6; i++) {
+        load("building.glb", -120, -300 * i, 100); 
+        load("b1.glb", 120, -300 * i, 100);
+    }
+    // Your player tree (Scale 15)
+    load("t1.glb", 0, 0, 15, true);
+
+    // 5. ONE JOYSTICK MOVEMENT
     let moveInput = { x: 0, z: 0 };
     const joyBase = document.getElementById('joy-base');
     const joyKnob = document.getElementById('joy-knob');
     let joyActive = false;
 
-    joyBase.addEventListener('pointerdown', (e) => { joyActive = true; joyBase.setPointerCapture(e.pointerId); });
-    joyBase.addEventListener('pointermove', (e) => {
+    joyBase.onpointerdown = (e) => { joyActive = true; joyBase.setPointerCapture(e.pointerId); };
+    joyBase.onpointermove = (e) => {
         if (!joyActive) return;
         const rect = joyBase.getBoundingClientRect();
-        const dx = (e.clientX - (rect.left + 50)) / 50;
-        const dy = (e.clientY - (rect.top + 50)) / 50;
+        const dx = (e.clientX - (rect.left + 60)) / 60;
+        const dy = (e.clientY - (rect.top + 60)) / 60;
         const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 1);
         const angle = Math.atan2(dy, dx);
-        joyKnob.style.transform = `translate(${Math.cos(angle)*dist*40}px, ${Math.sin(angle)*dist*40}px)`;
+        joyKnob.style.transform = `translate(${Math.cos(angle)*dist*45}px, ${Math.sin(angle)*dist*45}px)`;
         moveInput.x = Math.cos(angle) * dist;
         moveInput.z = Math.sin(angle) * dist;
-    });
-    window.addEventListener('pointerup', () => { joyActive = false; joyKnob.style.transform = ''; moveInput = {x:0, z:0}; });
+    };
+    window.onpointerup = () => { joyActive = false; joyKnob.style.transform = ''; moveInput = {x:0, z:0}; };
 
-    // 6. LOOKING (Hand/Screen Drag)
+    // 6. TOUCH-DRAG LOOK (Yaw/Pitch)
     let yaw = 0, pitch = 0;
-    window.addEventListener('pointermove', (e) => {
-        if (joyActive) return; // Don't look if dragging the joystick
+    window.onpointermove = (e) => {
+        if (joyActive) return; // Only look if not moving the joystick
         if (e.pointerType === 'touch' || e.buttons === 1) {
-            yaw -= e.movementX * 0.005;
-            pitch -= e.movementY * 0.005;
-            pitch = Math.max(-Math.PI/2.5, Math.min(Math.PI/2.5, pitch));
+            yaw -= e.movementX * 0.006;
+            pitch -= e.movementY * 0.006;
+            pitch = Math.max(-Math.PI/2.2, Math.min(Math.PI/2.2, pitch));
         }
-    });
+    };
 
-    // 7. ANIMATION
+    // 7. GAME LOOP
     function animate() {
         requestAnimationFrame(animate);
 
-        // Update Rotation
         player.rotation.y = yaw;
         camera.rotation.x = pitch;
 
-        // Move relative to view
-        const speed = 1.2;
+        const speed = 2.0; // Faster movement for large city
         const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(player.quaternion);
         const right = new THREE.Vector3(1, 0, 0).applyQuaternion(player.quaternion);
         
@@ -168,3 +161,4 @@
 </script>
 </body>
 </html>
+
