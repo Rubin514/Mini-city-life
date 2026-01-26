@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mini City - b1 & t1</title>
+    <title>Mini City Life - Fixed</title>
     <style>
         body { margin: 0; overflow: hidden; background: #87ceeb; touch-action: none; font-family: monospace; }
-        #debug { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: #0f0; padding: 10px; z-index: 100; font-size: 11px; pointer-events: none; border-radius: 5px; }
+        #status { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: #0f0; padding: 10px; z-index: 100; font-size: 11px; border-radius: 5px; pointer-events: none; }
         #joystick-base { position: absolute; bottom: 40px; left: 40px; width: 80px; height: 80px; background: rgba(255,255,255,0.3); border-radius: 50%; }
         #joystick-knob { position: absolute; top: 20px; left: 20px; width: 40px; height: 40px; background: #fff; border-radius: 50%; }
     </style>
 </head>
 <body>
-    <div id="debug">System: Loading b1 and t1...</div>
+    <div id="status">System: Loading fresh models...</div>
     <div id="joystick-base"><div id="joystick-knob"></div></div>
 
     <script type="importmap">
@@ -28,8 +28,8 @@
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-        const debug = document.getElementById('debug');
-        const log = (msg) => { debug.innerHTML += "<br>" + msg; };
+        const statusUI = document.getElementById('status');
+        const log = (msg) => { statusUI.innerHTML += "<br>" + msg; };
 
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x87ceeb);
@@ -38,6 +38,7 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
+        // Lighting
         scene.add(new THREE.AmbientLight(0xffffff, 1.5));
         const sun = new THREE.DirectionalLight(0xffffff, 1);
         sun.position.set(10, 20, 10);
@@ -48,39 +49,41 @@
         scene.add(ground);
 
         const loader = new GLTFLoader();
-        const player = new THREE.Group();
-        scene.add(player);
+        const playerGroup = new THREE.Group();
+        scene.add(playerGroup);
 
         const loadAsset = (fileName, x, z, isPlayer = false) => {
-            // Using your new short names
+            // Adding a timestamp forces GitHub to serve the newest file version
             const path = `./models/${fileName}?v=${Date.now()}`;
             
             loader.load(path, (gltf) => {
-                const m = gltf.scene;
-                const box = new THREE.Box3().setFromObject(m);
+                const model = gltf.scene;
+                
+                // Auto-sizing to make sure they aren't too small to see
+                const box = new THREE.Box3().setFromObject(model);
                 const size = box.getSize(new THREE.Vector3());
                 const scale = 12 / Math.max(size.x, size.y, size.z);
-                m.scale.set(scale, scale, scale);
+                model.scale.set(scale, scale, scale);
 
                 if (isPlayer) {
-                    player.add(m);
-                    log("✅ t1 Ready (Player)");
+                    playerGroup.add(model);
+                    log(`✅ Loaded Player: ${fileName}`);
                 } else {
-                    m.position.set(x, 0, z);
-                    scene.add(m);
-                    log(`✅ ${fileName} Ready`);
+                    model.position.set(x, 0, z);
+                    scene.add(model);
+                    log(`✅ Loaded Building: ${fileName}`);
                 }
             }, undefined, (err) => {
-                log(`❌ ${fileName} NOT FOUND`);
+                log(`❌ FAILED: ${fileName}`);
             });
         };
 
-        // Loading the new names
-        loadAsset('building.glb', -20, -15);
-        loadAsset('b1.glb', 20, -15);
+        // Matches your new GitHub filenames exactly
+        loadAsset('building.glb', -25, -10);
+        loadAsset('b1.glb', 25, -10);
         loadAsset('t1.glb', 0, 0, true);
 
-        // Joystick
+        // Movement
         let moveX = 0, moveZ = 0, dragging = false;
         const knob = document.getElementById('joystick-knob');
         const base = document.getElementById('joystick-base');
@@ -101,16 +104,14 @@
 
         function animate() {
             requestAnimationFrame(animate);
-            player.position.x += moveX * 0.3;
-            player.position.z += moveZ * 0.3;
-            
-            // 3rd Person View
-            camera.position.set(player.position.x, player.position.y + 15, player.position.z + 35);
-            camera.lookAt(player.position);
-            
+            playerGroup.position.x += moveX * 0.3;
+            playerGroup.position.z += moveZ * 0.3;
+            camera.position.set(playerGroup.position.x, 15, playerGroup.position.z + 35);
+            camera.lookAt(playerGroup.position);
             renderer.render(scene, camera);
         }
         animate();
     </script>
 </body>
 </html>
+
