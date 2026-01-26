@@ -3,123 +3,146 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Mini City Life - Debug Mode</title>
+<title>Mini City Life – FIXED</title>
+
 <style>
-  body { margin: 0; overflow: hidden; background: #87ceeb; font-family: sans-serif; touch-action: none; }
+  body { margin: 0; overflow: hidden; background: #87ceeb; font-family: monospace; touch-action: none; }
   #status {
-    position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7);
-    color: #0f0; padding: 10px; z-index: 100; font-size: 10px; border-radius: 5px;
-    pointer-events: none; max-width: 90%; word-wrap: break-word;
+    position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8);
+    color: #0f0; padding: 10px; z-index: 100; font-size: 11px; border-radius: 5px;
   }
-  #start-screen {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: #000; display: flex; justify-content: center;
-    align-items: center; z-index: 1000; color: white; flex-direction: column;
+  #joystick-base { 
+    position: absolute; bottom: 40px; left: 40px; width: 80px; height: 80px; 
+    background: rgba(255,255,255,0.3); border-radius: 50%; z-index: 10;
   }
-  #start-btn {
-    padding: 20px 40px; font-size: 24px; cursor: pointer; background: #4caf50;
-    border: none; color: white; border-radius: 10px;
+  #joystick-knob { 
+    position: absolute; top: 20px; left: 20px; width: 40px; height: 40px; 
+    background: #fff; border-radius: 50%; 
   }
 </style>
 </head>
 <body>
 
-<div id="start-screen">
-  <h2 id="loading-msg">Mini City Life</h2>
-  <button id="start-btn">TAP TO START</button>
-</div>
-
-<div id="status">System: Waiting for tap...</div>
+<div id="status">Booting…</div>
+<div id="joystick-base"><div id="joystick-knob"></div></div>
 
 <script type="module">
-// --- EMERGENCY ERROR CATCHER ---
-window.onerror = function(msg, url, line) {
-    alert("CRITICAL ERROR: " + msg + "\nLine: " + line);
-};
-
 import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
 import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
-import { DRACOLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/DRACOLoader.js";
 
 const statusUI = document.getElementById("status");
-const log = (t) => { 
-    console.log(t);
-    statusUI.innerHTML += "<br>" + t; 
-};
+const log = (t) => statusUI.innerHTML += "<br>" + t;
 
-// Start the game logic only after button click
-document.getElementById('start-btn').onclick = function() {
-    try {
-        document.getElementById('start-screen').style.display = 'none';
-        initGame();
-    } catch (e) {
-        alert("Init Error: " + e.message);
-    }
-};
+/* SCENE */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb);
 
-function initGame() {
-    log("🚀 Engine Starting...");
+/* CAMERA */
+const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 1000);
 
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87ceeb);
-    
-    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    document.body.appendChild(renderer.domElement);
+/* RENDERER */
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+document.body.appendChild(renderer.domElement);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 1.2));
-    const sun = new THREE.DirectionalLight(0xffffff, 1.5);
-    sun.position.set(50, 100, 50);
-    scene.add(sun);
+/* LIGHT */
+scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+const sun = new THREE.DirectionalLight(0xffffff, 1);
+sun.position.set(10, 20, 10);
+scene.add(sun);
 
-    const playerGroup = new THREE.Group();
-    scene.add(playerGroup);
+/* GROUND */
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(200, 200),
+  new THREE.MeshStandardMaterial({ color: 0x4caf50 })
+);
+ground.rotation.x = -Math.PI / 2;
+scene.add(ground);
 
-    /* LOADER CONFIG */
-    const dracoLoader = new DRACOLoader();
-    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
-    
-    const loader = new GLTFLoader();
-    loader.setDRACOLoader(dracoLoader);
+/* LOADER */
+const loader = new GLTFLoader();
+const playerGroup = new THREE.Group(); // Group for the tree to move
+scene.add(playerGroup);
 
-    function loadGLB(file, x, z, isPlayer = false) {
-        const path = `./models/${file}`;
-        log(`Fetching ${file}...`);
+/* FIXED LOAD FUNCTION */
+function loadGLB(file, x, z, isPlayer = false) {
+  // FIX: Added 'models/' folder to the path to match your GitHub structure
+  const path = `./models/${file}?v=${Date.now()}`;
+  
+  loader.load(
+    path,
+    (gltf) => {
+      const model = gltf.scene;
 
-        loader.load(path, (gltf) => {
-            const model = gltf.scene;
-            model.position.set(x, 0, z);
-            
-            // Basic auto-scale
-            model.scale.setScalar(5); 
+      // Auto-scale logic
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3());
+      const scale = 12 / Math.max(size.x, size.y, size.z);
+      model.scale.setScalar(scale);
 
-            if (isPlayer) {
-                playerGroup.add(model);
-                log(`✅ Player OK`);
-            } else {
-                scene.add(model);
-                log(`✅ Building OK`);
-            }
-        }, undefined, (err) => {
-            log(`❌ Load Error: ${file}`);
-        });
-    }
-
-    // Load calls
-    loadGLB("building.glb", -30, -20);
-    loadGLB("b1.glb", 30, -20);
-    loadGLB("t1.glb", 0, 0, true);
-
-    function animate() {
-        requestAnimationFrame(animate);
-        camera.position.set(playerGroup.position.x, 35, playerGroup.position.z + 50);
-        camera.lookAt(playerGroup.position);
-        renderer.render(scene, camera);
-    }
-    animate();
+      if (isPlayer) {
+        playerGroup.add(model);
+        log(`✅ Loaded Player: ${file}`);
+      } else {
+        model.position.set(x, 0, z);
+        scene.add(model);
+        log(`✅ Loaded Building: ${file}`);
+      }
+    },
+    undefined,
+    (e) => log(`❌ FAILED ${file} at ${path}`)
+  );
 }
+
+/* LOAD FILES FROM MODELS FOLDER */
+loadGLB("building.glb", -25, -15);
+loadGLB("b1.glb", 25, -15);
+loadGLB("t1.glb", 0, 0, true); // tree is player
+
+/* JOYSTICK LOGIC */
+let moveX = 0, moveZ = 0, dragging = false;
+const knob = document.getElementById('joystick-knob');
+const base = document.getElementById('joystick-base');
+
+base.onpointerdown = () => dragging = true;
+window.onpointermove = (e) => {
+    if (!dragging) return;
+    const b = base.getBoundingClientRect();
+    let dx = e.clientX - (b.left + 40);
+    let dy = e.clientY - (b.top + 40);
+    const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 30);
+    const angle = Math.atan2(dy, dx);
+    knob.style.transform = `translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist}px)`;
+    moveX = (Math.cos(angle) * dist) / 30;
+    moveZ = (Math.sin(angle) * dist) / 30;
+};
+window.onpointerup = () => { dragging = false; knob.style.transform = ''; moveX = 0; moveZ = 0; };
+
+/* RENDER LOOP */
+function animate() {
+  requestAnimationFrame(animate);
+  
+  // Apply Movement
+  playerGroup.position.x += moveX * 0.4;
+  playerGroup.position.z += moveZ * 0.4;
+  
+  // Camera Follow
+  camera.position.set(playerGroup.position.x, 20, playerGroup.position.z + 40);
+  camera.lookAt(playerGroup.position);
+  
+  renderer.render(scene, camera);
+}
+animate();
+
+/* RESIZE */
+addEventListener("resize", () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
 </script>
+
 </body>
 </html>
+
