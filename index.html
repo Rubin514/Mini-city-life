@@ -3,28 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mini City - Full Camera Control</title>
+    <title>First Person City</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #87ceeb; touch-action: none; font-family: sans-serif; }
-        #ui-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
-        .joystick { 
-            position: absolute; width: 80px; height: 80px; background: rgba(255,255,255,0.2); 
-            border-radius: 50%; pointer-events: auto; 
+        body { margin: 0; overflow: hidden; background: #87ceeb; touch-action: none; font-family: 'Courier New', monospace; }
+        
+        /* HUD and Crosshair */
+        #crosshair { 
+            position: absolute; top: 50%; left: 50%; width: 10px; height: 10px; 
+            border: 2px solid white; border-radius: 50%; transform: translate(-50%, -50%); 
+            pointer-events: none; z-index: 10;
         }
-        #move-joy { bottom: 40px; left: 40px; }
-        #look-joy { bottom: 40px; right: 40px; }
-        .knob { 
-            position: absolute; top: 20px; left: 20px; width: 40px; height: 40px; 
-            background: #fff; border-radius: 50%; 
-        }
+        #hud { position: absolute; top: 20px; left: 20px; color: #fff; text-shadow: 2px 2px #000; pointer-events: none; }
+        
+        /* Joysticks */
+        .joystick { position: absolute; width: 100px; height: 100px; background: rgba(0,0,0,0.3); border-radius: 50%; }
+        #move-joy { bottom: 50px; left: 40px; }
+        #look-joy { bottom: 50px; right: 40px; }
+        .knob { position: absolute; top: 30px; left: 30px; width: 40px; height: 40px; background: white; border-radius: 50%; }
+
+        #loading { position: absolute; inset: 0; background: black; color: #0f0; display: flex; justify-content: center; align-items: center; z-index: 100; }
     </style>
 </head>
 <body>
 
-<div id="ui-container">
-    <div id="move-joy" class="joystick"><div id="move-knob" class="knob"></div></div>
-    <div id="look-joy" class="joystick"><div id="look-knob" class="knob"></div></div>
-</div>
+<div id="loading">INITIALIZING FPS MODE...</div>
+<div id="crosshair"></div>
+<div id="hud"><b>MISSION: EXPLORE CITY</b></div>
+
+<div id="move-joy" class="joystick"><div id="move-knob" class="knob"></div></div>
+<div id="look-joy" class="joystick"><div id="look-knob" class="knob"></div></div>
 
 <script type="importmap">
 {
@@ -42,104 +49,104 @@
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87ceeb);
-    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     document.body.appendChild(renderer.domElement);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 2.5));
+    scene.add(new THREE.AmbientLight(0xffffff, 2));
     const sun = new THREE.DirectionalLight(0xffffff, 1.5);
-    sun.position.set(10, 30, 10);
+    sun.position.set(10, 50, 10);
     scene.add(sun);
 
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000), new THREE.MeshStandardMaterial({ color: 0x4caf50 }));
+    // Urban Ground
+    const ground = new THREE.Mesh(
+        new THREE.PlaneGeometry(1000, 1000), 
+        new THREE.MeshStandardMaterial({ color: 0x444444 })
+    );
     ground.rotation.x = -Math.PI / 2;
     scene.add(ground);
+
+    // FPS Player Rig
+    const player = new THREE.Group();
+    scene.add(player);
+    
+    // Position camera at "eye level" (12 units up)
+    camera.position.set(0, 12, 0); 
+    player.add(camera);
 
     const draco = new DRACOLoader();
     draco.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
     const loader = new GLTFLoader();
     loader.setDRACOLoader(draco);
 
-    const player = new THREE.Group();
-    scene.add(player);
-
     function load(file, x, z, isP = false) {
         loader.load(`./models/${file}`, (gltf) => {
             const m = gltf.scene;
             const box = new THREE.Box3().setFromObject(m);
             const size = box.getSize(new THREE.Vector3());
-            const s = 15 / Math.max(size.x, size.y, size.z);
+            const s = 18 / Math.max(size.x, size.y, size.z);
             m.scale.setScalar(s);
-            if (isP) player.add(m);
-            else { m.position.set(x, 0, z); scene.add(m); }
+
+            if (isP) {
+                // In FPS, the player model is usually hidden or only shows arms
+                // We add it to the player group but move it slightly so it doesn't block the camera
+                player.add(m);
+                m.position.y = 0; 
+                m.visible = false; // Hide the tree so you don't see the inside of it
+                document.getElementById('loading').style.display = 'none';
+            } else {
+                m.position.set(x, 0, z);
+                scene.add(m);
+            }
         });
     }
 
-    load("building.glb", -50, -50);
-    load("b1.glb", 50, -50);
+    load("building.glb", -50, -60);
+    load("b1.glb", 50, -60);
     load("t1.glb", 0, 0, true);
 
-    // INPUT SYSTEMS
+    // INPUTS
     let moveDir = { x: 0, z: 0 };
-    let lookDir = { yaw: 0, pitch: 0 };
-    let cameraRotation = { yaw: 0, pitch: -0.4 }; // Default look angle
+    let lookDir = { x: 0, y: 0 };
+    let pitch = 0; // Up/Down rotation
 
-    function setupJoystick(id, knobId, callback) {
-        const base = document.getElementById(id);
-        const knob = document.getElementById(knobId);
-        let dragging = false;
-
-        base.onpointerdown = (e) => { dragging = true; base.setPointerCapture(e.pointerId); };
-        base.onpointermove = (e) => {
-            if (!dragging) return;
-            const rect = base.getBoundingClientRect();
-            const dx = e.clientX - (rect.left + 40);
-            const dy = e.clientY - (rect.top + 40);
-            const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 30);
+    function setupJoy(id, knobId, cb) {
+        const b = document.getElementById(id), k = document.getElementById(knobId);
+        let drag = false;
+        b.onpointerdown = (e) => { drag = true; b.setPointerCapture(e.pointerId); };
+        b.onpointermove = (e) => {
+            if(!drag) return;
+            const r = b.getBoundingClientRect();
+            const dx = (e.clientX - (r.left + 50))/40, dy = (e.clientY - (r.top + 50))/40;
+            const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 1);
             const angle = Math.atan2(dy, dx);
-            knob.style.transform = `translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist}px)`;
-            callback(Math.cos(angle) * (dist/30), Math.sin(angle) * (dist/30));
+            k.style.transform = `translate(${Math.cos(angle)*dist*40}px, ${Math.sin(angle)*dist*40}px)`;
+            cb(Math.cos(angle)*dist, Math.sin(angle)*dist);
         };
-        base.onpointerup = (e) => { 
-            dragging = false; knob.style.transform = ''; 
-            callback(0, 0); 
-        };
+        b.onpointerup = () => { drag = false; k.style.transform = ''; cb(0, 0); };
     }
 
-    // Left Joystick: Move
-    setupJoystick('move-joy', 'move-knob', (x, z) => {
-        moveDir.x = x; moveDir.z = z;
-    });
-
-    // Right Joystick: Look (Yaw & Pitch)
-    setupJoystick('look-joy', 'look-knob', (x, y) => {
-        lookDir.yaw = -x * 0.05;   // Sensitivity
-        lookDir.pitch = -y * 0.03;
-    });
+    setupJoy('move-joy', 'move-knob', (x, y) => { moveDir.x = x; moveDir.z = y; });
+    setupJoy('look-joy', 'look-knob', (x, y) => { lookDir.x = -x; lookDir.y = -y; });
 
     function animate() {
         requestAnimationFrame(animate);
 
-        // 1. Update Rotation (Yaw/Pitch)
-        cameraRotation.yaw += lookDir.yaw;
-        cameraRotation.pitch = Math.max(-1.2, Math.min(0.2, cameraRotation.pitch + lookDir.pitch));
+        // 1. Handle Looking (Yaw and Pitch)
+        player.rotation.y += lookDir.x * 0.05; // Left/Right
+        pitch = Math.max(-Math.PI/3, Math.min(Math.PI/3, pitch + lookDir.y * 0.03)); // Up/Down limit
+        camera.rotation.x = pitch;
 
-        // 2. Move Player relative to Camera Yaw
-        const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraRotation.yaw);
-        const right = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraRotation.yaw);
+        // 2. Handle Movement relative to where we are looking
+        const speed = 0.8;
+        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(player.quaternion);
+        const right = new THREE.Vector3(1, 0, 0).applyQuaternion(player.quaternion);
         
-        player.position.addScaledVector(forward, -moveDir.z * 0.5);
-        player.position.addScaledVector(right, moveDir.x * 0.5);
-
-        // 3. Position Camera in Orbit around Player
-        const offset = new THREE.Vector3(0, 0, 60); // Distance from player
-        offset.applyAxisAngle(new THREE.Vector3(1, 0, 0), cameraRotation.pitch);
-        offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraRotation.yaw);
-        
-        camera.position.copy(player.position).add(offset);
-        camera.lookAt(player.position);
+        player.position.addScaledVector(forward, -moveDir.z * speed);
+        player.position.addScaledVector(right, moveDir.x * speed);
 
         renderer.render(scene, camera);
     }
@@ -153,4 +160,3 @@
 </script>
 </body>
 </html>
-
