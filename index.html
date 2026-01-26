@@ -3,35 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>First Person City</title>
+    <title>City FPS - Road Edition</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #87ceeb; touch-action: none; font-family: 'Courier New', monospace; }
+        body { margin: 0; overflow: hidden; background: #000; touch-action: none; font-family: sans-serif; }
+        #crosshair { position: absolute; top: 50%; left: 50%; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.8); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
         
-        /* HUD and Crosshair */
-        #crosshair { 
-            position: absolute; top: 50%; left: 50%; width: 10px; height: 10px; 
-            border: 2px solid white; border-radius: 50%; transform: translate(-50%, -50%); 
-            pointer-events: none; z-index: 10;
-        }
-        #hud { position: absolute; top: 20px; left: 20px; color: #fff; text-shadow: 2px 2px #000; pointer-events: none; }
-        
-        /* Joysticks */
-        .joystick { position: absolute; width: 100px; height: 100px; background: rgba(0,0,0,0.3); border-radius: 50%; }
-        #move-joy { bottom: 50px; left: 40px; }
-        #look-joy { bottom: 50px; right: 40px; }
-        .knob { position: absolute; top: 30px; left: 30px; width: 40px; height: 40px; background: white; border-radius: 50%; }
+        /* Single Joystick for Movement */
+        #joy-base { position: absolute; bottom: 50px; left: 50px; width: 100px; height: 100px; background: rgba(255,255,255,0.1); border: 2px solid #fff; border-radius: 50%; }
+        #joy-knob { position: absolute; top: 30px; left: 30px; width: 40px; height: 40px; background: #fff; border-radius: 50%; }
 
-        #loading { position: absolute; inset: 0; background: black; color: #0f0; display: flex; justify-content: center; align-items: center; z-index: 100; }
+        #loading { position: absolute; inset: 0; background: #111; color: #0f0; display: flex; justify-content: center; align-items: center; z-index: 100; font-family: monospace; }
     </style>
 </head>
 <body>
 
-<div id="loading">INITIALIZING FPS MODE...</div>
+<div id="loading">BUILDING CITY STREETS...</div>
 <div id="crosshair"></div>
-<div id="hud"><b>MISSION: EXPLORE CITY</b></div>
 
-<div id="move-joy" class="joystick"><div id="move-knob" class="knob"></div></div>
-<div id="look-joy" class="joystick"><div id="look-knob" class="knob"></div></div>
+<div id="joy-base"><div id="joy-knob"></div></div>
 
 <script type="importmap">
 {
@@ -47,106 +36,125 @@
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
+    // 1. SCENE & FPS RIG
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87ceeb);
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     document.body.appendChild(renderer.domElement);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 2));
-    const sun = new THREE.DirectionalLight(0xffffff, 1.5);
-    sun.position.set(10, 50, 10);
-    scene.add(sun);
-
-    // Urban Ground
-    const ground = new THREE.Mesh(
-        new THREE.PlaneGeometry(1000, 1000), 
-        new THREE.MeshStandardMaterial({ color: 0x444444 })
-    );
-    ground.rotation.x = -Math.PI / 2;
-    scene.add(ground);
-
-    // FPS Player Rig
     const player = new THREE.Group();
     scene.add(player);
-    
-    // Position camera at "eye level" (12 units up)
-    camera.position.set(0, 12, 0); 
+    camera.position.set(0, 12, 0); // Eye level
     player.add(camera);
 
+    // 2. LIGHTS
+    scene.add(new THREE.AmbientLight(0xffffff, 2));
+    const sun = new THREE.DirectionalLight(0xffffff, 1);
+    sun.position.set(50, 100, 50);
+    scene.add(sun);
+
+    // 3. CITY ROADS & SIDEWALKS
+    // Dark Asphalt Road
+    const road = new THREE.Mesh(new THREE.PlaneGeometry(60, 2000), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+    road.rotation.x = -Math.PI / 2;
+    scene.add(road);
+
+    // Road Lines
+    const lines = new THREE.GridHelper(2000, 40, 0xffffff, 0x333333);
+    lines.rotation.y = Math.PI / 2;
+    scene.add(lines);
+
+    // Concrete Sidewalks
+    const sidewalkL = new THREE.Mesh(new THREE.PlaneGeometry(40, 2000), new THREE.MeshStandardMaterial({ color: 0x888888 }));
+    sidewalkL.rotation.x = -Math.PI / 2;
+    sidewalkL.position.set(-50, 0.1, 0);
+    scene.add(sidewalkL);
+
+    const sidewalkR = sidewalkL.clone();
+    sidewalkR.position.set(50, 0.1, 0);
+    scene.add(sidewalkR);
+
+    // 4. LOAD MODELS
     const draco = new DRACOLoader();
     draco.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
     const loader = new GLTFLoader();
     loader.setDRACOLoader(draco);
 
-    function load(file, x, z, isP = false) {
+    const load = (file, x, z, isP = false) => {
         loader.load(`./models/${file}`, (gltf) => {
             const m = gltf.scene;
             const box = new THREE.Box3().setFromObject(m);
             const size = box.getSize(new THREE.Vector3());
-            const s = 18 / Math.max(size.x, size.y, size.z);
+            const s = 25 / Math.max(size.x, size.y, size.z);
             m.scale.setScalar(s);
 
             if (isP) {
-                // In FPS, the player model is usually hidden or only shows arms
-                // We add it to the player group but move it slightly so it doesn't block the camera
-                player.add(m);
-                m.position.y = 0; 
-                m.visible = false; // Hide the tree so you don't see the inside of it
+                m.visible = false; // Hide player model in FPS
                 document.getElementById('loading').style.display = 'none';
             } else {
+                // Place buildings along the sidewalk
                 m.position.set(x, 0, z);
                 scene.add(m);
             }
         });
-    }
+    };
 
-    load("building.glb", -50, -60);
-    load("b1.glb", 50, -60);
+    // Create a row of buildings along the road
+    for(let i = 0; i < 5; i++) {
+        load("building.glb", -55, -200 * i);
+        load("b1.glb", 55, -200 * i);
+    }
     load("t1.glb", 0, 0, true);
 
-    // INPUTS
-    let moveDir = { x: 0, z: 0 };
-    let lookDir = { x: 0, y: 0 };
-    let pitch = 0; // Up/Down rotation
+    // 5. MOVEMENT (One Joystick)
+    let moveInput = { x: 0, z: 0 };
+    const joyBase = document.getElementById('joy-base');
+    const joyKnob = document.getElementById('joy-knob');
+    let joyActive = false;
 
-    function setupJoy(id, knobId, cb) {
-        const b = document.getElementById(id), k = document.getElementById(knobId);
-        let drag = false;
-        b.onpointerdown = (e) => { drag = true; b.setPointerCapture(e.pointerId); };
-        b.onpointermove = (e) => {
-            if(!drag) return;
-            const r = b.getBoundingClientRect();
-            const dx = (e.clientX - (r.left + 50))/40, dy = (e.clientY - (r.top + 50))/40;
-            const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 1);
-            const angle = Math.atan2(dy, dx);
-            k.style.transform = `translate(${Math.cos(angle)*dist*40}px, ${Math.sin(angle)*dist*40}px)`;
-            cb(Math.cos(angle)*dist, Math.sin(angle)*dist);
-        };
-        b.onpointerup = () => { drag = false; k.style.transform = ''; cb(0, 0); };
-    }
+    joyBase.addEventListener('pointerdown', (e) => { joyActive = true; joyBase.setPointerCapture(e.pointerId); });
+    joyBase.addEventListener('pointermove', (e) => {
+        if (!joyActive) return;
+        const rect = joyBase.getBoundingClientRect();
+        const dx = (e.clientX - (rect.left + 50)) / 50;
+        const dy = (e.clientY - (rect.top + 50)) / 50;
+        const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 1);
+        const angle = Math.atan2(dy, dx);
+        joyKnob.style.transform = `translate(${Math.cos(angle)*dist*40}px, ${Math.sin(angle)*dist*40}px)`;
+        moveInput.x = Math.cos(angle) * dist;
+        moveInput.z = Math.sin(angle) * dist;
+    });
+    window.addEventListener('pointerup', () => { joyActive = false; joyKnob.style.transform = ''; moveInput = {x:0, z:0}; });
 
-    setupJoy('move-joy', 'move-knob', (x, y) => { moveDir.x = x; moveDir.z = y; });
-    setupJoy('look-joy', 'look-knob', (x, y) => { lookDir.x = -x; lookDir.y = -y; });
+    // 6. LOOKING (Hand/Screen Drag)
+    let yaw = 0, pitch = 0;
+    window.addEventListener('pointermove', (e) => {
+        if (joyActive) return; // Don't look if dragging the joystick
+        if (e.pointerType === 'touch' || e.buttons === 1) {
+            yaw -= e.movementX * 0.005;
+            pitch -= e.movementY * 0.005;
+            pitch = Math.max(-Math.PI/2.5, Math.min(Math.PI/2.5, pitch));
+        }
+    });
 
+    // 7. ANIMATION
     function animate() {
         requestAnimationFrame(animate);
 
-        // 1. Handle Looking (Yaw and Pitch)
-        player.rotation.y += lookDir.x * 0.05; // Left/Right
-        pitch = Math.max(-Math.PI/3, Math.min(Math.PI/3, pitch + lookDir.y * 0.03)); // Up/Down limit
+        // Update Rotation
+        player.rotation.y = yaw;
         camera.rotation.x = pitch;
 
-        // 2. Handle Movement relative to where we are looking
-        const speed = 0.8;
+        // Move relative to view
+        const speed = 1.2;
         const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(player.quaternion);
         const right = new THREE.Vector3(1, 0, 0).applyQuaternion(player.quaternion);
         
-        player.position.addScaledVector(forward, -moveDir.z * speed);
-        player.position.addScaledVector(right, moveDir.x * speed);
+        player.position.addScaledVector(forward, -moveInput.z * speed);
+        player.position.addScaledVector(right, moveInput.x * speed);
 
         renderer.render(scene, camera);
     }
