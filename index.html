@@ -8,7 +8,7 @@
         :root { --glass: rgba(255, 255, 255, 0.15); --border: rgba(255, 255, 255, 0.25); }
         body { margin: 0; overflow: hidden; background: #000; touch-action: none; font-family: sans-serif; }
 
-        /* --- Glassy UI Layer --- */
+        /* --- Glassmorphism UI --- */
         .glass { background: var(--glass); backdrop-filter: blur(12px); border: 1.5px solid var(--border); border-radius: 12px; position: absolute; color: white; pointer-events: none; z-index: 10; }
         #mission-hud { top: 20px; left: 50%; transform: translateX(-50%); padding: 10px 30px; font-weight: bold; letter-spacing: 1px; }
         
@@ -16,7 +16,7 @@
         #joy-base { position: absolute; bottom: 40px; left: 40px; width: 100px; height: 100px; background: var(--glass); border: 2px solid var(--border); border-radius: 20px; pointer-events: auto; z-index: 20; }
         #joy-knob { position: absolute; top: 25px; left: 25px; width: 50px; height: 50px; background: rgba(255,255,255,0.4); border-radius: 15px; border: 1px solid #fff; }
 
-        /* --- Loading Screen Overlay --- */
+        /* --- Full-Screen Loading Layer --- */
         #home-screen { position: fixed; inset: 0; background: radial-gradient(circle, #222, #000); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; color: white; transition: opacity 0.5s; }
         #loading-bar { width: 220px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 10px; margin-top: 20px; overflow: hidden; }
         #loading-fill { width: 0%; height: 100%; background: #00d2d3; transition: width 0.3s; }
@@ -33,7 +33,7 @@
     <button id="start-btn">START MISSION</button>
 </div>
 
-<div id="mission-hud" class="glass">URBAN BOULEVARD</div>
+<div id="mission-hud" class="glass">DOWNTOWN BOULEVARD</div>
 <div id="joy-base"><div id="joy-knob"></div></div>
 
 <script type="importmap">
@@ -45,14 +45,14 @@
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
-    // 1. SCENE SETUP
+    // 1. ENGINE SETUP
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(1);
     document.body.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87ceeb); // Bright Sky
+    scene.background = new THREE.Color(0x87ceeb); // Bright daytime sky
     scene.fog = new THREE.Fog(0x87ceeb, 200, 1500);
 
     const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, 3000);
@@ -61,47 +61,53 @@
     scene.add(player);
     player.add(camera);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 2.0));
+    scene.add(new THREE.AmbientLight(0xffffff, 1.8));
     const sun = new THREE.DirectionalLight(0xffffff, 1.5);
     sun.position.set(100, 300, 100);
     scene.add(sun);
 
-    // 2. THE DR. DRIVING ROAD (6 Lanes)
+    // 2. THE BOULEVARD DESIGN
     const roadGroup = new THREE.Group();
-    // Asphalt
+    
+    // Asphalt (Main Floor)
     const road = new THREE.Mesh(new THREE.PlaneGeometry(160, 10000), new THREE.MeshStandardMaterial({ color: 0x222222 }));
     road.rotation.x = -Math.PI / 2;
     roadGroup.add(road);
 
-    // Yellow Center Line
+    // Yellow Center Lines (Median)
     const centerLine = new THREE.Mesh(new THREE.PlaneGeometry(2, 10000), new THREE.MeshBasicMaterial({ color: 0xffcc00 }));
     centerLine.rotation.x = -Math.PI / 2;
     centerLine.position.y = 0.1;
     roadGroup.add(centerLine);
 
-    // White Lane Markings
-    const dashGeo = new THREE.PlaneGeometry(0.8, 15);
+    // White Lane Markings (Dashed)
+    const dashGeo = new THREE.PlaneGeometry(1.2, 15);
     const dashMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-    for(let i = 0; i < 100; i++) {
-        const z = 5000 - (i * 80);
+    for(let i = 0; i < 150; i++) {
+        const z = 5000 - (i * 60);
         [-55, -28, 28, 55].forEach(x => {
-            const dash = dashGeo.clone();
-            const m = new THREE.Mesh(dash, dashMat);
-            m.rotation.x = -Math.PI / 2;
-            m.position.set(x, 0.15, z);
-            roadGroup.add(m);
+            const dash = new THREE.Mesh(dashGeo, dashMat);
+            dash.rotation.x = -Math.PI / 2;
+            dash.position.set(x, 0.15, z);
+            roadGroup.add(dash);
         });
     }
+
+    // Sidewalks
+    const sidewalk = new THREE.Mesh(new THREE.PlaneGeometry(600, 10000), new THREE.MeshStandardMaterial({ color: 0x444444 }));
+    sidewalk.rotation.x = -Math.PI / 2;
+    sidewalk.position.y = -0.2;
+    roadGroup.add(sidewalk);
     scene.add(roadGroup);
 
-    // 3. ASSET LOADING & PERCENTAGE TRACKER
+    // 3. ASSET LOADING & LOADING SCREEN LOGIC
     const draco = new DRACOLoader();
     draco.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
     const loader = new GLTFLoader();
     loader.setDRACOLoader(draco);
 
     let assetsLoaded = 0;
-    const totalAssets = 3; // building, b1, and t1
+    const totalAssets = 3; 
 
     const updateProgress = () => {
         assetsLoaded++;
@@ -111,27 +117,25 @@
         if(p >= 100) document.getElementById('start-btn').style.display = 'block';
     };
 
-    // Buildings (Pushed back to the edges)
-    loader.load('./models/building.glb', (gltf) => {
-        const b = gltf.scene; b.scale.setScalar(35);
-        for(let i = 0; i < 12; i++) {
-            const c = b.clone(); c.position.set(-280, 0, -800 * i); scene.add(c);
-        }
-        updateProgress();
-    });
+    // Buildings: Placed to frame the road like the screenshot
+    const loadBuildings = (url, xPos) => {
+        loader.load(url, (gltf) => {
+            const b = gltf.scene; b.scale.setScalar(40);
+            for(let i = 0; i < 15; i++) {
+                const c = b.clone();
+                c.position.set(xPos, 0, -800 * i);
+                scene.add(c);
+            }
+            updateProgress();
+        });
+    };
+    loadBuildings('./models/building.glb', -280);
+    loadBuildings('./models/b1.glb', 280);
 
-    loader.load('./models/b1.glb', (gltf) => {
-        const b = gltf.scene; b.scale.setScalar(35);
-        for(let i = 0; i < 12; i++) {
-            const c = b.clone(); c.position.set(280, 0, -800 * i); scene.add(c);
-        }
-        updateProgress();
-    });
-
-    // Trees (t1) - Corrected Scale & Placement
+    // Trees: Placed on sidewalk edge to separate road from buildings
     loader.load('./models/t1.glb', (gltf) => {
         const tree = gltf.scene;
-        tree.scale.setScalar(2.5); // Human-sized trees
+        tree.scale.setScalar(2.5); 
         for(let i = 0; i < 40; i++) {
             const tL = tree.clone(); tL.position.set(-100, 0, -250 * i); scene.add(tL);
             const tR = tree.clone(); tR.position.set(100, 0, -250 * i); scene.add(tR);
@@ -164,7 +168,7 @@
         }
     });
 
-    // 5. START & ANIMATION
+    // 5. ANIMATION LOOP
     document.getElementById('start-btn').onclick = () => {
         document.getElementById('home-screen').style.opacity = '0';
         setTimeout(() => document.getElementById('home-screen').style.display = 'none', 500);
@@ -176,8 +180,8 @@
         camera.rotation.x = pitch;
         const f = new THREE.Vector3(0, 0, -1).applyQuaternion(player.quaternion);
         const r = new THREE.Vector3(1, 0, 0).applyQuaternion(player.quaternion);
-        player.position.addScaledVector(f, -moveDir.z * 5.5);
-        player.position.addScaledVector(r, moveDir.x * 5.5);
+        player.position.addScaledVector(f, -moveDir.z * 6);
+        player.position.addScaledVector(r, moveDir.x * 6);
         renderer.render(scene, camera);
     }
     animate();
