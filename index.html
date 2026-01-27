@@ -3,36 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>City Legend - Dr. Driving Style</title>
+    <title>City Legend - Fixed Spawning</title>
     <style>
         :root { --glass: rgba(255, 255, 255, 0.15); --border: rgba(255, 255, 255, 0.25); }
-        body { margin: 0; overflow: hidden; background: #000; touch-action: none; font-family: sans-serif; }
-
-        /* --- HUD Layout --- */
-        .glass { background: var(--glass); backdrop-filter: blur(12px); border: 1.5px solid var(--border); border-radius: 12px; position: absolute; color: white; pointer-events: none; z-index: 10; }
-        #mission-hud { top: 20px; left: 50%; transform: translateX(-50%); padding: 10px 30px; font-weight: bold; }
-        
-        /* --- Square Joystick --- */
+        body { margin: 0; overflow: hidden; background: #87ceeb; touch-action: none; font-family: sans-serif; }
+        .glass { background: var(--glass); backdrop-filter: blur(12px); border: 1.5px solid var(--border); border-radius: 12px; position: absolute; color: white; pointer-events: none; z-index: 10; padding: 10px 20px; }
+        #mission-hud { top: 20px; left: 50%; transform: translateX(-50%); }
         #joy-base { position: absolute; bottom: 40px; left: 40px; width: 100px; height: 100px; background: var(--glass); border: 2px solid var(--border); border-radius: 20px; pointer-events: auto; z-index: 20; }
         #joy-knob { position: absolute; top: 25px; left: 25px; width: 50px; height: 50px; background: rgba(255,255,255,0.4); border-radius: 15px; border: 1px solid #fff; }
-
-        /* --- Loading Screen --- */
         #home-screen { position: fixed; inset: 0; background: #111; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; color: white; transition: opacity 0.5s; }
-        #loading-bar { width: 200px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 10px; margin-top: 20px; overflow: hidden; }
+        #loading-bar { width: 200px; height: 6px; background: #333; border-radius: 10px; margin-top: 20px; overflow: hidden; }
         #loading-fill { width: 0%; height: 100%; background: #00d2d3; transition: width 0.3s; }
-        #start-btn { margin-top: 25px; padding: 15px 45px; background: #fff; color: #000; border: none; border-radius: 8px; font-weight: bold; display: none; cursor: pointer; }
+        #start-btn { margin-top: 25px; padding: 15px 45px; background: #fff; border: none; border-radius: 8px; font-weight: bold; display: none; cursor: pointer; }
     </style>
 </head>
 <body>
 
 <div id="home-screen">
-    <h1>CITY LEGEND</h1>
+    <h1>FIXING CITY...</h1>
     <div id="loading-bar"><div id="loading-fill"></div></div>
     <div id="loading-text" style="margin-top:10px">0%</div>
-    <button id="start-btn">START MISSION</button>
+    <button id="start-btn">ENTER HIGHWAY</button>
 </div>
 
-<div id="mission-hud" class="glass">DOWNTOWN BOULEVARD</div>
+<div id="mission-hud" class="glass">HIGHWAY 101</div>
 <div id="joy-base"><div id="joy-knob"></div></div>
 
 <script type="importmap">
@@ -44,103 +38,95 @@
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
-    // 1. SCENE SETUP (Bright Daylight)
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(1);
     document.body.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87ceeb); 
-    scene.fog = new THREE.Fog(0x87ceeb, 200, 1500);
+    scene.background = new THREE.Color(0x87ceeb);
+    scene.fog = new THREE.Fog(0x87ceeb, 300, 1800);
 
     const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, 3000);
     const player = new THREE.Group();
-    player.position.set(0, 14, 0); 
+    player.position.set(0, 15, 0); // Camera high enough to see the road
     scene.add(player);
     player.add(camera);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 1.8));
-    const sun = new THREE.DirectionalLight(0xffffff, 1.2);
-    sun.position.set(100, 300, 100);
+    scene.add(new THREE.AmbientLight(0xffffff, 2.0));
+    const sun = new THREE.DirectionalLight(0xffffff, 1.5);
+    sun.position.set(100, 400, 100);
     scene.add(sun);
 
-    // 2. ROAD DESIGN
-    const createRoad = () => {
-        const group = new THREE.Group();
-        // Asphalt
-        const asphalt = new THREE.Mesh(new THREE.PlaneGeometry(160, 10000), new THREE.MeshStandardMaterial({ color: 0x222222 }));
-        asphalt.rotation.x = -Math.PI / 2;
-        group.add(asphalt);
+    // --- 🛣️ THE HIGHWAY SYSTEM ---
+    const roadGroup = new THREE.Group();
+    // Asphalt (Dark Gray)
+    const asphalt = new THREE.Mesh(new THREE.PlaneGeometry(180, 10000), new THREE.MeshStandardMaterial({ color: 0x1a1a1a }));
+    asphalt.rotation.x = -Math.PI/2;
+    roadGroup.add(asphalt);
 
-        // Yellow Median
-        const median = new THREE.Mesh(new THREE.PlaneGeometry(2, 10000), new THREE.MeshBasicMaterial({ color: 0xffcc00 }));
-        median.rotation.x = -Math.PI / 2;
-        median.position.y = 0.1;
-        group.add(median);
+    // Yellow Median Strip
+    const median = new THREE.Mesh(new THREE.PlaneGeometry(3, 10000), new THREE.MeshBasicMaterial({ color: 0xffd700 }));
+    median.rotation.x = -Math.PI/2;
+    median.position.y = 0.2;
+    roadGroup.add(median);
 
-        // White Lane Dashes
-        const dashGeo = new THREE.PlaneGeometry(1, 15);
-        const dashMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-        for(let i = 0; i < 150; i++) {
-            const z = 5000 - (i * 60);
-            [-55, -28, 28, 55].forEach(x => {
-                const dash = new THREE.Mesh(dashGeo, dashMat);
-                dash.rotation.x = -Math.PI / 2;
-                dash.position.set(x, 0.15, z);
-                group.add(dash);
-            });
-        }
+    // Lane Dashes (White)
+    const dashGeo = new THREE.PlaneGeometry(1, 15);
+    const dashMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    for(let i = 0; i < 120; i++) {
+        const z = 5000 - (i * 80);
+        [-60, -30, 30, 60].forEach(x => {
+            const dash = new THREE.Mesh(dashGeo, dashMat);
+            dash.rotation.x = -Math.PI/2;
+            dash.position.set(x, 0.25, z);
+            roadGroup.add(dash);
+        });
+    }
+    scene.add(roadGroup);
 
-        // Sidewalks
-        const sw = new THREE.Mesh(new THREE.PlaneGeometry(600, 10000), new THREE.MeshStandardMaterial({ color: 0x444444 }));
-        sw.rotation.x = -Math.PI / 2;
-        sw.position.y = -0.2;
-        group.add(sw);
-        return group;
-    };
-    scene.add(createRoad());
-
-    // 3. ASSET LOADING & PROGRESS
+    // --- 🏗️ ASSET LOADING (NO MORE CLUMPING) ---
     const draco = new DRACOLoader();
     draco.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
     const loader = new GLTFLoader();
     loader.setDRACOLoader(draco);
 
-    let assetsLoaded = 0;
+    let loadedCount = 0;
     const updateProgress = () => {
-        assetsLoaded++;
-        const p = Math.floor((assetsLoaded / 3) * 100);
+        loadedCount++;
+        const p = Math.floor((loadedCount / 3) * 100);
         document.getElementById('loading-fill').style.width = p + '%';
         document.getElementById('loading-text').innerText = p + '%';
         if(p >= 100) document.getElementById('start-btn').style.display = 'block';
     };
 
-    // Buildings aligned in rows
-    const spawnBuildings = (url, xPos) => {
+    // Buildings pushed FAR left and right (X = 350)
+    const spawnBuildings = (url, sideX) => {
         loader.load(url, (gltf) => {
-            const b = gltf.scene; b.scale.setScalar(40);
+            const b = gltf.scene; b.scale.setScalar(45);
             for(let i = 0; i < 15; i++) {
-                const c = b.clone(); c.position.set(xPos, 0, -800 * i); scene.add(c);
+                const c = b.clone(); 
+                c.position.set(sideX, 0, -850 * i); // Spread them out along Z
+                scene.add(c);
             }
             updateProgress();
         });
     };
-    spawnBuildings('./models/building.glb', -280);
-    spawnBuildings('./models/b1.glb', 280);
+    spawnBuildings('./models/building.glb', -350);
+    spawnBuildings('./models/b1.glb', 350);
 
-    // Fixed Tree (t1) Scale
+    // Trees (t1) - Tiny scale and neat sidewalk rows
     loader.load('./models/t1.glb', (gltf) => {
         const tree = gltf.scene;
-        tree.scale.setScalar(2.5); // Human-sized
+        tree.scale.setScalar(2.2); 
         for(let i = 0; i < 40; i++) {
-            const tL = tree.clone(); tL.position.set(-100, 0, -250 * i); scene.add(tL);
-            const tR = tree.clone(); tR.position.set(100, 0, -250 * i); scene.add(tR);
+            const tL = tree.clone(); tL.position.set(-110, 0, -200 * i); scene.add(tL);
+            const tR = tree.clone(); tR.position.set(110, 0, -200 * i); scene.add(tR);
         }
         updateProgress();
     });
 
-    // 4. CONTROLS
+    // --- 🎮 CONTROLS ---
     let moveDir = { x: 0, z: 0 }, joyActive = false;
     let yaw = 0, pitch = 0;
     const jBase = document.getElementById('joy-base'), jKnob = document.getElementById('joy-knob');
@@ -165,7 +151,6 @@
         }
     });
 
-    // 5. ANIMATION
     document.getElementById('start-btn').onclick = () => {
         document.getElementById('home-screen').style.display = 'none';
         animate();
@@ -177,8 +162,8 @@
         camera.rotation.x = pitch;
         const f = new THREE.Vector3(0, 0, -1).applyQuaternion(player.quaternion);
         const r = new THREE.Vector3(1, 0, 0).applyQuaternion(player.quaternion);
-        player.position.addScaledVector(f, -moveDir.z * 6);
-        player.position.addScaledVector(r, moveDir.x * 6);
+        player.position.addScaledVector(f, -moveDir.z * 7); // Fast movement
+        player.position.addScaledVector(r, moveDir.x * 7);
         renderer.render(scene, camera);
     }
 </script>
