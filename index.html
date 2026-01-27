@@ -3,150 +3,125 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>City Legend - Fixed Road & Trees</title>
+    <title>City Legend - Urban Edition</title>
     <style>
-        :root { --glass: rgba(255, 255, 255, 0.18); --border: rgba(255, 255, 255, 0.3); }
+        :root { --glass: rgba(255, 255, 255, 0.15); --border: rgba(255, 255, 255, 0.25); }
         body { margin: 0; overflow: hidden; background: #87ceeb; touch-action: none; font-family: sans-serif; }
 
-        /* --- Glassy UI --- */
+        /* --- Glassy HUD --- */
         .glass { background: var(--glass); backdrop-filter: blur(12px); border: 1.5px solid var(--border); border-radius: 12px; position: absolute; color: white; pointer-events: none; z-index: 10; }
-        #health-bar { top: 20px; left: 20px; width: 160px; height: 18px; padding: 4px; }
-        #health-fill { width: 100%; height: 100%; background: #2ecc71; border-radius: 10px; }
-        #mission-hud { top: 20px; right: 20px; padding: 12px; text-align: right; width: 140px; }
-        #inventory { bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; padding: 8px; pointer-events: auto; }
-        .inv-slot { width: 50px; height: 50px; background: rgba(255,255,255,0.1); border: 1px solid var(--border); border-radius: 12px; }
-
-        /* --- Joystick --- */
-        #joy-base { position: absolute; bottom: 40px; left: 40px; width: 100px; height: 100px; background: var(--glass); backdrop-filter: blur(10px); border: 2px solid var(--border); border-radius: 20px; pointer-events: auto; z-index: 20; }
+        #mission-hud { top: 20px; left: 50%; transform: translateX(-50%); padding: 10px 30px; font-weight: bold; letter-spacing: 1px; }
+        
+        /* --- Square Joystick --- */
+        #joy-base { position: absolute; bottom: 40px; left: 40px; width: 100px; height: 100px; background: var(--glass); border: 2px solid var(--border); border-radius: 20px; pointer-events: auto; }
         #joy-knob { position: absolute; top: 25px; left: 25px; width: 50px; height: 50px; background: rgba(255,255,255,0.4); border-radius: 15px; border: 1px solid #fff; }
 
-        /* --- Home Screen --- */
         #home-screen { position: fixed; inset: 0; background: #111; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; color: white; transition: opacity 0.5s; }
-        #loading-bar { width: 200px; height: 4px; background: #333; margin-top: 20px; border-radius: 10px; overflow: hidden; }
-        #loading-fill { width: 0%; height: 100%; background: #00d2d3; }
-        #start-btn { margin-top: 25px; padding: 12px 40px; background: #fff; border: none; border-radius: 8px; font-weight: bold; display: none; cursor: pointer; }
+        #start-btn { margin-top: 20px; padding: 15px 40px; background: #fff; color: #000; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
 
 <div id="home-screen">
-    <h2>CITY LEGEND</h2>
-    <div id="loading-bar"><div id="loading-fill"></div></div>
-    <div id="loading-text" style="margin-top:10px; font-size: 12px;">0%</div>
-    <button id="start-btn">START MISSION</button>
+    <h1 style="letter-spacing:5px">CITY LEGEND</h1>
+    <button id="start-btn">ENTER CITY</button>
 </div>
 
-<div id="health-bar" class="glass"><div id="health-fill"></div></div>
-<div id="mission-hud" class="glass"><b>Mission 1</b><br>Explore the Road</div>
-<div id="inventory" class="glass">
-    <div class="inv-slot"></div><div class="inv-slot"></div><div class="inv-slot"></div>
-</div>
+<div id="mission-hud" class="glass">MAIN BOULEVARD</div>
 <div id="joy-base"><div id="joy-knob"></div></div>
 
 <script type="importmap">
-{
-    "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" }
-}
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
 </script>
 
 <script type="module">
     import * as THREE from 'three';
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-    import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
+    // 1. SETUP
     const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(1);
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(1);
     document.body.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87ceeb);
-    
-    const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, 5000);
+    scene.fog = new THREE.Fog(0x87ceeb, 200, 1500);
+
+    const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, 3000);
     const player = new THREE.Group();
-    player.position.set(0, 10, 0); 
+    player.position.set(0, 14, 0); 
     scene.add(player);
     player.add(camera);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 1.5));
-    const sun = new THREE.DirectionalLight(0xffffff, 1.2);
-    sun.position.set(100, 200, 100);
-    scene.add(sun);
+    scene.add(new THREE.AmbientLight(0xffffff, 1.8));
 
-    // --- 🛣️ THE ROAD SYSTEM ---
-    // Main Asphalt
-    const road = new THREE.Mesh(
-        new THREE.PlaneGeometry(120, 20000), 
-        new THREE.MeshStandardMaterial({ color: 0x333333 }) 
-    );
-    road.rotation.x = -Math.PI / 2;
-    scene.add(road);
+    // 2. THE BOULEVARD (The "Dr. Driving" Road)
+    const createCityFloor = () => {
+        const group = new THREE.Group();
+        
+        // Main Road (6 Lanes total)
+        const road = new THREE.Mesh(new THREE.PlaneGeometry(160, 10000), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+        road.rotation.x = -Math.PI / 2;
+        group.add(road);
 
-    // White Center Line (to make the road "visible")
-    const lineGeo = new THREE.PlaneGeometry(4, 20000);
-    const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-    const centerLine = new THREE.Mesh(lineGeo, lineMat);
-    centerLine.rotation.x = -Math.PI / 2;
-    centerLine.position.y = 0.05; // Slightly above road to prevent flickering
-    scene.add(centerLine);
+        // Yellow Median (Center)
+        const median = new THREE.Mesh(new THREE.PlaneGeometry(2, 10000), new THREE.MeshBasicMaterial({ color: 0xffcc00 }));
+        median.rotation.x = -Math.PI / 2;
+        median.position.y = 0.1;
+        group.add(median);
 
-    // Sidewalks
-    const sidewalk = new THREE.Mesh(
-        new THREE.PlaneGeometry(1000, 20000), 
-        new THREE.MeshStandardMaterial({ color: 0x666666 })
-    );
-    sidewalk.rotation.x = -Math.PI / 2;
-    sidewalk.position.y = -0.1;
-    scene.add(sidewalk);
+        // Lane Dashes
+        const dashGeo = new THREE.PlaneGeometry(0.8, 15);
+        const dashMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        for(let i = 0; i < 150; i++) {
+            const z = 5000 - (i * 60);
+            [-55, -28, 28, 55].forEach(x => {
+                const dash = new THREE.Mesh(dashGeo, dashMat);
+                dash.rotation.x = -Math.PI / 2;
+                dash.position.set(x, 0.15, z);
+                group.add(dash);
+            });
+        }
 
-    // --- 🏗️ ASSET LOADING ---
-    const draco = new DRACOLoader();
-    draco.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
+        // Sidewalks
+        const sw = new THREE.Mesh(new THREE.PlaneGeometry(600, 10000), new THREE.MeshStandardMaterial({ color: 0x444444 }));
+        sw.rotation.x = -Math.PI / 2;
+        sw.position.y = -0.2;
+        group.add(sw);
+
+        return group;
+    };
+    scene.add(createCityFloor());
+
+    // 3. ASSET PLACEMENT (No Overlapping)
     const loader = new GLTFLoader();
-    loader.setDRACOLoader(draco);
 
-    let loaded = 0;
-    const progress = () => {
-        loaded++;
-        const p = Math.floor((loaded / 3) * 100);
-        document.getElementById('loading-fill').style.width = p + '%';
-        document.getElementById('loading-text').innerText = p + '%';
-        if(p >= 100) document.getElementById('start-btn').style.display = 'block';
+    // Load Buildings (Pushed far back)
+    const spawnBuildings = (url, xPos) => {
+        loader.load(url, (gltf) => {
+            const b = gltf.scene; b.scale.setScalar(35);
+            for(let i = 0; i < 15; i++) {
+                const c = b.clone();
+                c.position.set(xPos, 0, -700 * i);
+                scene.add(c);
+            }
+        });
     };
+    spawnBuildings('./models/building.glb', -280);
+    spawnBuildings('./models/b1.glb', 280);
 
-    // Buildings
-    loader.load('./models/building.glb', (gltf) => {
-        const b = gltf.scene; b.scale.setScalar(30);
-        for(let i = 0; i < 15; i++) {
-            const c = b.clone(); c.position.set(-250, 0, -800 * i); scene.add(c);
-        }
-        progress();
-    });
-
-    loader.load('./models/b1.glb', (gltf) => {
-        const b = gltf.scene; b.scale.setScalar(30);
-        for(let i = 0; i < 15; i++) {
-            const c = b.clone(); c.position.set(250, 0, -800 * i); scene.add(c);
-        }
-        progress();
-    });
-
-    // Trees (t1) - SHRUNK to scale 1.5
+    // Load Trees (t1) - Placed neatly on sidewalk edge
     loader.load('./models/t1.glb', (gltf) => {
-        const tree = gltf.scene; 
-        tree.scale.set(1.5, 1.5, 1.5); // Much smaller now!
+        const tree = gltf.scene;
+        tree.scale.setScalar(3); // Normal sized trees
         for(let i = 0; i < 40; i++) {
-            const tL = tree.clone(); tL.position.set(-85, 0, -200 * i); scene.add(tL);
-            const tR = tree.clone(); tR.position.set(85, 0, -200 * i); scene.add(tR);
+            const tL = tree.clone(); tL.position.set(-100, 0, -250 * i); scene.add(tL);
+            const tR = tree.clone(); tR.position.set(100, 0, -250 * i); scene.add(tR);
         }
-        progress();
     });
 
-    // --- 🎮 CONTROLS & LOOP ---
-    document.getElementById('start-btn').onclick = () => {
-        document.getElementById('home-screen').style.display = 'none';
-    };
-
+    // 4. CONTROLS
     let moveDir = { x: 0, z: 0 }, joyActive = false;
     let yaw = 0, pitch = 0;
     const jBase = document.getElementById('joy-base'), jKnob = document.getElementById('joy-knob');
@@ -177,11 +152,15 @@
         camera.rotation.x = pitch;
         const f = new THREE.Vector3(0, 0, -1).applyQuaternion(player.quaternion);
         const r = new THREE.Vector3(1, 0, 0).applyQuaternion(player.quaternion);
-        player.position.addScaledVector(f, -moveDir.z * 4);
-        player.position.addScaledVector(r, moveDir.x * 4);
+        player.position.addScaledVector(f, -moveDir.z * 5);
+        player.position.addScaledVector(r, moveDir.x * 5);
         renderer.render(scene, camera);
     }
-    animate();
+
+    document.getElementById('start-btn').onclick = () => {
+        document.getElementById('home-screen').style.display = 'none';
+        animate();
+    };
 </script>
 </body>
 </html>
