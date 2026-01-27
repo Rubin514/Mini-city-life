@@ -1,166 +1,188 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Final Highway Fix</title>
-    <style>
-        body { margin: 0; overflow: hidden; background: #87ceeb; touch-action: none; font-family: sans-serif; }
-        /* Loading Screen that doesn't get stuck */
-        #loader { position: fixed; inset: 0; background: #111; color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
-        #progress-bar { width: 250px; height: 10px; background: #333; border-radius: 5px; margin: 20px; overflow: hidden; }
-        #progress-fill { width: 0%; height: 100%; background: #00d2d3; transition: width 0.4s; }
-        .btn { padding: 15px 40px; background: #00d2d3; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; display: none; margin-top: 10px; }
-        #skip-btn { display: block; background: #444; font-size: 12px; }
-        /* Mobile Joystick */
-        #joy-base { position: absolute; bottom: 40px; left: 40px; width: 100px; height: 100px; background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.4); border-radius: 50%; display: none; }
-        #joy-knob { position: absolute; top: 25px; left: 25px; width: 50px; height: 50px; background: #fff; border-radius: 50%; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Mini City Life – City Build</title>
+
+<style>
+body { margin: 0; overflow: hidden; background: #87ceeb; touch-action: none; font-family: sans-serif; }
+
+#home-screen {
+    position: fixed; inset: 0;
+    background: #111;
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: center;
+    z-index: 1000; color: white;
+}
+
+#loading-bar { width: 220px; height: 8px; background: #333; border-radius: 10px; overflow: hidden; }
+#loading-fill { width: 0%; height: 100%; background: #00d2d3; transition: width 0.3s; }
+#loading-text { margin-top: 10px; }
+#start-btn { margin-top: 25px; padding: 15px 45px; background: #00d2d3; border: none; border-radius: 8px; font-weight: bold; display: none; }
+
+.glass {
+    background: rgba(255,255,255,0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 12px;
+    position: absolute;
+    color: white;
+    padding: 10px 20px;
+    pointer-events: none;
+}
+
+#mission-hud { top: 20px; left: 50%; transform: translateX(-50%); }
+
+#joy-base {
+    position: absolute; bottom: 40px; left: 40px;
+    width: 100px; height: 100px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.3);
+}
+#joy-knob {
+    position: absolute; top: 25px; left: 25px;
+    width: 50px; height: 50px;
+    background: #fff; border-radius: 50%;
+}
+</style>
 </head>
+
 <body>
 
-<div id="loader">
-    <h1 id="status">LOADING HIGHWAY...</h1>
-    <div id="progress-bar"><div id="progress-fill"></div></div>
-    <div id="percent">0%</div>
-    <button id="start-btn" class="btn">START MISSION</button>
-    <button id="skip-btn" class="btn">STUCK? CLICK TO SKIP LOADING</button>
+<div id="home-screen">
+    <h1>GENERATING CITY</h1>
+    <div id="loading-bar"><div id="loading-fill"></div></div>
+    <div id="loading-text">0%</div>
+    <button id="start-btn">START</button>
 </div>
 
+<div id="mission-hud" class="glass">HIGHWAY 101</div>
 <div id="joy-base"><div id="joy-knob"></div></div>
 
 <script type="importmap">
-{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
+{
+ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+ }
+}
 </script>
 
 <script type="module">
-    import * as THREE from 'three';
-    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-    // 1. SCENE SETUP
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
-    document.body.appendChild(renderer.domElement);
+/* RENDERER */
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(devicePixelRatio);
+document.body.appendChild(renderer.domElement);
 
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87ceeb);
-    scene.fog = new THREE.Fog(0x87ceeb, 500, 3000);
+/* SCENE */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb);
+scene.fog = new THREE.Fog(0x87ceeb, 400, 2500);
 
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 5000);
-    const player = new THREE.Group();
-    player.position.set(0, 15, 200); 
-    scene.add(player);
-    player.add(camera);
+/* PLAYER + CAMERA */
+const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 4000);
+const player = new THREE.Group();
+player.position.set(0, 15, 150);
+scene.add(player);
+player.add(camera);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 2.0));
-    const sun = new THREE.DirectionalLight(0xffffff, 1.5);
-    sun.position.set(100, 600, 100);
-    scene.add(sun);
+/* LIGHT */
+scene.add(new THREE.AmbientLight(0xffffff, 2));
+const sun = new THREE.DirectionalLight(0xffffff, 1.5);
+sun.position.set(300, 500, 300);
+scene.add(sun);
 
-    // 2. 🛣️ INSTANT HIGHWAY (Pavement & Lines)
-    const roadGroup = new THREE.Group();
-    const asphalt = new THREE.Mesh(new THREE.PlaneGeometry(200, 20000), new THREE.MeshStandardMaterial({ color: 0x1a1a1a }));
-    asphalt.rotation.x = -Math.PI / 2;
-    roadGroup.add(asphalt);
+/* ROAD */
+const road = new THREE.Mesh(
+    new THREE.PlaneGeometry(180, 12000),
+    new THREE.MeshStandardMaterial({ color: 0x1a1a1a })
+);
+road.rotation.x = -Math.PI/2;
+scene.add(road);
 
-    const yellowLine = new THREE.Mesh(new THREE.PlaneGeometry(4, 20000), new THREE.MeshBasicMaterial({ color: 0xffd700 }));
-    yellowLine.rotation.x = -Math.PI/2; yellowLine.position.y = 0.3;
-    roadGroup.add(yellowLine);
+/* LOADER */
+const loader = new GLTFLoader();
+let loaded = 0;
+const update = () => {
+    loaded++;
+    const p = Math.floor((loaded / 3) * 100);
+    document.getElementById("loading-fill").style.width = p+"%";
+    document.getElementById("loading-text").innerText = p+"%";
+    if (p === 100) document.getElementById("start-btn").style.display = "block";
+};
 
-    // Dashed lines
-    const dashGeo = new THREE.PlaneGeometry(1.5, 25);
-    const dashMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-    for(let i=0; i<150; i++) {
-        const z = 5000 - (i * 120);
-        [-65, -32, 32, 65].forEach(x => {
-            const dash = new THREE.Mesh(dashGeo, dashMat);
-            dash.rotation.x = -Math.PI/2; dash.position.set(x, 0.3, z);
-            roadGroup.add(dash);
-        });
-    }
-    scene.add(roadGroup);
-
-    // 3. 🏗️ GRID SPAWNING LOGIC
-    const loader = new GLTFLoader();
-    let toLoad = 3, loaded = 0;
-
-    const checkStatus = () => {
-        loaded++;
-        const p = Math.floor((loaded / toLoad) * 100);
-        document.getElementById('progress-fill').style.width = p + '%';
-        document.getElementById('percent').innerText = p + '%';
-        if(loaded >= toLoad) {
-            document.getElementById('start-btn').style.display = 'block';
-            document.getElementById('status').innerText = "HIGHWAY READY";
+/* CITY FUNCTION */
+function spawnCity(model, startX) {
+    for (let x = 0; x < 4; x++) {
+        for (let z = 0; z < 12; z++) {
+            const c = model.clone();
+            c.position.set(startX + x*180, 0, -z*350);
+            c.rotation.y = Math.random()*Math.PI*2;
+            scene.add(c);
         }
-    };
-
-    // Fail-safe loaders: Even if file is missing, the game won't stick at 0%
-    const safeLoad = (url, xPos, scale, count, zSpacing) => {
-        loader.load(url, (gltf) => {
-            for(let i=0; i < count; i++) {
-                const model = gltf.scene.clone();
-                model.scale.setScalar(scale);
-                // Grid Math: This spreads buildings out along the Z axis
-                model.position.set(xPos, 0, -zSpacing * i); 
-                scene.add(model);
-            }
-            checkStatus();
-        }, undefined, () => { console.error("Missing: " + url); checkStatus(); });
-    };
-
-    // Buildings at the edges
-    safeLoad('./models/building.glb', -400, 50, 15, 900);
-    safeLoad('./models/b1.glb', 400, 50, 15, 900);
-    // Trees on sidewalks
-    safeLoad('./models/t1.glb', 130, 2.5, 40, 300);
-
-    // 4. 🎮 CONTROLS & START
-    const startMission = () => {
-        document.getElementById('loader').style.display = 'none';
-        document.getElementById('joy-base').style.display = 'block';
-        animate();
-    };
-
-    document.getElementById('start-btn').onclick = startMission;
-    document.getElementById('skip-btn').onclick = startMission;
-
-    let moveDir = { x: 0, z: 0 }, joyActive = false;
-    let yaw = 0, pitch = 0;
-    const jBase = document.getElementById('joy-base'), jKnob = document.getElementById('joy-knob');
-
-    jBase.onpointerdown = (e) => { joyActive = true; jBase.setPointerCapture(e.pointerId); };
-    jBase.onpointermove = (e) => {
-        if(!joyActive) return;
-        const r = jBase.getBoundingClientRect();
-        const dx = (e.clientX - (r.left + 50)) / 50, dy = (e.clientY - (r.top + 50)) / 50;
-        const d = Math.min(Math.sqrt(dx*dx + dy*dy), 1);
-        const a = Math.atan2(dy, dx);
-        jKnob.style.transform = `translate(${Math.cos(a)*d*30}px, ${Math.sin(a)*d*30}px)`;
-        moveDir.x = Math.cos(a) * d; moveDir.z = Math.sin(a) * d;
-    };
-    window.onpointerup = () => { joyActive = false; jKnob.style.transform = ''; moveDir = {x:0, z:0}; };
-
-    // Look controls for mobile
-    window.addEventListener('pointermove', (e) => {
-        if(joyActive && e.clientX < window.innerWidth/2) return;
-        if(e.buttons === 1 || e.pointerType === 'touch') {
-            yaw -= e.movementX * 0.004;
-            pitch = Math.max(-1.4, Math.min(1.4, pitch - e.movementY * 0.004));
-        }
-    });
-
-    function animate() {
-        requestAnimationFrame(animate);
-        player.rotation.y = yaw;
-        camera.rotation.x = pitch;
-        const fwd = new THREE.Vector3(0,0,-1).applyQuaternion(player.quaternion);
-        const side = new THREE.Vector3(1,0,0).applyQuaternion(player.quaternion);
-        player.position.addScaledVector(fwd, -moveDir.z * 8);
-        player.position.addScaledVector(side, moveDir.x * 8);
-        renderer.render(scene, camera);
     }
+}
+
+/* BUILDINGS */
+loader.load('./models/building.glb', g => {
+    const m = g.scene; m.scale.setScalar(50);
+    spawnCity(m, -700);
+    update();
+});
+loader.load('./models/b1.glb', g => {
+    const m = g.scene; m.scale.setScalar(50);
+    spawnCity(m, 350);
+    update();
+});
+
+/* TREES */
+loader.load('./models/t1.glb', g => {
+    const t = g.scene; t.scale.setScalar(3);
+    for (let i=0;i<40;i++) {
+        const l=t.clone(); l.position.set(-120,0,-i*300); scene.add(l);
+        const r=t.clone(); r.position.set(120,0,-i*300); scene.add(r);
+    }
+    update();
+});
+
+/* JOYSTICK */
+let move={x:0,z:0}, active=false, yaw=0, pitch=0;
+const base=document.getElementById("joy-base"), knob=document.getElementById("joy-knob");
+
+base.onpointerdown=e=>{active=true;base.setPointerCapture(e.pointerId)};
+base.onpointermove=e=>{
+ if(!active)return;
+ const r=base.getBoundingClientRect();
+ const dx=(e.clientX-(r.left+50))/50, dy=(e.clientY-(r.top+50))/50;
+ const d=Math.min(Math.hypot(dx,dy),1);
+ const a=Math.atan2(dy,dx);
+ knob.style.transform=`translate(${Math.cos(a)*30}px,${Math.sin(a)*30}px)`;
+ move.x=Math.cos(a)*d; move.z=Math.sin(a)*d;
+};
+onpointerup=()=>{active=false;knob.style.transform='';move={x:0,z:0}};
+
+/* START */
+document.getElementById("start-btn").onclick=()=>{
+ document.getElementById("home-screen").style.display="none";
+ animate();
+};
+
+/* LOOP */
+function animate(){
+ requestAnimationFrame(animate);
+ player.rotation.y=yaw;
+ const f=new THREE.Vector3(0,0,-1).applyQuaternion(player.quaternion);
+ const r=new THREE.Vector3(1,0,0).applyQuaternion(player.quaternion);
+ player.position.addScaledVector(f,-move.z*8);
+ player.position.addScaledVector(r,move.x*8);
+ renderer.render(scene,camera);
+}
 </script>
+
 </body>
 </html>
