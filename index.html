@@ -2,70 +2,64 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Mini City Life – City Build</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Mini City Life 3D</title>
 
 <style>
-body { margin: 0; overflow: hidden; background: #87ceeb; touch-action: none; font-family: sans-serif; }
-
-#home-screen {
-    position: fixed; inset: 0;
-    background: #111;
-    display: flex; flex-direction: column;
-    justify-content: center; align-items: center;
-    z-index: 1000; color: white;
+body {
+    margin: 0;
+    overflow: hidden;
+    background: #87ceeb;
+    font-family: monospace;
+    touch-action: none;
 }
 
-#loading-bar { width: 220px; height: 8px; background: #333; border-radius: 10px; overflow: hidden; }
-#loading-fill { width: 0%; height: 100%; background: #00d2d3; transition: width 0.3s; }
-#loading-text { margin-top: 10px; }
-#start-btn { margin-top: 25px; padding: 15px 45px; background: #00d2d3; border: none; border-radius: 8px; font-weight: bold; display: none; }
-
-.glass {
-    background: rgba(255,255,255,0.1);
-    backdrop-filter: blur(10px);
-    border-radius: 12px;
+#status {
     position: absolute;
-    color: white;
-    padding: 10px 20px;
-    pointer-events: none;
+    top: 10px;
+    left: 10px;
+    background: rgba(0,0,0,0.8);
+    color: #0f0;
+    padding: 8px;
+    font-size: 11px;
+    border-radius: 5px;
+    z-index: 10;
 }
 
-#mission-hud { top: 20px; left: 50%; transform: translateX(-50%); }
-
-#joy-base {
-    position: absolute; bottom: 40px; left: 40px;
-    width: 100px; height: 100px;
-    background: rgba(255,255,255,0.1);
+#joystick-base {
+    position: absolute;
+    bottom: 40px;
+    left: 40px;
+    width: 80px;
+    height: 80px;
+    background: rgba(255,255,255,0.3);
     border-radius: 50%;
-    border: 2px solid rgba(255,255,255,0.3);
 }
-#joy-knob {
-    position: absolute; top: 25px; left: 25px;
-    width: 50px; height: 50px;
-    background: #fff; border-radius: 50%;
+
+#joystick-knob {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    width: 40px;
+    height: 40px;
+    background: white;
+    border-radius: 50%;
 }
 </style>
 </head>
 
 <body>
 
-<div id="home-screen">
-    <h1>GENERATING CITY</h1>
-    <div id="loading-bar"><div id="loading-fill"></div></div>
-    <div id="loading-text">0%</div>
-    <button id="start-btn">START</button>
-</div>
+<div id="status">Starting engine...</div>
+<div id="joystick-base"><div id="joystick-knob"></div></div>
 
-<div id="mission-hud" class="glass">HIGHWAY 101</div>
-<div id="joy-base"><div id="joy-knob"></div></div>
-
+<!-- IMPORT MAP -->
 <script type="importmap">
 {
- "imports": {
-  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
- }
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
 }
 </script>
 
@@ -73,116 +67,130 @@ body { margin: 0; overflow: hidden; background: #87ceeb; touch-action: none; fon
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-/* RENDERER */
-const renderer = new THREE.WebGLRenderer({ antialias:true });
-renderer.setSize(innerWidth, innerHeight);
-renderer.setPixelRatio(devicePixelRatio);
-document.body.appendChild(renderer.domElement);
+const statusUI = document.getElementById("status");
+const log = (t) => statusUI.innerHTML += "<br>" + t;
 
-/* SCENE */
+// SCENE
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
-scene.fog = new THREE.Fog(0x87ceeb, 400, 2500);
 
-/* PLAYER + CAMERA */
-const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 4000);
-const player = new THREE.Group();
-player.position.set(0, 15, 150);
-scene.add(player);
-player.add(camera);
+// CAMERA
+const camera = new THREE.PerspectiveCamera(
+    75,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    1000
+);
 
-/* LIGHT */
-scene.add(new THREE.AmbientLight(0xffffff, 2));
-const sun = new THREE.DirectionalLight(0xffffff, 1.5);
-sun.position.set(300, 500, 300);
+// RENDERER
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+// LIGHTS
+scene.add(new THREE.AmbientLight(0xffffff, 1.4));
+const sun = new THREE.DirectionalLight(0xffffff, 1);
+sun.position.set(10, 20, 10);
 scene.add(sun);
 
-/* ROAD */
-const road = new THREE.Mesh(
-    new THREE.PlaneGeometry(180, 12000),
-    new THREE.MeshStandardMaterial({ color: 0x1a1a1a })
+// GROUND
+const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(200, 200),
+    new THREE.MeshStandardMaterial({ color: 0x4caf50 })
 );
-road.rotation.x = -Math.PI/2;
-scene.add(road);
+ground.rotation.x = -Math.PI / 2;
+scene.add(ground);
 
-/* LOADER */
+// PLAYER GROUP
+const player = new THREE.Group();
+scene.add(player);
+
+// LOADER
 const loader = new GLTFLoader();
-let loaded = 0;
-const update = () => {
-    loaded++;
-    const p = Math.floor((loaded / 3) * 100);
-    document.getElementById("loading-fill").style.width = p+"%";
-    document.getElementById("loading-text").innerText = p+"%";
-    if (p === 100) document.getElementById("start-btn").style.display = "block";
-};
 
-/* CITY FUNCTION */
-function spawnCity(model, startX) {
-    for (let x = 0; x < 4; x++) {
-        for (let z = 0; z < 12; z++) {
-            const c = model.clone();
-            c.position.set(startX + x*180, 0, -z*350);
-            c.rotation.y = Math.random()*Math.PI*2;
-            scene.add(c);
+function loadModel(name, x, z, isPlayer = false) {
+    const path = `./models/${name}`;
+
+    loader.load(path, (gltf) => {
+        const model = gltf.scene;
+
+        // AUTO SCALE
+        const box = new THREE.Box3().setFromObject(model);
+        const size = box.getSize(new THREE.Vector3());
+        const scale = 12 / Math.max(size.x, size.y, size.z);
+        model.scale.set(scale, scale, scale);
+
+        if (isPlayer) {
+            player.add(model);
+            log("✅ Player loaded");
+        } else {
+            model.position.set(x, 0, z);
+            scene.add(model);
+            log(`✅ Building loaded: ${name}`);
         }
-    }
+    },
+    undefined,
+    () => log(`❌ Failed: ${name}`)
+    );
 }
 
-/* BUILDINGS */
-loader.load('./models/building.glb', g => {
-    const m = g.scene; m.scale.setScalar(50);
-    spawnCity(m, -700);
-    update();
-});
-loader.load('./models/b1.glb', g => {
-    const m = g.scene; m.scale.setScalar(50);
-    spawnCity(m, 350);
-    update();
-});
+// LOAD MODELS
+loadModel("building.glb", -25, -10);
+loadModel("b1.glb", 25, -10);
+loadModel("t1.glb", 0, 0, true);
 
-/* TREES */
-loader.load('./models/t1.glb', g => {
-    const t = g.scene; t.scale.setScalar(3);
-    for (let i=0;i<40;i++) {
-        const l=t.clone(); l.position.set(-120,0,-i*300); scene.add(l);
-        const r=t.clone(); r.position.set(120,0,-i*300); scene.add(r);
-    }
-    update();
-});
+// CAMERA START
+camera.position.set(0, 15, 35);
+camera.lookAt(player.position);
 
-/* JOYSTICK */
-let move={x:0,z:0}, active=false, yaw=0, pitch=0;
-const base=document.getElementById("joy-base"), knob=document.getElementById("joy-knob");
+// JOYSTICK
+let moveX = 0, moveZ = 0, dragging = false;
+const base = document.getElementById("joystick-base");
+const knob = document.getElementById("joystick-knob");
 
-base.onpointerdown=e=>{active=true;base.setPointerCapture(e.pointerId)};
-base.onpointermove=e=>{
- if(!active)return;
- const r=base.getBoundingClientRect();
- const dx=(e.clientX-(r.left+50))/50, dy=(e.clientY-(r.top+50))/50;
- const d=Math.min(Math.hypot(dx,dy),1);
- const a=Math.atan2(dy,dx);
- knob.style.transform=`translate(${Math.cos(a)*30}px,${Math.sin(a)*30}px)`;
- move.x=Math.cos(a)*d; move.z=Math.sin(a)*d;
-};
-onpointerup=()=>{active=false;knob.style.transform='';move={x:0,z:0}};
+base.onpointerdown = () => dragging = true;
 
-/* START */
-document.getElementById("start-btn").onclick=()=>{
- document.getElementById("home-screen").style.display="none";
- animate();
+window.onpointermove = (e) => {
+    if (!dragging) return;
+
+    const b = base.getBoundingClientRect();
+    let dx = e.clientX - (b.left + 40);
+    let dy = e.clientY - (b.top + 40);
+
+    const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 30);
+    const ang = Math.atan2(dy, dx);
+
+    knob.style.transform = `translate(${Math.cos(ang)*dist}px, ${Math.sin(ang)*dist}px)`;
+
+    moveX = Math.cos(ang) * (dist / 30);
+    moveZ = Math.sin(ang) * (dist / 30);
 };
 
-/* LOOP */
-function animate(){
- requestAnimationFrame(animate);
- player.rotation.y=yaw;
- const f=new THREE.Vector3(0,0,-1).applyQuaternion(player.quaternion);
- const r=new THREE.Vector3(1,0,0).applyQuaternion(player.quaternion);
- player.position.addScaledVector(f,-move.z*8);
- player.position.addScaledVector(r,move.x*8);
- renderer.render(scene,camera);
+window.onpointerup = () => {
+    dragging = false;
+    knob.style.transform = "";
+    moveX = 0;
+    moveZ = 0;
+};
+
+// LOOP
+function animate() {
+    requestAnimationFrame(animate);
+
+    player.position.x += moveX * 0.3;
+    player.position.z += moveZ * 0.3;
+
+    camera.position.set(
+        player.position.x,
+        15,
+        player.position.z + 35
+    );
+    camera.lookAt(player.position);
+
+    renderer.render(scene, camera);
 }
+
+animate();
 </script>
-
 </body>
 </html>
