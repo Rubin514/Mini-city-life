@@ -3,20 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Fixed City</title>
+    <title>Fixed City Grid</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #87ceeb; font-family: sans-serif; }
-        #loading-screen { position: fixed; inset: 0; background: #000; color: #fff; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
-        #start-btn { padding: 15px 40px; background: #00d2d3; border: none; border-radius: 8px; color: #fff; font-weight: bold; cursor: pointer; margin-top: 20px; }
-        #joy-base { position: absolute; bottom: 40px; left: 40px; width: 100px; height: 100px; background: rgba(255,255,255,0.2); border-radius: 50%; }
+        body { margin: 0; overflow: hidden; background: #87ceeb; font-family: sans-serif; touch-action: none; }
+        #loader { position: fixed; inset: 0; background: #000; color: #fff; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
+        .btn { padding: 15px 40px; background: #00d2d3; border: none; border-radius: 8px; color: #fff; font-weight: bold; cursor: pointer; margin-top: 20px; }
+        #joy-base { position: absolute; bottom: 40px; left: 40px; width: 100px; height: 100px; background: rgba(255,255,255,0.2); border-radius: 50%; display:none; }
         #joy-knob { position: absolute; top: 25px; left: 25px; width: 50px; height: 50px; background: #fff; border-radius: 50%; }
     </style>
 </head>
 <body>
 
-<div id="loading-screen">
-    <h1 id="status">LOADING MODELS...</h1>
-    <button id="start-btn" style="display:none">ENTER CITY</button>
+<div id="loader">
+    <h1 id="status">CHECKING MODELS...</h1>
+    <div id="progress-text">0%</div>
+    <button id="start-btn" class="btn" style="display:none">START MISSION</button>
+    <button id="skip-btn" class="btn" style="background:#555">SKIP LOADING (DEBUG)</button>
 </div>
 
 <div id="joy-base"><div id="joy-knob"></div></div>
@@ -29,6 +31,7 @@
     import * as THREE from 'three';
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
+    // 1. SCENE SETUP
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
@@ -37,70 +40,83 @@
     scene.background = new THREE.Color(0x87ceeb);
     scene.fog = new THREE.Fog(0x87ceeb, 500, 2500);
 
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 3000);
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 4000);
     const player = new THREE.Group();
-    player.position.set(0, 15, 0); 
+    player.position.set(0, 15, 200); 
     scene.add(player);
     player.add(camera);
 
     scene.add(new THREE.AmbientLight(0xffffff, 2));
 
-    // --- 🛣️ THE HIGHWAY (Simple Geometry) ---
-    const road = new THREE.Mesh(new THREE.PlaneGeometry(200, 10000), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+    // 2. 🛣️ THE HIGHWAY (Created with code so it NEVER fails to load)
+    const road = new THREE.Mesh(
+        new THREE.PlaneGeometry(200, 20000), 
+        new THREE.MeshStandardMaterial({ color: 0x222222 })
+    );
     road.rotation.x = -Math.PI / 2;
     scene.add(road);
 
-    // --- 🏗️ THE LOADING FIX ---
-    const loader = new GLTFLoader();
-    let modelsToLoad = 3;
-    let modelsLoaded = 0;
+    // Yellow Median
+    const line = new THREE.Mesh(new THREE.PlaneGeometry(3, 20000), new THREE.MeshBasicMaterial({color: 0xffcc00}));
+    line.rotation.x = -Math.PI/2; line.position.y = 0.2;
+    scene.add(line);
 
-    function checkLoad() {
-        modelsLoaded++;
-        document.getElementById('status').innerText = `LOADED ${modelsLoaded}/3`;
-        if(modelsLoaded >= modelsToLoad) {
-            document.getElementById('start-btn').style.display = 'block';
-            document.getElementById('status').innerText = "READY!";
-        }
+    // 3. 🏗️ LOADING LOGIC (Fixing the "Stuck" Issue)
+    const loader = new GLTFLoader();
+    let toLoad = 3, loaded = 0;
+
+    function itemDone() {
+        loaded++;
+        let p = Math.floor((loaded / toLoad) * 100);
+        document.getElementById('progress-text').innerText = p + "%";
+        if(loaded >= toLoad) showStart();
     }
 
-    // Spawn Buildings (Spread out on Z and X)
-    const loadBuilding = (path, x) => {
+    function showStart() {
+        document.getElementById('status').innerText = "READY";
+        document.getElementById('start-btn').style.display = "block";
+    }
+
+    // Spawn Buildings to the side (X = 350) and spread on Z (-800 * i)
+    const loadGroup = (path, xPos) => {
         loader.load(path, (gltf) => {
-            for(let i = 0; i < 10; i++) {
-                const b = gltf.scene.clone();
-                b.scale.setScalar(40);
-                b.position.set(x, 0, -800 * i);
-                scene.add(b);
+            const model = gltf.scene;
+            model.scale.setScalar(45);
+            for(let i=0; i<15; i++) {
+                const c = model.clone();
+                c.position.set(xPos, 0, -900 * i);
+                scene.add(c);
             }
-            checkLoad();
-        }, undefined, () => { console.error("Error loading building"); checkLoad(); });
+            itemDone();
+        }, undefined, (err) => { 
+            console.warn("Could not find: " + path); 
+            itemDone(); // Still count it as "done" so it doesn't get stuck!
+        });
     };
 
-    loadBuilding('./models/building.glb', -300);
-    loadBuilding('./models/b1.glb', 300);
-
-    // Trees (Small scale)
+    loadGroup('./models/building.glb', -350);
+    loadGroup('./models/b1.glb', 350);
+    
+    // Trees at X = 110 (Side of road)
     loader.load('./models/t1.glb', (gltf) => {
-        for(let i = 0; i < 30; i++) {
-            const tL = gltf.scene.clone(); tL.scale.setScalar(2); tL.position.set(-120, 0, -250 * i); scene.add(tL);
-            const tR = gltf.scene.clone(); tR.scale.setScalar(2); tR.position.set(120, 0, -250 * i); scene.add(tR);
+        const tree = gltf.scene;
+        tree.scale.setScalar(3);
+        for(let i=0; i<40; i++) {
+            const tL = tree.clone(); tL.position.set(-110, 0, -300 * i); scene.add(tL);
+            const tR = tree.clone(); tR.position.set(110, 0, -300 * i); scene.add(tR);
         }
-        checkLoad();
-    }, undefined, () => { checkLoad(); });
+        itemDone();
+    }, undefined, (err) => itemDone());
 
-    // --- 🎮 CONTROLS ---
-    let moveDir = { x: 0, z: 0 };
-    document.getElementById('start-btn').onclick = () => {
-        document.getElementById('loading-screen').style.display = 'none';
+    // 4. START & CONTROLS
+    document.getElementById('start-btn').onclick = document.getElementById('skip-btn').onclick = () => {
+        document.getElementById('loader').style.display = 'none';
+        document.getElementById('joy-base').style.display = 'block';
         animate();
     };
 
-    // (Add your joystick logic here from the previous code)
-
     function animate() {
         requestAnimationFrame(animate);
-        // Movement Logic
         renderer.render(scene, camera);
     }
 </script>
