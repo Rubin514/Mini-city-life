@@ -2,58 +2,59 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Mini City Life 3D</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Mini City Life – DRACO Supported</title>
 
 <style>
-body {
-    margin: 0;
-    overflow: hidden;
-    background: #87ceeb;
-    font-family: monospace;
-    touch-action: none;
+body { margin:0; overflow:hidden; background:#87ceeb; font-family:sans-serif; }
+#home-screen {
+    position:fixed; inset:0; background:#111;
+    display:flex; flex-direction:column;
+    justify-content:center; align-items:center;
+    z-index:1000; color:white;
 }
-
-#status {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    background: rgba(0,0,0,0.8);
-    color: #0f0;
-    padding: 8px;
-    font-size: 11px;
-    border-radius: 5px;
-    z-index: 10;
+#loading-bar { width:220px; height:8px; background:#333; border-radius:10px; overflow:hidden; }
+#loading-fill { width:0%; height:100%; background:#00d2d3; transition:0.3s; }
+#start-btn { margin-top:25px; padding:15px 45px; display:none;
+    background:#00d2d3; border:none; border-radius:8px;
+    color:white; font-weight:bold; }
+.glass {
+    background:rgba(255,255,255,0.1);
+    backdrop-filter:blur(10px);
+    border:1px solid rgba(255,255,255,0.2);
+    border-radius:12px;
+    position:absolute; color:white;
+    padding:10px 20px;
 }
-
-#joystick-base {
-    position: absolute;
-    bottom: 40px;
-    left: 40px;
-    width: 80px;
-    height: 80px;
-    background: rgba(255,255,255,0.3);
-    border-radius: 50%;
+#mission-hud { top:20px; left:50%; transform:translateX(-50%); }
+#joy-base {
+    position:absolute; bottom:40px; left:40px;
+    width:100px; height:100px;
+    border-radius:50%;
+    background:rgba(255,255,255,0.1);
+    border:2px solid rgba(255,255,255,0.3);
 }
-
-#joystick-knob {
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    width: 40px;
-    height: 40px;
-    background: white;
-    border-radius: 50%;
+#joy-knob {
+    width:50px; height:50px;
+    background:white;
+    border-radius:50%;
+    position:absolute; top:25px; left:25px;
 }
 </style>
 </head>
 
 <body>
 
-<div id="status">Starting engine...</div>
-<div id="joystick-base"><div id="joystick-knob"></div></div>
+<div id="home-screen">
+    <h1>GENERATING CITY</h1>
+    <div id="loading-bar"><div id="loading-fill"></div></div>
+    <div id="loading-text">0%</div>
+    <button id="start-btn">START</button>
+</div>
 
-<!-- IMPORT MAP -->
+<div id="mission-hud" class="glass">HIGHWAY 101</div>
+<div id="joy-base"><div id="joy-knob"></div></div>
+
 <script type="importmap">
 {
   "imports": {
@@ -66,131 +67,124 @@ body {
 <script type="module">
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
-const statusUI = document.getElementById("status");
-const log = (t) => statusUI.innerHTML += "<br>" + t;
-
-// SCENE
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb);
-
-// CAMERA
-const camera = new THREE.PerspectiveCamera(
-    75,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    1000
-);
-
-// RENDERER
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
+/// RENDERER
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
-// LIGHTS
-scene.add(new THREE.AmbientLight(0xffffff, 1.4));
-const sun = new THREE.DirectionalLight(0xffffff, 1);
-sun.position.set(10, 20, 10);
-scene.add(sun);
+/// SCENE
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb);
+scene.fog = new THREE.Fog(0x87ceeb, 400, 2000);
 
-// GROUND
-const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(200, 200),
-    new THREE.MeshStandardMaterial({ color: 0x4caf50 })
-);
-ground.rotation.x = -Math.PI / 2;
-scene.add(ground);
-
-// PLAYER GROUP
+/// CAMERA + PLAYER
+const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 3000);
 const player = new THREE.Group();
+player.position.set(0,15,100);
+player.add(camera);
 scene.add(player);
 
-// LOADER
+/// LIGHT
+scene.add(new THREE.AmbientLight(0xffffff, 2));
+const sun = new THREE.DirectionalLight(0xffffff, 1.5);
+sun.position.set(200,500,100);
+scene.add(sun);
+
+/// ROAD
+const road = new THREE.Mesh(
+    new THREE.PlaneGeometry(180, 10000),
+    new THREE.MeshStandardMaterial({ color:0x1a1a1a })
+);
+road.rotation.x = -Math.PI/2;
+scene.add(road);
+
+/// LOADERS (✅ DRACO ENABLED)
 const loader = new GLTFLoader();
+const draco = new DRACOLoader();
+draco.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
+loader.setDRACOLoader(draco);
 
-function loadModel(name, x, z, isPlayer = false) {
-    const path = `./models/${name}`;
+let loaded = 0;
+const update = () => {
+    loaded++;
+    const p = Math.floor((loaded / 3) * 100);
+    document.getElementById('loading-fill').style.width = p + '%';
+    document.getElementById('loading-text').innerText = p + '%';
+    if (p >= 100) document.getElementById('start-btn').style.display = 'block';
+};
 
-    loader.load(path, (gltf) => {
-        const model = gltf.scene;
-
-        // AUTO SCALE
-        const box = new THREE.Box3().setFromObject(model);
-        const size = box.getSize(new THREE.Vector3());
-        const scale = 12 / Math.max(size.x, size.y, size.z);
-        model.scale.set(scale, scale, scale);
-
-        if (isPlayer) {
-            player.add(model);
-            log("✅ Player loaded");
-        } else {
-            model.position.set(x, 0, z);
-            scene.add(model);
-            log(`✅ Building loaded: ${name}`);
+/// BUILDINGS
+function spawnRow(url, x) {
+    loader.load(url, g => {
+        const m = g.scene;
+        m.scale.setScalar(50);
+        for(let i=0;i<15;i++){
+            const c = m.clone();
+            c.position.set(x,0,-800*i);
+            scene.add(c);
         }
-    },
-    undefined,
-    () => log(`❌ Failed: ${name}`)
-    );
+        update();
+    });
 }
 
-// LOAD MODELS
-loadModel("building.glb", -25, -10);
-loadModel("b1.glb", 25, -10);
-loadModel("t1.glb", 0, 0, true);
+spawnRow('./models/building.glb', -350);
+spawnRow('./models/b1.glb', 350);
 
-// CAMERA START
-camera.position.set(0, 15, 35);
-camera.lookAt(player.position);
+/// TREES
+loader.load('./models/t1.glb', g => {
+    const t = g.scene;
+    t.scale.setScalar(3);
+    for(let i=0;i<30;i++){
+        const l=t.clone(); l.position.set(-110,0,-300*i); scene.add(l);
+        const r=t.clone(); r.position.set(110,0,-300*i); scene.add(r);
+    }
+    update();
+});
 
-// JOYSTICK
-let moveX = 0, moveZ = 0, dragging = false;
-const base = document.getElementById("joystick-base");
-const knob = document.getElementById("joystick-knob");
+/// CONTROLS
+let move={x:0,z:0}, joy=false;
+let yaw=0,pitch=0;
+const jb=document.getElementById('joy-base');
+const jk=document.getElementById('joy-knob');
 
-base.onpointerdown = () => dragging = true;
+jb.onpointerdown=e=>{ joy=true; jb.setPointerCapture(e.pointerId); };
+jb.onpointermove=e=>{
+    if(!joy)return;
+    const r=jb.getBoundingClientRect();
+    const dx=(e.clientX-(r.left+50))/50;
+    const dy=(e.clientY-(r.top+50))/50;
+    const d=Math.min(Math.hypot(dx,dy),1);
+    const a=Math.atan2(dy,dx);
+    jk.style.transform=`translate(${Math.cos(a)*d*30}px,${Math.sin(a)*d*30}px)`;
+    move.x=Math.cos(a)*d; move.z=Math.sin(a)*d;
+};
+onpointerup=()=>{ joy=false; jk.style.transform=''; move={x:0,z:0}; };
 
-window.onpointermove = (e) => {
-    if (!dragging) return;
-
-    const b = base.getBoundingClientRect();
-    let dx = e.clientX - (b.left + 40);
-    let dy = e.clientY - (b.top + 40);
-
-    const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 30);
-    const ang = Math.atan2(dy, dx);
-
-    knob.style.transform = `translate(${Math.cos(ang)*dist}px, ${Math.sin(ang)*dist}px)`;
-
-    moveX = Math.cos(ang) * (dist / 30);
-    moveZ = Math.sin(ang) * (dist / 30);
+onpointermove=e=>{
+    if(e.buttons){
+        yaw -= e.movementX*0.003;
+        pitch=Math.max(-1.4,Math.min(1.4,pitch-e.movementY*0.003));
+    }
 };
 
-window.onpointerup = () => {
-    dragging = false;
-    knob.style.transform = "";
-    moveX = 0;
-    moveZ = 0;
+document.getElementById('start-btn').onclick=()=>{
+    document.getElementById('home-screen').style.display='none';
+    animate();
 };
 
-// LOOP
-function animate() {
+function animate(){
     requestAnimationFrame(animate);
-
-    player.position.x += moveX * 0.3;
-    player.position.z += moveZ * 0.3;
-
-    camera.position.set(
-        player.position.x,
-        15,
-        player.position.z + 35
-    );
-    camera.lookAt(player.position);
-
-    renderer.render(scene, camera);
+    player.rotation.y=yaw;
+    camera.rotation.x=pitch;
+    const f=new THREE.Vector3(0,0,-1).applyQuaternion(player.quaternion);
+    const r=new THREE.Vector3(1,0,0).applyQuaternion(player.quaternion);
+    player.position.addScaledVector(f,-move.z*8);
+    player.position.addScaledVector(r,move.x*8);
+    renderer.render(scene,camera);
 }
-
-animate();
 </script>
 </body>
 </html>
