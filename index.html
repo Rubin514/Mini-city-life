@@ -3,38 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Draco Fixed City</title>
+    <title>City Legend - Final</title>
     <style>
         body { margin: 0; overflow: hidden; background: #87ceeb; touch-action: none; font-family: sans-serif; }
-        #ui { position: fixed; inset: 0; background: #111; color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
+        #overlay { position: fixed; inset: 0; background: #111; color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
         .bar { width: 200px; height: 10px; background: #333; border-radius: 5px; margin: 20px; overflow: hidden; }
-        #fill { width: 0%; height: 100%; background: #00d2d3; }
+        #fill { width: 0%; height: 100%; background: #00d2d3; transition: width 0.3s; }
         .btn { padding: 15px 40px; background: #00d2d3; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; display: none; }
-        #skip { margin-top: 10px; color: #777; cursor: pointer; font-size: 12px; }
+        #error-msg { color: #ff4d4d; font-size: 11px; margin-top: 10px; text-align: center; max-width: 80%; }
+        #joy-base { position: absolute; bottom: 40px; left: 40px; width: 100px; height: 100px; background: rgba(255,255,255,0.2); border: 2px solid white; border-radius: 50%; display: none; }
+        #joy-knob { position: absolute; top: 25px; left: 25px; width: 50px; height: 50px; background: white; border-radius: 50%; }
     </style>
 </head>
 <body>
 
-<div id="ui">
-    <h1 id="status">DECODING DRACO MODELS...</h1>
+<div id="overlay">
+    <h1 id="status">UNZIPPING CITY...</h1>
     <div class="bar"><div id="fill"></div></div>
-    <button id="start-btn" class="btn">START MISSION</button>
-    <div id="skip">Skip if stuck</div>
+    <button id="start-btn" class="btn">START DRIVING</button>
+    <div id="error-msg"></div>
 </div>
 
+<div id="joy-base"><div id="joy-knob"></div></div>
+
 <script type="importmap">
-{ "imports": { 
-    "three": "https://unpkg.com/three@0.160.0/build/three.module.js", 
-    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" 
-} }
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
 </script>
 
 <script type="module">
     import * as THREE from 'three';
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-    import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js'; // MUST HAVE THIS
+    import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
-    // 1. SETUP
+    // 1. ENGINE
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
@@ -45,72 +46,107 @@
 
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 5000);
     const player = new THREE.Group();
-    player.position.set(0, 15, 200); 
+    player.position.set(0, 15, 400); 
     scene.add(player);
     player.add(camera);
 
     scene.add(new THREE.AmbientLight(0xffffff, 2));
 
-    // 2. THE ROAD
+    // 2. 🛣️ THE ROAD
     const road = new THREE.Mesh(new THREE.PlaneGeometry(200, 20000), new THREE.MeshStandardMaterial({ color: 0x1a1a1a }));
     road.rotation.x = -Math.PI / 2;
     scene.add(road);
 
-    // 3. 🛠️ THE DRACO FIX
+    // 3. 🛠️ DRACO SETUP
     const loader = new GLTFLoader();
-    const dracoLoader = new DRACOLoader();
-    // This points to the Google decoder files so the browser can read Draco GLBs
-    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
-    loader.setDRACOLoader(dracoLoader);
+    const draco = new DRACOLoader();
+    draco.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
+    loader.setDRACOLoader(draco);
 
     let toLoad = 3, loaded = 0;
-    const check = () => {
+    const onDone = () => {
         loaded++;
         document.getElementById('fill').style.width = (loaded/toLoad)*100 + "%";
         if(loaded >= toLoad) {
-            document.getElementById('status').innerText = "READY";
+            document.getElementById('status').innerText = "CITY READY";
             document.getElementById('start-btn').style.display = "block";
         }
     };
 
-    // Spawning with Grid Math (No Clumping)
-    const spawn = (url, x, spacing) => {
-        loader.load(url, (gltf) => {
-            const model = gltf.scene;
-            for(let i=0; i<15; i++) {
-                const c = model.clone();
-                c.scale.setScalar(50);
-                c.position.set(x, 0, -spacing * i);
-                scene.add(c);
+    // 4. 🏗️ SAFE GRID SPAWNER
+    const spawnCity = (fileName, x, spacing) => {
+        // Try 'models/' first, then 'Models/' if it fails
+        const path = './models/' + fileName;
+        loader.load(path, (gltf) => {
+            for(let i=0; i<12; i++) {
+                const b = gltf.scene.clone();
+                b.scale.setScalar(50);
+                b.position.set(x, 0, -spacing * i);
+                scene.add(b);
             }
-            check();
-        }, undefined, (err) => { 
-            console.error("Path error: " + url); 
-            check(); 
+            onDone();
+        }, undefined, () => {
+            // Backup attempt for capitalized folder
+            loader.load('./Models/' + fileName, (gltf) => {
+                for(let i=0; i<12; i++) {
+                    const b = gltf.scene.clone();
+                    b.scale.setScalar(50);
+                    b.position.set(x, 0, -spacing * i);
+                    scene.add(b);
+                }
+                onDone();
+            }, undefined, () => {
+                document.getElementById('error-msg').innerText += ` Failed: ${fileName} |`;
+                onDone();
+            });
         });
     };
 
-    spawn('./models/building.glb', -400, 900);
-    spawn('./models/b1.glb', 400, 900);
+    spawnCity('building.glb', -400, 1000);
+    spawnCity('b1.glb', 400, 1000);
     
+    // Trees
     loader.load('./models/t1.glb', (gltf) => {
         for(let i=0; i<40; i++) {
-            const tL = gltf.scene.clone(); tL.scale.setScalar(2.5); tL.position.set(-120, 0, -300 * i); scene.add(tL);
-            const tR = gltf.scene.clone(); tR.scale.setScalar(2.5); tR.position.set(120, 0, -300 * i); scene.add(tR);
+            const tL = gltf.scene.clone(); tL.scale.setScalar(2.5); tL.position.set(-130, 0, -300 * i); scene.add(tL);
+            const tR = gltf.scene.clone(); tR.scale.setScalar(2.5); tR.position.set(130, 0, -300 * i); scene.add(tR);
         }
-        check();
-    }, undefined, () => check());
+        onDone();
+    }, undefined, () => onDone());
 
-    // 4. RUN
-    const start = () => { document.getElementById('ui').style.display = 'none'; animate(); };
-    document.getElementById('start-btn').onclick = start;
-    document.getElementById('skip').onclick = start;
+    // 5. 🎮 CONTROLS (Manual Drive)
+    let moveDir = { x: 0, z: 0 }, active = false, yaw = 0;
+    const jBase = document.getElementById('joy-base'), jKnob = document.getElementById('joy-knob');
+
+    document.getElementById('start-btn').onclick = () => {
+        document.getElementById('overlay').style.display = 'none';
+        jBase.style.display = 'block';
+        animate();
+    };
+
+    jBase.onpointerdown = (e) => { active = true; jBase.setPointerCapture(e.pointerId); };
+    jBase.onpointermove = (e) => {
+        if(!active) return;
+        const r = jBase.getBoundingClientRect();
+        const dx = (e.clientX - (r.left + 50)) / 50, dy = (e.clientY - (r.top + 50)) / 50;
+        const d = Math.min(Math.sqrt(dx*dx + dy*dy), 1);
+        const a = Math.atan2(dy, dx);
+        jKnob.style.transform = `translate(${Math.cos(a)*d*30}px, ${Math.sin(a)*d*30}px)`;
+        moveDir.x = Math.cos(a) * d; moveDir.z = Math.sin(a) * d;
+    };
+    window.onpointerup = () => { active = false; jKnob.style.transform = ''; moveDir = {x:0, z:0}; };
 
     function animate() {
         requestAnimationFrame(animate);
-        player.position.z -= 3; // Auto-drive to see the city
+        // Turn player based on joystick X
+        if(active) yaw -= moveDir.x * 0.05;
+        player.rotation.y = yaw;
+        
+        const fwd = new THREE.Vector3(0,0,-1).applyQuaternion(player.quaternion);
+        player.position.addScaledVector(fwd, -moveDir.z * 12);
         renderer.render(scene, camera);
     }
 </script>
 </body>
 </html>
+
