@@ -3,26 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>City Legend - Working Edition</title>
+    <title>City Legend - Dr. Driving Style</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #87ceeb; touch-action: none; font-family: sans-serif; }
-        #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; }
-        .btn { padding: 15px 40px; background: #00d2d3; border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; margin-top: 20px; }
-        #joy-base { position: absolute; bottom: 40px; left: 40px; width: 100px; height: 100px; background: rgba(255,255,255,0.2); border-radius: 50%; border: 2px solid white; display: none; }
-        #joy-knob { position: absolute; top: 25px; left: 25px; width: 50px; height: 50px; background: white; border-radius: 50%; }
+        body { margin: 0; overflow: hidden; background: #87ceeb; touch-action: none; font-family: 'Segoe UI', sans-serif; }
+        
+        /* Loading & UI Overlay */
+        #ui-layer { position: fixed; inset: 0; background: rgba(0,0,0,0.9); color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; transition: opacity 0.5s; }
+        .bar-bg { width: 250px; height: 12px; background: #222; border-radius: 6px; margin: 20px; border: 1px solid #444; overflow: hidden; }
+        #bar-fill { width: 0%; height: 100%; background: #00d2d3; transition: width 0.3s; }
+        .btn { padding: 15px 50px; background: #00d2d3; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 18px; cursor: pointer; display: none; }
+        #skip-hint { font-size: 12px; color: #777; margin-top: 15px; cursor: pointer; text-decoration: underline; }
+
+        /* HUD & Controls */
+        #hud { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); padding: 10px 30px; border-radius: 10px; color: white; border: 1px solid rgba(255,255,255,0.2); pointer-events: none; display: none; }
+        #joy-base { position: absolute; bottom: 50px; left: 50px; width: 110px; height: 110px; background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; display: none; touch-action: none; }
+        #joy-knob { position: absolute; top: 30px; left: 30px; width: 50px; height: 50px; background: white; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
     </style>
 </head>
 <body>
 
-<div id="overlay">
-    <h1 id="status">INITIALIZING CITY...</h1>
-    <div id="loading-bar" style="width:200px; height:10px; background:#333; border-radius:5px; overflow:hidden;">
-        <div id="fill" style="width:0%; height:100%; background:#00d2d3;"></div>
-    </div>
-    <button id="start-btn" class="btn" style="display:none;">START MISSION</button>
-    <p id="error-log" style="color: #ff4d4d; font-size: 12px; margin-top: 10px;"></p>
+<div id="ui-layer">
+    <h1 id="status">BUILDING CITY...</h1>
+    <div class="bar-bg"><div id="bar-fill"></div></div>
+    <div id="percent">0%</div>
+    <button id="start-btn" class="btn">START DRIVING</button>
+    <div id="skip-hint">Force Start (If stuck at 0%)</div>
 </div>
 
+<div id="hud">DOWNTOWN BOULEVARD</div>
 <div id="joy-base"><div id="joy-knob"></div></div>
 
 <script type="importmap">
@@ -33,125 +41,128 @@
     import * as THREE from 'three';
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-    // 1. ENGINE
+    // 1. SCENE SETUP
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     document.body.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87ceeb);
-    scene.fog = new THREE.Fog(0x87ceeb, 500, 3500);
+    scene.fog = new THREE.Fog(0x87ceeb, 600, 3500);
 
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 5000);
+    const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, 5000);
     const player = new THREE.Group();
-    player.position.set(0, 15, 300); 
+    player.position.set(0, 15, 400); // Stand on road, not in it
     scene.add(player);
     player.add(camera);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 1.5));
-    const sun = new THREE.DirectionalLight(0xffffff, 1.2);
-    sun.position.set(100, 500, 100);
+    scene.add(new THREE.AmbientLight(0xffffff, 1.8));
+    const sun = new THREE.DirectionalLight(0xffffff, 1.3);
+    sun.position.set(200, 600, 100);
     scene.add(sun);
 
-    // 2. THE ROAD (Built with Code, Not GLB)
-    const asphalt = new THREE.Mesh(new THREE.PlaneGeometry(240, 15000), new THREE.MeshStandardMaterial({ color: 0x111111 }));
-    asphalt.rotation.x = -Math.PI / 2;
-    scene.add(asphalt);
+    // 2. 🛣️ THE HIGHWAY (Visual logic to match your screenshot)
+    const createHighway = () => {
+        const group = new THREE.Group();
+        // Road surface
+        const road = new THREE.Mesh(new THREE.PlaneGeometry(220, 15000), new THREE.MeshStandardMaterial({ color: 0x1a1a1a }));
+        road.rotation.x = -Math.PI / 2;
+        group.add(road);
 
-    // Yellow Divider & White Dashes
-    const centerLine = new THREE.Mesh(new THREE.PlaneGeometry(4, 15000), new THREE.MeshBasicMaterial({ color: 0xffcc00 }));
-    centerLine.rotation.x = -Math.PI/2; centerLine.position.y = 0.1;
-    scene.add(centerLine);
+        // Center Median (Yellow)
+        const line = new THREE.Mesh(new THREE.PlaneGeometry(4, 15000), new THREE.MeshBasicMaterial({ color: 0xffcc00 }));
+        line.rotation.x = -Math.PI/2; line.position.y = 0.2;
+        group.add(line);
 
-    for(let i=0; i<100; i++) {
-        const z = 5000 - (i * 150);
-        [-80, -40, 40, 80].forEach(x => {
-            const dash = new THREE.Mesh(new THREE.PlaneGeometry(2, 25), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-            dash.rotation.x = -Math.PI/2; dash.position.set(x, 0.2, z);
-            scene.add(dash);
-        });
-    }
+        // Lane markers (White dashes)
+        const dashGeo = new THREE.PlaneGeometry(1.5, 25);
+        const dashMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        for(let i=0; i<120; i++) {
+            const zPos = 7000 - (i * 130);
+            [-75, -35, 35, 75].forEach(x => {
+                const dash = new THREE.Mesh(dashGeo, dashMat);
+                dash.rotation.x = -Math.PI/2; dash.position.set(x, 0.25, zPos);
+                group.add(dash);
+            });
+        }
+        return group;
+    };
+    scene.add(createHighway());
 
-    // 3. ASSET LOADER (Safe Mode)
+    // 3. 🏗️ GRID SPAWNING (Fixes the "Garbage Pile" clumping)
     const loader = new GLTFLoader();
-    let toLoad = 3, loaded = 0;
+    let total = 3, count = 0;
 
-    const onDone = () => {
-        loaded++;
-        document.getElementById('fill').style.width = (loaded/toLoad)*100 + "%";
-        if(loaded >= toLoad) {
+    const updateLoader = () => {
+        count++;
+        const p = Math.floor((count / total) * 100);
+        document.getElementById('bar-fill').style.width = p + "%";
+        document.getElementById('percent').innerText = p + "%";
+        if(count >= total) {
             document.getElementById('status').innerText = "CITY READY";
             document.getElementById('start-btn').style.display = "block";
         }
     };
 
-    // Spacing buildings at X=450 and X=-450
-    const spawnRow = (url, x, scale, spacing) => {
+    // Correct spacing logic for a city street
+    const spawnModels = (url, sideX, scale, spacing, amount) => {
         loader.load(url, (gltf) => {
-            for(let i=0; i<12; i++) {
-                const b = gltf.scene.clone();
-                b.scale.setScalar(scale);
-                b.position.set(x, 0, -spacing * i);
-                scene.add(b);
+            for(let i=0; i < amount; i++) {
+                const model = gltf.scene.clone();
+                model.scale.setScalar(scale);
+                // Math: Multiply index (i) by spacing to spread them along the road
+                model.position.set(sideX, 0, -spacing * i); 
+                scene.add(model);
             }
-            onDone();
-        }, undefined, (e) => {
-            document.getElementById('error-log').innerText += " Failed: " + url.split('/').pop() + " |";
-            onDone(); 
-        });
+            updateLoader();
+        }, undefined, () => updateLoader()); // Fail-safe: don't get stuck if file is missing
     };
 
-    spawnRow('./models/building.glb', -450, 50, 1000);
-    spawnRow('./models/b1.glb', 450, 50, 1000);
-    // Tree row
+    // Load Buildings on the left and right sides
+    spawnModels('./models/building.glb', -400, 50, 950, 15);
+    spawnModels('./models/b1.glb', 400, 50, 950, 15);
+    
+    // Load Trees (Fixed scale)
     loader.load('./models/t1.glb', (gltf) => {
-        for(let i=0; i<50; i++) {
-            const tL = gltf.scene.clone(); tL.scale.setScalar(2.5); tL.position.set(-140, 0, -300 * i); scene.add(tL);
-            const tR = gltf.scene.clone(); tR.scale.setScalar(2.5); tR.position.set(140, 0, -300 * i); scene.add(tR);
+        for(let i=0; i<45; i++) {
+            const tL = gltf.scene.clone(); tL.scale.setScalar(2.8); tL.position.set(-130, 0, -280 * i); scene.add(tL);
+            const tR = gltf.scene.clone(); tR.scale.setScalar(2.8); tR.position.set(130, 0, -280 * i); scene.add(tR);
         }
-        onDone();
-    }, undefined, () => onDone());
+        updateLoader();
+    }, undefined, () => updateLoader());
 
-    // 4. CONTROLS
-    let moveDir = { x: 0, z: 0 }, yaw = 0, pitch = 0, active = false;
+    // 4. 🎮 PLAYER CONTROLS
+    let moveDir = { x: 0, z: 0 }, isJoy = false;
+    let yaw = 0, pitch = 0;
     const jBase = document.getElementById('joy-base'), jKnob = document.getElementById('joy-knob');
 
-    document.getElementById('start-btn').onclick = () => {
-        document.getElementById('overlay').style.display = "none";
+    const startGame = () => {
+        document.getElementById('ui-layer').style.opacity = '0';
+        setTimeout(() => document.getElementById('ui-layer').style.display = 'none', 500);
+        document.getElementById('hud').style.display = "block";
         jBase.style.display = "block";
         animate();
     };
 
-    jBase.onpointerdown = (e) => { active = true; jBase.setPointerCapture(e.pointerId); };
+    document.getElementById('start-btn').onclick = startGame;
+    document.getElementById('skip-hint').onclick = startGame;
+
+    jBase.onpointerdown = (e) => { isJoy = true; jBase.setPointerCapture(e.pointerId); };
     jBase.onpointermove = (e) => {
-        if(!active) return;
+        if(!isJoy) return;
         const r = jBase.getBoundingClientRect();
-        const dx = (e.clientX - (r.left + 50)) / 50, dy = (e.clientY - (r.top + 50)) / 50;
+        const dx = (e.clientX - (r.left + 55)) / 55, dy = (e.clientY - (r.top + 55)) / 55;
         const d = Math.min(Math.sqrt(dx*dx + dy*dy), 1);
         const a = Math.atan2(dy, dx);
-        jKnob.style.transform = `translate(${Math.cos(a)*d*30}px, ${Math.sin(a)*d*30}px)`;
+        jKnob.style.transform = `translate(${Math.cos(a)*d*35}px, ${Math.sin(a)*d*35}px)`;
         moveDir.x = Math.cos(a) * d; moveDir.z = Math.sin(a) * d;
     };
-    window.onpointerup = () => { active = false; jKnob.style.transform = ''; moveDir = {x:0, z:0}; };
+    window.onpointerup = () => { isJoy = false; jKnob.style.transform = ''; moveDir = {x:0, z:0}; };
 
     window.addEventListener('pointermove', (e) => {
-        if(active && e.clientX < window.innerWidth/2) return;
+        if(isJoy && e.clientX < window.innerWidth/2) return;
         if(e.buttons === 1 || e.pointerType === 'touch') {
             yaw -= e.movementX * 0.004;
-            pitch = Math.max(-1.4, Math.min(1.4, pitch - e.movementY * 0.004));
-        }
-    });
-
-    function animate() {
-        requestAnimationFrame(animate);
-        player.rotation.y = yaw;
-        camera.rotation.x = pitch;
-        const f = new THREE.Vector3(0,0,-1).applyQuaternion(player.quaternion);
-        const s = new THREE.Vector3(1,0,0).applyQuaternion(player.quaternion);
-        player.position.addScaledVector(f, -moveDir.z * 10);
-        player.position.addScaledVector(s, moveDir.x * 10);
-        renderer.render(scene, camera);
-    }
-</script>
-</body>
-</html>
+            pitch = Math.max(-1.3, Math.min(1.3, pitch
+    
