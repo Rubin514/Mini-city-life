@@ -3,91 +3,96 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>City Legend - Fix</title>
+    <title>Draco Fixed City</title>
     <style>
         body { margin: 0; overflow: hidden; background: #87ceeb; touch-action: none; font-family: sans-serif; }
-        #loader { position: fixed; inset: 0; background: #111; color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
-        .btn { padding: 15px 40px; background: #00d2d3; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 20px; }
-        #joy-base { position: absolute; bottom: 40px; left: 40px; width: 100px; height: 100px; background: rgba(255,255,255,0.2); border-radius: 50%; display: none; }
-        #joy-knob { position: absolute; top: 25px; left: 25px; width: 50px; height: 50px; background: #fff; border-radius: 50%; }
+        #ui { position: fixed; inset: 0; background: #111; color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
+        .bar { width: 200px; height: 10px; background: #333; border-radius: 5px; margin: 20px; overflow: hidden; }
+        #fill { width: 0%; height: 100%; background: #00d2d3; }
+        .btn { padding: 15px 40px; background: #00d2d3; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; display: none; }
+        #skip { margin-top: 10px; color: #777; cursor: pointer; font-size: 12px; }
     </style>
 </head>
 <body>
 
-<div id="loader">
-    <h1 id="status">LOADING MODELS...</h1>
-    <div id="pct">0%</div>
-    <button id="start-btn" class="btn" style="display:none">START DRIVING</button>
-    <button id="skip-btn" class="btn" style="background:#444">SKIP LOADING (IF STUCK)</button>
+<div id="ui">
+    <h1 id="status">DECODING DRACO MODELS...</h1>
+    <div class="bar"><div id="fill"></div></div>
+    <button id="start-btn" class="btn">START MISSION</button>
+    <div id="skip">Skip if stuck</div>
 </div>
 
-<div id="joy-base"><div id="joy-knob"></div></div>
-
 <script type="importmap">
-{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
+{ "imports": { 
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js", 
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" 
+} }
 </script>
 
 <script type="module">
     import * as THREE from 'three';
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js'; // MUST HAVE THIS
 
-    // 1. ENGINE SETUP
+    // 1. SETUP
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87ceeb);
-    scene.fog = new THREE.Fog(0x87ceeb, 500, 3000);
+    scene.fog = new THREE.Fog(0x87ceeb, 500, 3500);
 
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 5000);
     const player = new THREE.Group();
-    player.position.set(0, 15, 300); // Camera starts at 15 height to see road
+    player.position.set(0, 15, 200); 
     scene.add(player);
     player.add(camera);
 
     scene.add(new THREE.AmbientLight(0xffffff, 2));
 
-    // 2. 🛣️ INSTANT ROAD (Built with Math)
+    // 2. THE ROAD
     const road = new THREE.Mesh(new THREE.PlaneGeometry(200, 20000), new THREE.MeshStandardMaterial({ color: 0x1a1a1a }));
     road.rotation.x = -Math.PI / 2;
     scene.add(road);
 
-    // Yellow lines
-    const line = new THREE.Mesh(new THREE.PlaneGeometry(3, 20000), new THREE.MeshBasicMaterial({ color: 0xffcc00 }));
-    line.rotation.x = -Math.PI/2; line.position.y = 0.2;
-    scene.add(line);
-
-    // 3. 🏗️ SAFE SPAWNING (Fixes the "Garbage Pile")
+    // 3. 🛠️ THE DRACO FIX
     const loader = new GLTFLoader();
-    let toLoad = 3, loaded = 0;
+    const dracoLoader = new DRACOLoader();
+    // This points to the Google decoder files so the browser can read Draco GLBs
+    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
+    loader.setDRACOLoader(dracoLoader);
 
+    let toLoad = 3, loaded = 0;
     const check = () => {
         loaded++;
-        document.getElementById('pct').innerText = Math.floor((loaded/toLoad)*100) + "%";
+        document.getElementById('fill').style.width = (loaded/toLoad)*100 + "%";
         if(loaded >= toLoad) {
-            document.getElementById('start-btn').style.display = "block";
             document.getElementById('status').innerText = "READY";
+            document.getElementById('start-btn').style.display = "block";
         }
     };
 
-    // Spawn Buildings: Forced spacing of 900 units so they don't overlap
-    const spawn = (url, x) => {
+    // Spawning with Grid Math (No Clumping)
+    const spawn = (url, x, spacing) => {
         loader.load(url, (gltf) => {
+            const model = gltf.scene;
             for(let i=0; i<15; i++) {
-                const b = gltf.scene.clone();
-                b.scale.setScalar(50);
-                b.position.set(x, 0, -900 * i); // Spreads buildings down the road
-                scene.add(b);
+                const c = model.clone();
+                c.scale.setScalar(50);
+                c.position.set(x, 0, -spacing * i);
+                scene.add(c);
             }
             check();
-        }, undefined, () => check()); // Even if file is missing, the game starts!
+        }, undefined, (err) => { 
+            console.error("Path error: " + url); 
+            check(); 
+        });
     };
 
-    spawn('./models/building.glb', -400);
-    spawn('./models/b1.glb', 400);
-
-    // Trees at X=120
+    spawn('./models/building.glb', -400, 900);
+    spawn('./models/b1.glb', 400, 900);
+    
     loader.load('./models/t1.glb', (gltf) => {
         for(let i=0; i<40; i++) {
             const tL = gltf.scene.clone(); tL.scale.setScalar(2.5); tL.position.set(-120, 0, -300 * i); scene.add(tL);
@@ -96,17 +101,14 @@
         check();
     }, undefined, () => check());
 
-    // 4. START & MOVEMENT
-    const start = () => {
-        document.getElementById('loader').style.display = 'none';
-        document.getElementById('joy-base').style.display = 'block';
-        animate();
-    };
+    // 4. RUN
+    const start = () => { document.getElementById('ui').style.display = 'none'; animate(); };
     document.getElementById('start-btn').onclick = start;
-    document.getElementById('skip-btn').onclick = start;
+    document.getElementById('skip').onclick = start;
 
     function animate() {
         requestAnimationFrame(animate);
+        player.position.z -= 3; // Auto-drive to see the city
         renderer.render(scene, camera);
     }
 </script>
